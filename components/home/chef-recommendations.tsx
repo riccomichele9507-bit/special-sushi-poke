@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { getDishById } from "@/data/menu";
 import { useCartStore } from "@/store/cart-store";
 import { useCartUI } from "@/lib/cart-ui-store";
+import { useDishDetail } from "@/lib/dish-detail-store";
 import { formatPrice } from "@/lib/format";
 import { categoryColors, getCategoryKanji } from "@/data/categories";
 import type { Dish } from "@/types/dish";
@@ -36,6 +37,7 @@ function RankedCard({
 }) {
   const add = useCartStore((s) => s.add);
   const openCart = useCartUI((s) => s.open);
+  const openDetail = useDishDetail((s) => s.open);
   const colors = categoryColors[dish.category];
   const bgFrom = dish.bgFrom ?? colors?.from ?? "#888";
   const bgTo = dish.bgTo ?? colors?.to ?? "#222";
@@ -50,7 +52,16 @@ function RankedCard({
     <motion.article
       whileHover={{ y: -2 }}
       transition={{ type: "spring", stiffness: 300, damping: 22 }}
-      className="relative w-44 shrink-0 snap-start overflow-hidden rounded-2xl bg-paper ring-1 ring-border shadow-[0_4px_16px_-6px_rgba(28,28,28,0.08)]"
+      onClick={() => openDetail(dish.id)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openDetail(dish.id);
+        }
+      }}
+      className="relative w-44 shrink-0 snap-start overflow-hidden rounded-2xl bg-paper ring-1 ring-border shadow-[0_4px_16px_-6px_rgba(28,28,28,0.08)] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo/50"
     >
       <div className="relative aspect-[4/3] w-full overflow-hidden">
         {dish.image ? (
@@ -98,7 +109,10 @@ function RankedCard({
         </div>
         <motion.button
           type="button"
-          onClick={handleAdd}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleAdd();
+          }}
           whileTap={{ scale: 0.88 }}
           whileHover={{ scale: 1.08 }}
           transition={{ type: "spring", stiffness: 460, damping: 18 }}
