@@ -50,7 +50,7 @@ export function CartDrawer() {
       <DrawerContent
         className="border-border bg-paper text-ink data-[vaul-drawer-direction=right]:max-w-md data-[vaul-drawer-direction=right]:rounded-l-2xl"
       >
-        <DrawerHeader className="border-b border-border px-5 pt-5">
+        <DrawerHeader className="shrink-0 border-b border-border px-5 pt-5">
           <DrawerTitle className="font-heading text-xl font-bold text-ink">
             Il tuo carrello
             {hydrated && count > 0 && (
@@ -68,7 +68,7 @@ export function CartDrawer() {
           <EmptyCart />
         ) : (
           <>
-            <ScrollArea className="flex-1 px-5">
+            <ScrollArea className="flex-1 min-h-0 px-5">
               <div className="py-2">
                 {items.map((item, i) => (
                   <CartItemRow
@@ -85,7 +85,7 @@ export function CartDrawer() {
               </div>
             </ScrollArea>
 
-            <DrawerFooter className="border-t border-border gap-3 bg-paper/95 px-5 pb-5 pt-4 backdrop-blur">
+            <DrawerFooter className="shrink-0 border-t border-border gap-3 bg-paper/95 px-5 pb-5 pt-4 backdrop-blur">
               <CartSummary />
               <button
                 type="button"
