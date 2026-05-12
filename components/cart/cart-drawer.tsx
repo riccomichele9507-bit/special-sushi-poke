@@ -78,14 +78,14 @@ export function CartDrawer() {
                   />
                 ))}
               </div>
-              <div className="space-y-3 pb-4 pt-2">
+              <div className="pb-3 pt-1">
                 <CartUpsell />
-                <DiscountCodeInput />
-                <TipSelector />
               </div>
             </ScrollArea>
 
             <DrawerFooter className="shrink-0 border-t border-border gap-3 bg-paper/95 px-5 pb-5 pt-4 backdrop-blur">
+              <DiscountCodeInput />
+              <TipSelector />
               <CartSummary />
               <button
                 type="button"
