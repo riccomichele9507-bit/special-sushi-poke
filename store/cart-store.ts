@@ -2,7 +2,8 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import { useEffect, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
+import { useEffect, useMemo, useState } from "react";
 import type { CartItem, CartItemWithDish, CartState } from "@/types/cart";
 import { getDishById } from "@/data/menu";
 
@@ -80,17 +81,20 @@ export function useCartTotal(): number {
 }
 
 export function useCartItemsWithDish(): CartItemWithDish[] {
-  return useCartStore((s) =>
-    s.items
-      .map((item) => {
-        const dish = getDishById(item.dishId);
-        if (!dish) return null;
-        return {
-          dish,
-          quantity: item.quantity,
-          lineTotal: dish.price * item.quantity,
-        };
-      })
-      .filter((x): x is CartItemWithDish => x !== null),
+  const items = useCartStore(useShallow((s) => s.items));
+  return useMemo(
+    () =>
+      items
+        .map((item) => {
+          const dish = getDishById(item.dishId);
+          if (!dish) return null;
+          return {
+            dish,
+            quantity: item.quantity,
+            lineTotal: dish.price * item.quantity,
+          };
+        })
+        .filter((x): x is CartItemWithDish => x !== null),
+    [items],
   );
 }

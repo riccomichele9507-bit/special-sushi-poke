@@ -1,4 +1,4 @@
-import type { PickupSlot } from "@/types/checkout";
+import type { DeliverySlot } from "@/types/checkout";
 
 function generateSlots(start: string, end: string, stepMinutes = 15): string[] {
   const [startH, startM] = start.split(":").map(Number);
@@ -14,7 +14,7 @@ function generateSlots(start: string, end: string, stepMinutes = 15): string[] {
   return slots;
 }
 
-export function getTodayPickupSlots(): PickupSlot[] {
+export function getTodayDeliverySlots(): DeliverySlot[] {
   const lunch = generateSlots("12:30", "14:30");
   const dinner = generateSlots("19:00", "22:30");
   return [...lunch, ...dinner].map((time) => ({
@@ -23,7 +23,7 @@ export function getTodayPickupSlots(): PickupSlot[] {
   }));
 }
 
-export function groupedPickupSlots() {
+export function groupedDeliverySlots() {
   return [
     { group: "Pranzo", slots: generateSlots("12:30", "14:30") },
     { group: "Cena", slots: generateSlots("19:00", "22:30") },

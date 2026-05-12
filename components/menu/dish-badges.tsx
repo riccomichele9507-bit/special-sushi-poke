@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { Flame, Leaf, Sparkle } from "lucide-react";
+import { Flame, Leaf, Sparkle, TrendingUp } from "lucide-react";
 import type { Dish } from "@/types/dish";
 
 export function DishBadges({
@@ -11,6 +11,16 @@ export function DishBadges({
 }) {
   return (
     <div className={cn("flex items-center gap-1.5", className)}>
+      {dish.isMostOrdered && (
+        <span
+          aria-label="Tra i più ordinati"
+          title="Tra i più ordinati"
+          className="inline-flex items-center gap-1 rounded-full bg-gold/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-gold border border-gold/40"
+        >
+          <TrendingUp className="h-2.5 w-2.5" strokeWidth={2.5} />
+          Top
+        </span>
+      )}
       {dish.isNew && (
         <span className="inline-flex items-center gap-1 rounded-full bg-sushi-red/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-sushi-red border border-sushi-red/30">
           <Sparkle className="h-2.5 w-2.5" />

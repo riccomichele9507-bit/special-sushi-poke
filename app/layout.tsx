@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import { Inter, Noto_Serif_JP } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
-import { Header } from "@/components/layout/header";
-import { Footer } from "@/components/layout/footer";
+import { DeliveryLocationBar } from "@/components/layout/delivery-location-bar";
+import { MobileTabBar } from "@/components/layout/mobile-tab-bar";
 import { CartDrawer } from "@/components/cart/cart-drawer";
+import { DishDetailDrawer } from "@/components/menu/dish-detail-drawer";
+import { WhatsAppFab } from "@/components/shared/whatsapp-fab";
+import { TestHelpers } from "@/components/shared/test-helpers";
 import { restaurant } from "@/data/restaurant";
 import "./globals.css";
 
@@ -16,7 +19,7 @@ const inter = Inter({
 const notoSerifJP = Noto_Serif_JP({
   variable: "--font-serif-jp",
   subsets: ["latin"],
-  weight: ["400", "600", "700"],
+  weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
@@ -28,14 +31,14 @@ export const metadata: Metadata = {
     default: `${restaurant.name} — ${restaurant.tagline}`,
     template: `%s — ${restaurant.name}`,
   },
-  description: `Sushi e Poke d'asporto a Bari, ${restaurant.address.fullAddress}. Ordina online il tuo asporto: poke bowls, special rolls, sashimi e uramaki.`,
-  keywords: ["sushi Bari", "poke Bari", "sushi asporto Bari", "poke asporto Bari", "Special Sushi Poke", "Via Petroni"],
+  description: `Sushi e Poke a Bari, ${restaurant.address.fullAddress}. Consegna a domicilio in 30 minuti.`,
+  keywords: ["sushi Bari", "poke Bari", "sushi delivery Bari", "poke delivery Bari", "Special Sushi Poke", "Via Petroni"],
   openGraph: {
     type: "website",
     locale: "it_IT",
     url: siteUrl,
     title: `${restaurant.name} — ${restaurant.tagline}`,
-    description: `Sushi e Poke d'asporto a Bari. Menu navigabile, ordina e ritira in 30 minuti.`,
+    description: `Sushi e Poke a Bari. Menu navigabile, consegna a casa in 30 minuti.`,
     siteName: restaurant.name,
     images: [
       {
@@ -81,18 +84,21 @@ export default function RootLayout({
       lang="it"
       className={`${inter.variable} ${notoSerifJP.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col font-sans bg-ink text-paper">
-        <Header />
-        <main className="flex-1">{children}</main>
-        <Footer />
+      <body className="min-h-full flex flex-col font-sans bg-paper text-ink">
+        <DeliveryLocationBar />
+        <main className="flex-1 pb-24">{children}</main>
+        <MobileTabBar />
         <CartDrawer />
+        <DishDetailDrawer />
+        <TestHelpers />
+        <WhatsAppFab />
         <Toaster
           position="top-center"
-          theme="dark"
+          theme="light"
           richColors
           toastOptions={{
             classNames: {
-              toast: "!bg-ink !text-paper !border !border-gold/20 !backdrop-blur-xl",
+              toast: "!bg-paper !text-ink !border !border-bamboo/30 !backdrop-blur-xl",
             },
           }}
         />

@@ -58,15 +58,15 @@ export function CategoryTabs({
   return (
     <div
       className={cn(
-        "sticky top-16 z-30 -mx-5 sm:-mx-8 px-5 sm:px-8 py-3",
-        "bg-ink/80 backdrop-blur-xl",
-        "border-b border-white/[0.06]",
+        "sticky top-[60px] z-30 -mx-4 px-4 py-3",
+        "bg-paper/90 backdrop-blur-xl",
+        "border-b border-border",
         className,
       )}
     >
       <nav
         aria-label="Categorie menu"
-        className="flex gap-2 overflow-x-auto scrollbar-none [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex gap-2 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {categories.map((cat) => {
           const isActive = active === cat.id;
@@ -81,29 +81,16 @@ export function CategoryTabs({
               disabled={!cat.available}
               aria-current={isActive ? "true" : undefined}
               className={cn(
-                "group relative shrink-0 rounded-full px-4 py-2 font-sans text-sm transition-all",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/60",
+                "group relative shrink-0 rounded-full px-3.5 py-1.5 font-sans text-[13px] font-medium transition-all",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo/40",
                 cat.available
                   ? isActive
-                    ? "bg-paper/[0.08] text-paper"
-                    : "text-white/55 hover:text-paper hover:bg-paper/[0.04]"
-                  : "text-white/25 cursor-not-allowed",
+                    ? "bg-bamboo text-paper shadow-[0_2px_8px_-2px_rgba(90,122,100,0.45)]"
+                    : "bg-paper-warm/60 text-warm-gray ring-1 ring-border hover:text-ink hover:bg-paper-warm"
+                  : "text-warm-gray/40 cursor-not-allowed",
               )}
             >
-              <span className="flex items-center gap-2">
-                {cat.label}
-                {!cat.available && (
-                  <span className="rounded-sm bg-white/[0.06] px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-white/40">
-                    presto
-                  </span>
-                )}
-              </span>
-              {isActive && cat.available && (
-                <span
-                  aria-hidden
-                  className="absolute inset-x-3 -bottom-[13px] h-px bg-gradient-to-r from-transparent via-gold to-transparent"
-                />
-              )}
+              {cat.label}
             </button>
           );
         })}

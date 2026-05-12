@@ -1,4 +1,4 @@
-import { Fish, Clock, MapPin } from "lucide-react";
+import { Fish, Bike, ShoppingBag } from "lucide-react";
 import { Container } from "@/components/shared/container";
 
 const usps = [
@@ -8,14 +8,14 @@ const usps = [
     description: "Lavorato e tagliato a vista, mai congelato all'arrivo.",
   },
   {
-    icon: Clock,
-    title: "Ritiro in 30 minuti",
-    description: "Ordini online, prepari il tuo asporto, ritiri quando vuoi.",
+    icon: Bike,
+    title: "Consegna in 30 minuti",
+    description: "Ordini online, il rider arriva a casa tua entro mezz'ora.",
   },
   {
-    icon: MapPin,
-    title: "Cuore di Bari",
-    description: "Via G. Petroni — a due passi dal centro, parcheggio facile.",
+    icon: ShoppingBag,
+    title: "Asporto a Bari",
+    description: "Preferisci ritirare? Vieni in Via G. Petroni quando vuoi.",
   },
 ] as const;
 

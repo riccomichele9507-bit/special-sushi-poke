@@ -1,4 +1,4 @@
-import { MapPin, Phone, Clock } from "lucide-react";
+import { MapPin, Phone, Clock, ExternalLink } from "lucide-react";
 import { Container } from "@/components/shared/container";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { restaurant } from "@/data/restaurant";
@@ -29,7 +29,7 @@ export function MapEmbed() {
           <div className="flex flex-col gap-6 rounded-2xl bg-paper/[0.03] p-6 ring-1 ring-white/[0.06]">
             <div className="flex gap-4">
               <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gold" strokeWidth={1.75} />
-              <div>
+              <div className="flex-1">
                 <p className="font-heading text-sm uppercase tracking-[0.2em] text-paper">
                   Indirizzo
                 </p>
@@ -37,6 +37,15 @@ export function MapEmbed() {
                   {restaurant.address.street}<br />
                   {restaurant.address.postalCode} {restaurant.address.city}
                 </p>
+                <a
+                  href={restaurant.googleMapsLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-paper/[0.04] px-3 py-1 text-xs text-gold ring-1 ring-gold/30 transition hover:bg-gold/10"
+                >
+                  Apri in Google Maps
+                  <ExternalLink className="h-3 w-3" />
+                </a>
               </div>
             </div>
 

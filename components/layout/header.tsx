@@ -11,8 +11,9 @@ import { restaurant } from "@/data/restaurant";
 
 const navLinks = [
   { href: "/", label: "Home" },
-  { href: "/menu", label: "Menu" },
-  { href: "/about", label: "Chi siamo" },
+  { href: "/#menu", label: "Menu" },
+  { href: "/#about", label: "Chi siamo" },
+  { href: "/#location", label: "Dove siamo" },
 ] as const;
 
 export function Header() {

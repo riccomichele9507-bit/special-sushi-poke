@@ -1,17 +1,15 @@
-import { Hero } from "@/components/home/hero";
-import { UspStrip } from "@/components/home/usp-strip";
-import { FeaturedDishes } from "@/components/home/featured-dishes";
-import { AboutTeaser } from "@/components/home/about-teaser";
-import { ReviewsSection } from "@/components/about/reviews-section";
+import { HeroCard } from "@/components/home/hero-card";
+import { DailySpecials } from "@/components/home/daily-specials";
+import { ChefRecommendations } from "@/components/home/chef-recommendations";
+import { CategoryCircles } from "@/components/home/category-circles";
 
 export default function HomePage() {
   return (
-    <>
-      <Hero />
-      <UspStrip />
-      <FeaturedDishes />
-      <AboutTeaser />
-      <ReviewsSection />
-    </>
+    <div className="mx-auto max-w-md pb-6">
+      <HeroCard />
+      <DailySpecials />
+      <ChefRecommendations />
+      <CategoryCircles />
+    </div>
   );
 }

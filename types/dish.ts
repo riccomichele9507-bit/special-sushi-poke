@@ -1,10 +1,24 @@
 export type CategoryId =
+  | "box"
+  | "barca"
+  | "poke"
+  | "uramaki"
   | "nigiri"
   | "sashimi"
-  | "uramaki"
-  | "special-rolls"
-  | "poke"
+  | "temaki"
+  | "hosomaki"
+  | "fritto"
+  | "onigiri"
+  | "chirashi"
+  | "tacos"
+  | "tartare"
+  | "carpaccio"
+  | "gunkan"
+  | "tempura"
   | "antipasti"
+  | "grigliati"
+  | "yakimesi"
+  | "caldi"
   | "bevande"
   | "dolci";
 
@@ -35,7 +49,11 @@ export interface Dish {
   isNew?: boolean;
   isVegan?: boolean;
   isFeatured?: boolean;
+  isMostOrdered?: boolean;
   pieces?: number;
+  /** Solid background color when no photo available (CSS color value). */
+  bgFrom?: string;
+  bgTo?: string;
 }
 
 export interface Category {

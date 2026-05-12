@@ -1,13 +1,14 @@
 import Link from "next/link";
-import { MapPin, Phone, Mail } from "lucide-react";
+import { MapPin, Phone, Mail, ExternalLink } from "lucide-react";
 import { Container } from "@/components/shared/container";
 import { InstagramIcon, FacebookIcon } from "@/components/shared/social-icons";
 import { restaurant } from "@/data/restaurant";
 
 const quickLinks = [
   { href: "/", label: "Home" },
-  { href: "/menu", label: "Menu" },
-  { href: "/about", label: "Chi siamo" },
+  { href: "/#menu", label: "Menu" },
+  { href: "/#about", label: "Chi siamo" },
+  { href: "/#location", label: "Dove siamo" },
 ] as const;
 
 export function Footer() {
@@ -57,10 +58,21 @@ export function Footer() {
             <ul className="mt-4 flex flex-col gap-3 text-sm text-white/60">
               <li className="flex items-start gap-2.5">
                 <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gold" strokeWidth={1.75} />
-                <span>
-                  {restaurant.address.street}<br />
-                  {restaurant.address.postalCode} {restaurant.address.city}
-                </span>
+                <div className="flex flex-col items-start gap-1.5">
+                  <span>
+                    {restaurant.address.street}<br />
+                    {restaurant.address.postalCode} {restaurant.address.city}
+                  </span>
+                  <a
+                    href={restaurant.googleMapsLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-paper/[0.05] px-2.5 py-1 text-[11px] font-medium text-gold ring-1 ring-gold/25 transition hover:bg-gold/10 hover:ring-gold/50"
+                  >
+                    Apri in Google Maps
+                    <ExternalLink className="h-2.5 w-2.5" />
+                  </a>
+                </div>
               </li>
               <li>
                 <a
