@@ -10,10 +10,10 @@ export const restaurant = {
   },
   phone: "+39 080 123 4567",
   phoneDisplay: "080 123 4567",
-  whatsapp: "+393331234567",
-  whatsappDisplay: "333 1234567",
+  whatsapp: "+393793697798",
+  whatsappDisplay: "379 369 7798",
   whatsappLink:
-    "https://wa.me/393331234567?text=" +
+    "https://wa.me/393793697798?text=" +
     encodeURIComponent("Ciao Special Sushi Poke! Vorrei informazioni sull'ordine."),
   email: "ordini@specialsushipoke.it",
   hours: {
