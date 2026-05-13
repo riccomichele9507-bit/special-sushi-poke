@@ -48,7 +48,7 @@ export function CartDrawer() {
       direction={direction}
     >
       <DrawerContent
-        className="border-border bg-paper text-ink data-[vaul-drawer-direction=right]:max-w-md data-[vaul-drawer-direction=right]:rounded-l-2xl"
+        className="border-border bg-paper text-ink data-[vaul-drawer-direction=bottom]:max-h-[92svh] data-[vaul-drawer-direction=right]:max-w-md data-[vaul-drawer-direction=right]:rounded-l-2xl"
       >
         <DrawerHeader className="shrink-0 border-b border-border px-5 pt-5">
           <DrawerTitle className="font-heading text-xl font-bold text-ink">
@@ -69,20 +69,22 @@ export function CartDrawer() {
         ) : (
           <>
             <ScrollArea className="flex-1 min-h-0 px-5">
-              <div className="py-2">
-                {items.map((item, i) => (
-                  <CartItemRow
-                    key={item.dish.id}
-                    item={item}
-                    isLast={i === items.length - 1}
-                  />
-                ))}
+              <div className="space-y-3 py-3">
+                <CartUpsell />
+                <div>
+                  {items.map((item, i) => (
+                    <CartItemRow
+                      key={item.dish.id}
+                      item={item}
+                      isLast={i === items.length - 1}
+                    />
+                  ))}
+                </div>
+                <DiscountCodeInput />
               </div>
             </ScrollArea>
 
             <DrawerFooter className="shrink-0 border-t border-border gap-3 bg-paper/95 px-5 pb-5 pt-3 backdrop-blur">
-              <CartUpsell />
-              <DiscountCodeInput />
               <TipSelector />
               <CartSummary />
               <button

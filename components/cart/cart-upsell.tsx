@@ -27,12 +27,12 @@ function UpsellChip({ dish }: { dish: Dish }) {
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.95 }}
       transition={{ type: "spring", stiffness: 420, damping: 22 }}
-      className="group relative flex flex-1 items-center gap-3 overflow-hidden rounded-xl ring-1 ring-border bg-paper p-2.5 text-left transition hover:ring-bamboo/40"
+      className="group relative flex flex-1 items-center gap-2 overflow-hidden rounded-xl ring-1 ring-border bg-paper p-2 text-left transition hover:ring-bamboo/40"
       aria-label={`Aggiungi ${dish.name} al carrello`}
     >
       <span
         aria-hidden
-        className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg ring-1 ring-border"
+        className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg ring-1 ring-border"
         style={
           dish.image
             ? undefined
@@ -46,11 +46,11 @@ function UpsellChip({ dish }: { dish: Dish }) {
             src={dish.image}
             alt={dish.imageAlt}
             fill
-            sizes="48px"
+            sizes="40px"
             className="object-cover"
           />
         ) : (
-          <span className="absolute inset-0 flex items-center justify-center font-heading text-xl text-white/40">
+          <span className="absolute inset-0 flex items-center justify-center font-heading text-lg text-white/40">
             {getCategoryKanji(dish.category)}
           </span>
         )}
@@ -61,8 +61,8 @@ function UpsellChip({ dish }: { dish: Dish }) {
         </p>
         <Price cents={dish.price} size="sm" className="mt-0.5 !text-bamboo font-bold" />
       </div>
-      <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-bamboo text-paper transition group-hover:bg-bamboo-deep group-hover:shadow-[0_0_18px_rgba(90,122,100,0.45)]">
-        <Plus className="h-3.5 w-3.5" strokeWidth={2.8} />
+      <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-bamboo text-paper transition group-hover:bg-bamboo-deep group-hover:shadow-[0_0_18px_rgba(90,122,100,0.45)]">
+        <Plus className="h-3 w-3" strokeWidth={2.8} />
       </span>
     </motion.button>
   );
@@ -92,7 +92,7 @@ export function CartUpsell() {
           da €3
         </span>
       </div>
-      <div className="flex flex-col gap-2 sm:flex-row">
+      <div className="flex gap-2">
         {suggestions.map((dish) => (
           <UpsellChip key={dish.id} dish={dish} />
         ))}
