@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { Timer, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -55,21 +56,37 @@ export function DailySpecials() {
       >
         <div
           className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl ring-1 ring-border"
-          style={{
-            backgroundImage: `linear-gradient(135deg, ${bgFrom} 0%, ${bgTo} 100%)`,
-          }}
+          style={
+            dish.image
+              ? undefined
+              : {
+                  backgroundImage: `linear-gradient(135deg, ${bgFrom} 0%, ${bgTo} 100%)`,
+                }
+          }
         >
-          <span className="absolute inset-0 flex items-center justify-center font-heading text-3xl text-paper/40">
-            {getCategoryKanji(dish.category)}
-          </span>
-          <span
-            aria-hidden
-            className="absolute inset-0 mix-blend-overlay opacity-50"
-            style={{
-              backgroundImage:
-                "radial-gradient(circle at 30% 25%, rgba(255,255,255,0.4), transparent 55%)",
-            }}
-          />
+          {dish.image ? (
+            <Image
+              src={dish.image}
+              alt={dish.imageAlt}
+              fill
+              sizes="80px"
+              className="object-cover"
+            />
+          ) : (
+            <>
+              <span className="absolute inset-0 flex items-center justify-center font-heading text-3xl text-paper/40">
+                {getCategoryKanji(dish.category)}
+              </span>
+              <span
+                aria-hidden
+                className="absolute inset-0 mix-blend-overlay opacity-50"
+                style={{
+                  backgroundImage:
+                    "radial-gradient(circle at 30% 25%, rgba(255,255,255,0.4), transparent 55%)",
+                }}
+              />
+            </>
+          )}
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col">

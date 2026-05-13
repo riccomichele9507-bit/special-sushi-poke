@@ -78,12 +78,10 @@ export function CartDrawer() {
                   />
                 ))}
               </div>
-              <div className="pb-3 pt-1">
-                <CartUpsell />
-              </div>
             </ScrollArea>
 
-            <DrawerFooter className="shrink-0 border-t border-border gap-3 bg-paper/95 px-5 pb-5 pt-4 backdrop-blur">
+            <DrawerFooter className="shrink-0 border-t border-border gap-3 bg-paper/95 px-5 pb-5 pt-3 backdrop-blur">
+              <CartUpsell />
               <DiscountCodeInput />
               <TipSelector />
               <CartSummary />

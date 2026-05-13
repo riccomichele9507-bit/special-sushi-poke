@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Plus } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -31,14 +32,28 @@ function UpsellChip({ dish }: { dish: Dish }) {
     >
       <span
         aria-hidden
-        className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg"
-        style={{
-          backgroundImage: `linear-gradient(135deg, ${dish.bgFrom ?? "#444"} 0%, ${dish.bgTo ?? "#111"} 100%)`,
-        }}
+        className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg ring-1 ring-border"
+        style={
+          dish.image
+            ? undefined
+            : {
+                backgroundImage: `linear-gradient(135deg, ${dish.bgFrom ?? "#444"} 0%, ${dish.bgTo ?? "#111"} 100%)`,
+              }
+        }
       >
-        <span className="absolute inset-0 flex items-center justify-center font-heading text-xl text-white/40">
-          {getCategoryKanji(dish.category)}
-        </span>
+        {dish.image ? (
+          <Image
+            src={dish.image}
+            alt={dish.imageAlt}
+            fill
+            sizes="48px"
+            className="object-cover"
+          />
+        ) : (
+          <span className="absolute inset-0 flex items-center justify-center font-heading text-xl text-white/40">
+            {getCategoryKanji(dish.category)}
+          </span>
+        )}
       </span>
       <div className="flex min-w-0 flex-1 flex-col">
         <p className="truncate font-heading text-sm font-semibold text-ink">
