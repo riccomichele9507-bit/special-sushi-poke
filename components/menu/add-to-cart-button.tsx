@@ -5,7 +5,6 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useCartStore } from "@/store/cart-store";
-import { useCartUI } from "@/lib/cart-ui-store";
 
 export function AddToCartButton({
   dishId,
@@ -19,7 +18,6 @@ export function AddToCartButton({
   variant?: "floating" | "inline" | "pill";
 }) {
   const add = useCartStore((s) => s.add);
-  const openCart = useCartUI((s) => s.open);
 
   function handleAdd() {
     add(dishId);
@@ -27,7 +25,6 @@ export function AddToCartButton({
       description: dishName,
       duration: 1600,
     });
-    setTimeout(() => openCart(), 220);
   }
 
   const aria = `Aggiungi ${dishName} al carrello`;

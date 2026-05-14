@@ -6,7 +6,6 @@ import { Star, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { getDishById } from "@/data/menu";
 import { useCartStore } from "@/store/cart-store";
-import { useCartUI } from "@/lib/cart-ui-store";
 import { useDishDetail } from "@/lib/dish-detail-store";
 import { formatPrice } from "@/lib/format";
 import { categoryColors, getCategoryKanji } from "@/data/categories";
@@ -36,7 +35,6 @@ function RankedCard({
   rank: number;
 }) {
   const add = useCartStore((s) => s.add);
-  const openCart = useCartUI((s) => s.open);
   const openDetail = useDishDetail((s) => s.open);
   const colors = categoryColors[dish.category];
   const bgFrom = dish.bgFrom ?? colors?.from ?? "#888";
@@ -45,7 +43,6 @@ function RankedCard({
   function handleAdd() {
     add(dish.id);
     toast.success("Aggiunto al carrello", { description: dish.name, duration: 1500 });
-    setTimeout(() => openCart(), 220);
   }
 
   return (

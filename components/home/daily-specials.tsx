@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import { dailySpecial, getNextSpecialEnd } from "@/data/specials";
 import { getDishById } from "@/data/menu";
 import { useCartStore } from "@/store/cart-store";
-import { useCartUI } from "@/lib/cart-ui-store";
 import { useCountdown, formatCountdownClock } from "@/lib/use-countdown";
 import { formatPrice } from "@/lib/format";
 import { categoryColors, getCategoryKanji } from "@/data/categories";
@@ -22,7 +21,6 @@ export function DailySpecials() {
   const countdown = useCountdown(target ?? new Date());
   const dish = getDishById(dailySpecial.dishId);
   const add = useCartStore((s) => s.add);
-  const openCart = useCartUI((s) => s.open);
 
   if (!dish) return null;
 
@@ -40,7 +38,6 @@ export function DailySpecials() {
       description: `${dish!.name} · ${dailySpecial.label}`,
       duration: 1600,
     });
-    setTimeout(() => openCart(), 220);
   }
 
   return (

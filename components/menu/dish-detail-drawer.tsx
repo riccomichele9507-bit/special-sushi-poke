@@ -27,7 +27,6 @@ import {
   getDishReviewCount,
 } from "@/data/dish-reviews";
 import { useCartStore } from "@/store/cart-store";
-import { useCartUI } from "@/lib/cart-ui-store";
 import { useDishDetail } from "@/lib/dish-detail-store";
 import { Price } from "@/components/shared/price";
 import { formatPrice } from "@/lib/format";
@@ -36,7 +35,6 @@ export function DishDetailDrawer() {
   const openDishId = useDishDetail((s) => s.openDishId);
   const close = useDishDetail((s) => s.close);
   const add = useCartStore((s) => s.add);
-  const openCart = useCartUI((s) => s.open);
 
   const dish = openDishId ? getDishById(openDishId) : null;
 
@@ -116,7 +114,6 @@ export function DishDetailDrawer() {
       duration: 1800,
     });
     close();
-    setTimeout(() => openCart(), 250);
   }
 
   return (
