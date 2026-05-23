@@ -28,3 +28,10 @@ Thumbs.db
 
 # Working files (not part of demo)
 design-exploration/
+
+# Context deliverables (binari snapshot — i .md di _contesto restano tracciati)
+_contesto/deliverables/
+
+# Build artifacts & temp
+tsconfig.tsbuildinfo
+scripts/_generated_ids.txt
