@@ -39,16 +39,13 @@ Legenda: ✅ fatto · 🟡 in corso · ⬜ da fare · ⏸️ in pausa
 - [x] **A3** Immagini test: generati 8 piatti (`nigiri-salmon`, `sashimi-salmon`, `uramaki-tiger`, `poke-chicken-bowl`, `temaki-salmon-spicy`, `gunkan-salmon-classic`, `tartar-salmon`, `pollo-limone`) via `scripts/generate_test_images.py`, collegati in `data/menu.ts`, build pulita. Stile coerente con le 27 esistenti. **DA DECIDERE: generare le restanti ~125?** (ora con foto: 35/160)
 - [x] **A4** Skill review/security = built-in (vedi sotto).
 
-### Stato immagini menu (agg. 22 mag)
-- Totale piatti: **160**. **Con foto ora: 54** (27 preesistenti + 8 test + 19 categorie chiave). Senza foto: 106 (fallback gradiente + kanji).
-- **Costo reale kie.ai nano-banana-2 @1K = ~8 crediti/immagine.** I crediti si esauriscono → 19/65 generate, poi stop "Credits insufficient" (le fallite NON si pagano).
-- Stato per categoria chiave:
-  - ✅ **poke**: completo · ✅ **temaki**: completo
-  - 🟡 **nigiri**: 5/8 (mancano i 3 flambé: nigiri-salmon-flambe, nigiri-tonno-flambe, nigiri-spigola-flambe)
-  - ⬜ **sashimi**: mancano 5 (sashimi-tonno, sashimi-spigola, sashimi-ricciola, tataki-salmon, tataki-tonno)
-  - ⬜ **uramaki**: mancano 38 (l'intero blocco — il più grande)
-- **Per finire servono ~46 immagini → ~370 crediti** (poi ~570 per anche tutte le NON-chiave). Ricarica su kie.ai → Billing.
-- Ri-lancio: `python scripts/generate_key_category_images.py` (salta le già fatte) → `python scripts/update_menu_images.py` → `npm run build`.
+### Stato immagini menu (agg. 23 mag)
+- Totale piatti: **160**. **Con foto ora: 96**. Senza foto: **64** (= categorie NON-chiave, fallback gradiente+kanji).
+- **Costo reale kie.ai nano-banana-2 @1K = ~8 crediti/immagine.**
+- ✅ **Categorie chiave COMPLETE (65/65)**: poke, temaki, nigiri, sashimi, uramaki — tutte con foto, pushate su Vercel (commit `7e74294`).
+- ⬜ **Categorie NON-chiave da fare (64 piatti)**: box, barca, hosomaki, gunkan, fritto, onigiri, chirashi, tacos, tartare, carpaccio, tempura, antipasti, grigliati, yakimesi, caldi, bevande, dolci. → per arrivare a 160/160 servono ~64 immagini (~510 crediti).
+- Pipeline ri-uso: aggiungere i job in uno script come `generate_key_category_images.py`, poi `python scripts/update_menu_images.py` → `npm run build` → push.
+- Note: l'API kie.ai a volte va in timeout (300s) su singole immagini → basta rilanciare lo script, salta le già fatte.
 
 ---
 
