@@ -7,8 +7,9 @@ import { signup } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 
-export function SignupForm({ returnTo: _returnTo }: { returnTo?: string }) {
+export function SignupForm({ returnTo }: { returnTo?: string }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -46,7 +47,19 @@ export function SignupForm({ returnTo: _returnTo }: { returnTo?: string }) {
   }
 
   return (
-    <form action={action} className="space-y-4" noValidate>
+    <div className="space-y-4">
+      <GoogleSignInButton returnTo={returnTo} label="Registrati con Google" />
+
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t border-bamboo/20"></span>
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-paper px-2 text-warm-gray">oppure con email</span>
+        </div>
+      </div>
+
+      <form action={action} className="space-y-4" noValidate>
       <div className="space-y-2">
         <Label htmlFor="name">Nome e cognome</Label>
         <Input
@@ -157,5 +170,6 @@ export function SignupForm({ returnTo: _returnTo }: { returnTo?: string }) {
         {isPending ? "Creazione account..." : "Crea il mio account"}
       </Button>
     </form>
+    </div>
   );
 }
