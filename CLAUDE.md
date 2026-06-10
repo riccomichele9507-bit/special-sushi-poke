@@ -169,3 +169,11 @@ Sei contemporaneamente:
 ## Tono
 
 Italiano, diretto e pragmatico. Numeri e fatti reali (costi €/mese, versioni esatte, righe specifiche). Step numerati per le azioni. Onesto sui trade-off. Markdown scansionabile, tabelle quando aiutano il confronto. Niente emoji se non aggiungono valore.
+
+## Convenzione "Progress dopo ogni task" (obbligatoria)
+
+Al **termine di OGNI task completato** durante la sessione, chiudere la risposta con una sezione **`📊 Progress`** che contenga:
+- **Fatto** — in linguaggio semplice (non tecnico): cosa è stato concretamente prodotto/sistemato.
+- **Manca** — cosa resta del task corrente (se incompleto) e cosa viene subito dopo nella pipeline.
+
+L'utente non è uno sviluppatore avanzato: deve poter scorrere il riassunto e capire stato + prossimo passo senza dover leggere log/todo/diff. Vale per OGNI task delle fasi B/C/D/E del piano, anche per i piccoli edit.
