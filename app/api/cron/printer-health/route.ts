@@ -1,10 +1,9 @@
-// Cron Vercel ogni 5 minuti.
-// Aggiorna i counter su printer_health per il banner Realtime del dashboard admin:
-// - pending_jobs_count
-// - oldest_pending_age_seconds (per allarme se carta finita / stampante offline)
-//
-// Vercel cron: configurazione in vercel.json. Autenticazione via Authorization header
-// con CRON_SECRET (Vercel ce lo aggiunge in automatico se configurato).
+// Cron schedulato esternamente (GitHub Actions ogni 5 min, vedi .github/workflows/).
+// Tre responsabilità:
+// 1) ORPHAN RECOVERY: ripristina a 'pending' i print_jobs in_progress > 3 min (stampante crashata).
+// 2) COUNTERS: aggiorna pending_jobs_count + oldest_pending_age_seconds (per banner dashboard).
+// 3) HEALTH: se last_poll_at > 5min E printing_in_progress=false → stampante davvero offline
+//    (non solo "occupata a stampare").
 
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -12,17 +11,47 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+const ORPHAN_TIMEOUT_MIN = 3;
+const OFFLINE_THRESHOLD_MIN = 5;
+
 export async function GET(request: NextRequest) {
-  // Verifica del cron secret (best practice Vercel)
-  const authHeader = request.headers.get("authorization");
+  // Verifica Bearer token (GitHub Actions lo aggiunge)
+  const auth = request.headers.get("authorization");
   const expected = process.env.CRON_SECRET;
-  if (expected && authHeader !== `Bearer ${expected}`) {
+  if (expected && auth !== `Bearer ${expected}`) {
     return new NextResponse("Forbidden", { status: 403 });
   }
 
   const supabase = createAdminClient();
+  const orphanCutoff = new Date(
+    Date.now() - ORPHAN_TIMEOUT_MIN * 60 * 1000,
+  ).toISOString();
 
-  // Conta job pending + età del più vecchio
+  // 1) ORPHAN RECOVERY
+  const { data: orphans } = await supabase
+    .from("print_jobs")
+    .select("id")
+    .eq("status", "in_progress")
+    .lt("claimed_at", orphanCutoff);
+
+  const orphanCount = orphans?.length ?? 0;
+  if (orphanCount > 0) {
+    await supabase
+      .from("print_jobs")
+      .update({
+        status: "pending",
+        job_token: null,
+        claimed_at: null,
+        last_error: `recovered after ${ORPHAN_TIMEOUT_MIN}min orphan`,
+      })
+      .in(
+        "id",
+        orphans!.map((o) => o.id),
+      );
+    console.warn(`cron/printer-health: recovered ${orphanCount} orphan job(s)`);
+  }
+
+  // 2) COUNTERS
   const { data: pendingJobs } = await supabase
     .from("print_jobs")
     .select("created_at")
@@ -36,7 +65,28 @@ export async function GET(request: NextRequest) {
       )
     : null;
 
-  const { error } = await supabase
+  // 3) HEALTH check (offline = no poll da X min AND non sta stampando)
+  const { data: health } = await supabase
+    .from("printer_health")
+    .select("last_poll_at, printing_in_progress")
+    .eq("id", 1)
+    .maybeSingle();
+
+  let offlineFor: number | null = null;
+  if (health && !health.printing_in_progress) {
+    if (health.last_poll_at) {
+      const secondsSincePoll = Math.floor(
+        (Date.now() - new Date(health.last_poll_at).getTime()) / 1000,
+      );
+      if (secondsSincePoll > OFFLINE_THRESHOLD_MIN * 60) {
+        offlineFor = secondsSincePoll;
+      }
+    } else {
+      offlineFor = Number.POSITIVE_INFINITY; // mai pollato
+    }
+  }
+
+  await supabase
     .from("printer_health")
     .update({
       pending_jobs_count: pendingCount,
@@ -44,14 +94,13 @@ export async function GET(request: NextRequest) {
     })
     .eq("id", 1);
 
-  if (error) {
-    console.error("cron/printer-health update error:", error.message);
-  }
-
   return NextResponse.json({
     ok: true,
     pendingCount,
     oldestPendingAgeSeconds: oldestAge,
+    orphansRecovered: orphanCount,
+    offlineForSeconds: offlineFor === Number.POSITIVE_INFINITY ? null : offlineFor,
+    printerOffline: offlineFor !== null,
     timestamp: new Date().toISOString(),
   });
 }

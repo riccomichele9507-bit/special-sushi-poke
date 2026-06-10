@@ -1,13 +1,13 @@
-// Endpoint CloudPRNT per Star Micronics TSP143IV CloudPRNT.
-// La stampante polla questo endpoint ogni N secondi (configurabile dal pannello stampante).
+// Endpoint CloudPRNT per Star Micronics TSP143IV (e simili).
+// La stampante polla ogni N secondi (configurato sul pannello stampante).
 //
-// Contratto CloudPRNT:
-// - POST  → "c'è lavoro da fare?" → risponde { jobReady: bool, ... }
-// - GET   → scarica il contenuto del job → risponde con il body in text/plain
-// - DELETE→ conferma stampa → segna job come 'printed'
+// Contratto CloudPRNT 2.5.2:
+// - POST  → "c'è lavoro?" → risponde { jobReady, mediaTypes, jobToken }
+// - GET ?token=...&mac=...&uid={jobToken} → scarica payload (text/plain)
+// - DELETE ?token=...&code=200&uid={jobToken} → conferma stampa
 //
-// Autenticazione: token segreto nel querystring (?token=...).
-// La stampante ce lo aggiunge ed è configurato una volta sola dal pannello web.
+// Auth: HTTP Basic Auth (username:'printer', password=CLOUDPRNT_TOKEN) preferred
+//       Fallback: ?token=CLOUDPRNT_TOKEN in querystring (compat firmware vecchi)
 
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -15,40 +15,73 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-function checkToken(request: NextRequest): boolean {
-  const token = new URL(request.url).searchParams.get("token");
-  return Boolean(token) && token === process.env.CLOUDPRNT_TOKEN;
-}
+// ============================================================
+// AUTH — Basic Auth preferred, ?token=... fallback
+// ============================================================
+function checkAuth(request: NextRequest): boolean {
+  const expected = process.env.CLOUDPRNT_TOKEN;
+  if (!expected) return false;
 
-// -----------------------------------------------------------------------------
-// POST — la stampante chiede "c'è un job?"
-// -----------------------------------------------------------------------------
-export async function POST(request: NextRequest) {
-  if (!checkToken(request)) {
-    return new NextResponse("Forbidden", { status: 403 });
+  // 1) HTTP Basic Auth
+  const auth = request.headers.get("authorization");
+  if (auth?.startsWith("Basic ")) {
+    try {
+      const decoded = Buffer.from(auth.slice(6), "base64").toString("utf-8");
+      const [user, pass] = decoded.split(":");
+      if (user === "printer" && pass === expected) return true;
+    } catch {
+      // malformed — fall through
+    }
   }
 
-  let body: {
-    printerMAC?: string;
-    statusCode?: string;
-    status?: string;
-  } = {};
+  // 2) Querystring fallback
+  const urlToken = new URL(request.url).searchParams.get("token");
+  return Boolean(urlToken) && urlToken === expected;
+}
+
+function unauthorized() {
+  return new NextResponse("Unauthorized", {
+    status: 401,
+    headers: { "WWW-Authenticate": 'Basic realm="CloudPRNT"' },
+  });
+}
+
+// ============================================================
+// POST — "c'è un job?"
+// ============================================================
+type CloudPrntPostBody = {
+  printerMAC?: string;
+  statusCode?: string;
+  status?: string;
+  printingInProgress?: boolean;
+  clientType?: string;
+  clientVersion?: string;
+};
+
+export async function POST(request: NextRequest) {
+  if (!checkAuth(request)) return unauthorized();
+
+  let body: CloudPrntPostBody = {};
   try {
-    body = await request.json();
+    body = (await request.json()) as CloudPrntPostBody;
   } catch {
-    // alcune stampanti polleranno senza body
+    /* alcune stampanti POST senza body */
   }
 
   const supabase = createAdminClient();
   const printerMac = body.printerMAC ?? null;
+  const printing = Boolean(body.printingInProgress);
+  const paperStatus =
+    body.statusCode === "200" ? "OK" : (body.status ?? body.statusCode ?? "UNKNOWN");
 
-  // Aggiorna lo stato della stampante (per il banner Realtime del dashboard)
+  // Aggiorna printer_health per banner Realtime dashboard
   await supabase
     .from("printer_health")
     .update({
       last_poll_at: new Date().toISOString(),
       printer_mac: printerMac,
-      paper_status: body.statusCode === "200" ? "OK" : (body.status ?? "UNKNOWN"),
+      paper_status: paperStatus,
+      printing_in_progress: printing,
     })
     .eq("id", 1);
 
@@ -65,7 +98,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ jobReady: false });
   }
 
-  // Marca il job come in_progress + assegna un token univoco
+  // Rivendica il job: status=in_progress + jobToken univoco
   const jobToken = crypto.randomUUID();
   await supabase
     .from("print_jobs")
@@ -81,30 +114,64 @@ export async function POST(request: NextRequest) {
     jobReady: true,
     mediaTypes: ["text/plain"],
     jobToken,
+    deleteMethod: "DELETE",
   });
 }
 
-// -----------------------------------------------------------------------------
-// GET — la stampante scarica il payload del job
-// -----------------------------------------------------------------------------
+// ============================================================
+// GET — la stampante scarica il payload
+// Star CloudPRNT passa il jobToken nel querystring come ?uid={jobToken}
+// (alcuni firmware usano ?token, gestiamo entrambi)
+// ============================================================
 export async function GET(request: NextRequest) {
-  if (!checkToken(request)) {
-    return new NextResponse("Forbidden", { status: 403 });
-  }
+  if (!checkAuth(request)) return unauthorized();
+
+  const url = new URL(request.url);
+  const jobToken = url.searchParams.get("uid") ?? url.searchParams.get("jobToken");
 
   const supabase = createAdminClient();
 
-  // Prendi il job in_progress più vecchio (= quello appena rivendicato dal POST)
-  const { data: job, error } = await supabase
+  // Trova il job: prima per jobToken (preciso), fallback al più vecchio in_progress
+  let jobQuery = supabase
     .from("print_jobs")
-    .select("payload")
-    .eq("status", "in_progress")
+    .select("id, payload, order_id")
+    .eq("status", "in_progress");
+
+  if (jobToken) {
+    jobQuery = jobQuery.eq("job_token", jobToken);
+  }
+
+  const { data: job } = await jobQuery
     .order("claimed_at", { ascending: true })
     .limit(1)
     .maybeSingle();
 
-  if (error || !job) {
+  if (!job) {
     return new NextResponse("", { status: 204 });
+  }
+
+  // CANCEL-DURING-PRINT CHECK
+  // Se l'ordine è stato cancellato/rimborsato dopo la rivendicazione del job,
+  // NON stampiamo. Marca print_job come failed con motivo cancelled.
+  if (job.order_id) {
+    const { data: order } = await supabase
+      .from("orders")
+      .select("status")
+      .eq("id", job.order_id)
+      .maybeSingle();
+
+    if (order && (order.status === "cancelled" || order.status === "refunded")) {
+      await supabase
+        .from("print_jobs")
+        .update({
+          status: "failed",
+          last_error: `order ${order.status} after claim`,
+          printed_at: new Date().toISOString(),
+        })
+        .eq("id", job.id);
+
+      return new NextResponse("", { status: 204 });
+    }
   }
 
   return new NextResponse(job.payload, {
@@ -116,49 +183,56 @@ export async function GET(request: NextRequest) {
   });
 }
 
-// -----------------------------------------------------------------------------
-// DELETE — la stampante conferma "ho stampato OK"
-// -----------------------------------------------------------------------------
+// ============================================================
+// DELETE — conferma stampa
+// ?code=200 = OK | altri codici = errore
+// ?uid={jobToken} = job specifico (sync col POST/GET)
+// ============================================================
 export async function DELETE(request: NextRequest) {
-  if (!checkToken(request)) {
-    return new NextResponse("Forbidden", { status: 403 });
-  }
+  if (!checkAuth(request)) return unauthorized();
 
   const url = new URL(request.url);
-  const code = url.searchParams.get("code"); // "200" = OK, altrimenti errore
-
-  const supabase = createAdminClient();
+  const code = url.searchParams.get("code");
+  const jobToken = url.searchParams.get("uid") ?? url.searchParams.get("jobToken");
   const now = new Date().toISOString();
 
-  if (code === "200" || code === null) {
-    // Successo: marca il job in_progress come 'printed'
+  const supabase = createAdminClient();
+  const isOk = code === "200" || code === null;
+
+  // Trova il job specifico (per jobToken o fallback al più vecchio in_progress)
+  let jobQuery = supabase
+    .from("print_jobs")
+    .select("id, attempts")
+    .eq("status", "in_progress");
+  if (jobToken) jobQuery = jobQuery.eq("job_token", jobToken);
+
+  const { data: job } = await jobQuery
+    .order("claimed_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (!job) {
+    return new NextResponse("", { status: 200 });
+  }
+
+  if (isOk) {
     await supabase
       .from("print_jobs")
       .update({ status: "printed", printed_at: now })
-      .eq("status", "in_progress");
+      .eq("id", job.id);
   } else {
-    // Errore stampa: marca come failed con incremento attempts
-    const { data: job } = await supabase
+    const attempts = (job.attempts ?? 0) + 1;
+    const newStatus = attempts >= 3 ? "failed" : "pending";
+    await supabase
       .from("print_jobs")
-      .select("id, attempts")
-      .eq("status", "in_progress")
-      .limit(1)
-      .maybeSingle();
-
-    if (job) {
-      const attempts = (job.attempts ?? 0) + 1;
-      // Dopo 3 tentativi falliti, lo segniamo failed; prima lo rimettiamo pending
-      const newStatus = attempts >= 3 ? "failed" : "pending";
-      await supabase
-        .from("print_jobs")
-        .update({
-          status: newStatus,
-          attempts,
-          last_error: `printer code ${code}`,
-          job_token: null,
-        })
-        .eq("id", job.id);
-    }
+      .update({
+        status: newStatus,
+        attempts,
+        last_error: `printer code ${code}`,
+        job_token: null,
+        claimed_at: null,
+      })
+      .eq("id", job.id);
   }
 
   return new NextResponse("", { status: 200 });

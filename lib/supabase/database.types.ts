@@ -585,6 +585,7 @@ export type Database = {
           paper_status: string | null
           pending_jobs_count: number
           printer_mac: string | null
+          printing_in_progress: boolean
           updated_at: string
         }
         Insert: {
@@ -594,6 +595,7 @@ export type Database = {
           paper_status?: string | null
           pending_jobs_count?: number
           printer_mac?: string | null
+          printing_in_progress?: boolean
           updated_at?: string
         }
         Update: {
@@ -603,6 +605,7 @@ export type Database = {
           paper_status?: string | null
           pending_jobs_count?: number
           printer_mac?: string | null
+          printing_in_progress?: boolean
           updated_at?: string
         }
         Relationships: []
