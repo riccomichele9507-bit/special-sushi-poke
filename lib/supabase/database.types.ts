@@ -721,7 +721,20 @@ export type Database = {
     }
     Views: { [_ in never]: never }
     Functions: {
+      count_dormant_customers: { Args: { days?: number }; Returns: number }
       is_admin: { Args: { uid: string }; Returns: boolean }
+      list_dormant_customers: {
+        Args: { days?: number }
+        Returns: {
+          email: string
+          id: string
+          last_order_at: string
+          marketing_consent: boolean
+          name: string
+          phone: string
+          total_orders: number
+        }[]
+      }
     }
     Enums: {
       order_status:

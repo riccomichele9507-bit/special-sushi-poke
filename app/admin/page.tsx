@@ -1,0 +1,162 @@
+import Link from "next/link";
+import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  ShoppingBag,
+  UtensilsCrossed,
+  Users,
+  AlertCircle,
+} from "lucide-react";
+
+async function getKpi() {
+  const supabase = createAdminClient();
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const [ordersToday, dishesActive, dishesSoldOut, customersTotal, dormant] =
+    await Promise.all([
+      supabase
+        .from("orders")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", todayStart.toISOString())
+        .eq("is_test", false),
+      supabase
+        .from("dishes")
+        .select("id", { count: "exact", head: true })
+        .eq("is_active", true),
+      supabase
+        .from("dishes")
+        .select("id", { count: "exact", head: true })
+        .eq("is_active", false),
+      supabase.from("customers").select("id", { count: "exact", head: true }),
+      // Dormant: clienti senza ordini negli ultimi 30 gg
+      supabase.rpc("count_dormant_customers", { days: 30 }).then(
+        (r) => ({ count: (r.data as number | null) ?? null }),
+        () => ({ count: null }),
+      ),
+    ]);
+
+  return {
+    ordersToday: ordersToday.count ?? 0,
+    dishesActive: dishesActive.count ?? 0,
+    dishesSoldOut: dishesSoldOut.count ?? 0,
+    customersTotal: customersTotal.count ?? 0,
+    dormant: dormant.count,
+  };
+}
+
+export default async function AdminHomePage() {
+  const k = await getKpi();
+  return (
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-3xl font-serif-jp text-ink">Benvenuto</h1>
+        <p className="text-sm text-warm-gray mt-1">
+          Stato del ristorante in tempo reale.
+        </p>
+      </div>
+
+      {/* KPI grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <Kpi label="Ordini oggi" value={k.ordersToday} icon={ShoppingBag} href="/admin/orders" />
+        <Kpi label="Piatti attivi" value={k.dishesActive} icon={UtensilsCrossed} href="/admin/menu" />
+        <Kpi
+          label="Piatti esauriti"
+          value={k.dishesSoldOut}
+          icon={AlertCircle}
+          href="/admin/menu?filter=sold_out"
+          accent={k.dishesSoldOut > 0 ? "warn" : undefined}
+        />
+        <Kpi label="Clienti totali" value={k.customersTotal} icon={Users} href="/admin/customers" />
+      </div>
+
+      {/* Reminder fiscale permanente */}
+      <div className="rounded-lg border border-amber-300 bg-amber-50 p-4">
+        <h3 className="font-semibold text-amber-900 mb-1">
+          ⚠️ Promemoria fiscale
+        </h3>
+        <p className="text-sm text-amber-800">
+          Per <strong>ogni ordine consegnato o ritirato</strong>, emetti il
+          Documento Commerciale dalla Cassa Fiscale del SmartPOS Nexi prima di
+          chiudere l&apos;ordine. La stampa che esce dalla stampante in cucina è
+          solo la comanda di lavoro — NON è un documento fiscale.
+        </p>
+      </div>
+
+      {/* Azioni rapide */}
+      <div>
+        <h2 className="text-xl font-semibold text-ink mb-3">Azioni rapide</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Link
+            href="/admin/menu"
+            className="rounded-lg border border-bamboo/20 bg-paper p-4 hover:bg-bamboo/5 transition-colors"
+          >
+            <p className="font-semibold text-ink">Esaurito un piatto?</p>
+            <p className="text-sm text-warm-gray">
+              Lo togli dal menu in 1 click dalla pagina Piatti.
+            </p>
+          </Link>
+          <Link
+            href="/admin/special"
+            className="rounded-lg border border-bamboo/20 bg-paper p-4 hover:bg-bamboo/5 transition-colors"
+          >
+            <p className="font-semibold text-ink">Cambia l&apos;offerta del giorno</p>
+            <p className="text-sm text-warm-gray">
+              Scegli un piatto, %sconto e orario fine.
+            </p>
+          </Link>
+          <Link
+            href="/admin/closures"
+            className="rounded-lg border border-bamboo/20 bg-paper p-4 hover:bg-bamboo/5 transition-colors"
+          >
+            <p className="font-semibold text-ink">Chiudi per ferie</p>
+            <p className="text-sm text-warm-gray">
+              Aggiungi un periodo: il sito blocca gli ordini in quei giorni.
+            </p>
+          </Link>
+          <Link
+            href="/admin/delivery"
+            className="rounded-lg border border-bamboo/20 bg-paper p-4 hover:bg-bamboo/5 transition-colors"
+          >
+            <p className="font-semibold text-ink">Pausa ordini ORA</p>
+            <p className="text-sm text-warm-gray">
+              Toggle rapido in Consegne & orari → Pausa manuale.
+            </p>
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Kpi({
+  label,
+  value,
+  icon: Icon,
+  href,
+  accent,
+}: {
+  label: string;
+  value: number | null;
+  icon: React.ComponentType<{ className?: string }>;
+  href: string;
+  accent?: "warn";
+}) {
+  return (
+    <Link
+      href={href}
+      className={`block rounded-lg border p-4 hover:shadow-sm transition ${
+        accent === "warn"
+          ? "border-amber-300 bg-amber-50"
+          : "border-bamboo/20 bg-paper hover:bg-bamboo/5"
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <Icon className="h-5 w-5 text-warm-gray" />
+        <span className="text-2xl font-bold text-ink">
+          {value ?? "—"}
+        </span>
+      </div>
+      <p className="mt-2 text-sm text-warm-gray">{label}</p>
+    </Link>
+  );
+}
