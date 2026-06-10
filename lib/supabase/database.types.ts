@@ -81,6 +81,8 @@ export type Database = {
       }
       closures: {
         Row: {
+          closes_dinner: boolean
+          closes_lunch: boolean
           created_at: string
           end_date: string
           id: string
@@ -88,6 +90,8 @@ export type Database = {
           start_date: string
         }
         Insert: {
+          closes_dinner?: boolean
+          closes_lunch?: boolean
           created_at?: string
           end_date: string
           id?: string
@@ -95,6 +99,8 @@ export type Database = {
           start_date: string
         }
         Update: {
+          closes_dinner?: boolean
+          closes_lunch?: boolean
           created_at?: string
           end_date?: string
           id?: string
@@ -413,6 +419,7 @@ export type Database = {
           address_line: string | null
           address_notes: string | null
           cancellation_reason: string | null
+          cancelled_after_print: boolean
           created_at: string
           customer_email: string
           customer_id: string | null
@@ -426,6 +433,7 @@ export type Database = {
           fiscal_receipt_issued: boolean
           geo: Json | null
           id: string
+          is_test: boolean
           items: Json
           order_number: string
           order_type: Database["public"]["Enums"]["order_type"]
@@ -445,6 +453,7 @@ export type Database = {
           address_line?: string | null
           address_notes?: string | null
           cancellation_reason?: string | null
+          cancelled_after_print?: boolean
           created_at?: string
           customer_email: string
           customer_id?: string | null
@@ -458,6 +467,7 @@ export type Database = {
           fiscal_receipt_issued?: boolean
           geo?: Json | null
           id?: string
+          is_test?: boolean
           items: Json
           order_number: string
           order_type: Database["public"]["Enums"]["order_type"]
@@ -477,6 +487,7 @@ export type Database = {
           address_line?: string | null
           address_notes?: string | null
           cancellation_reason?: string | null
+          cancelled_after_print?: boolean
           created_at?: string
           customer_email?: string
           customer_id?: string | null
@@ -490,6 +501,7 @@ export type Database = {
           fiscal_receipt_issued?: boolean
           geo?: Json | null
           id?: string
+          is_test?: boolean
           items?: Json
           order_number?: string
           order_type?: Database["public"]["Enums"]["order_type"]
@@ -682,6 +694,24 @@ export type Database = {
           updated_at?: string
           whatsapp?: string | null
           whatsapp_display?: string | null
+        }
+        Relationships: []
+      }
+      stripe_webhook_events_processed: {
+        Row: {
+          event_id: string
+          event_type: string
+          processed_at: string
+        }
+        Insert: {
+          event_id: string
+          event_type: string
+          processed_at?: string
+        }
+        Update: {
+          event_id?: string
+          event_type?: string
+          processed_at?: string
         }
         Relationships: []
       }
