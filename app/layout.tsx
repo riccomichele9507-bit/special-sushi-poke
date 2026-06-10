@@ -8,6 +8,8 @@ import { DishDetailDrawer } from "@/components/menu/dish-detail-drawer";
 import { WhatsAppFab } from "@/components/shared/whatsapp-fab";
 import { TestHelpers } from "@/components/shared/test-helpers";
 import { restaurant } from "@/data/restaurant";
+import { getMenu } from "@/lib/data/queries";
+import { MenuRegistryProvider } from "@/components/menu-registry-provider";
 import "./globals.css";
 
 const inter = Inter({
@@ -74,24 +76,36 @@ const restaurantJsonLd = {
   priceRange: restaurant.priceRange,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Fetcha il menu dal DB Supabase per idratare il cart-store registry.
+  // Fallback automatico a data/menu.ts se il DB non risponde (zero downtime).
+  let menu;
+  try {
+    menu = await getMenu();
+  } catch {
+    const { menu: staticMenu } = await import("@/data/menu");
+    menu = staticMenu;
+  }
+
   return (
     <html
       lang="it"
       className={`${inter.variable} ${notoSerifJP.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col font-sans bg-paper text-ink">
-        <DeliveryLocationBar />
-        <main className="flex-1 pb-24">{children}</main>
-        <MobileTabBar />
-        <CartDrawer />
-        <DishDetailDrawer />
-        <TestHelpers />
-        <WhatsAppFab />
+        <MenuRegistryProvider initialMenu={menu}>
+          <DeliveryLocationBar />
+          <main className="flex-1 pb-24">{children}</main>
+          <MobileTabBar />
+          <CartDrawer />
+          <DishDetailDrawer />
+          <TestHelpers />
+          <WhatsAppFab />
+        </MenuRegistryProvider>
         <Toaster
           position="top-center"
           theme="light"

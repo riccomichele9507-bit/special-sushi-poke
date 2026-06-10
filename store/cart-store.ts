@@ -5,7 +5,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import { useShallow } from "zustand/react/shallow";
 import { useEffect, useMemo, useState } from "react";
 import type { CartItem, CartItemWithDish, CartState } from "@/types/cart";
-import { getDishById } from "@/data/menu";
+import { getDishById } from "@/lib/menu-registry";
 
 const STORAGE_KEY = "ssp-cart-v1";
 
