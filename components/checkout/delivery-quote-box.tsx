@@ -153,8 +153,18 @@ export function DeliveryQuoteBox({
           <p className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-warm-gray">
             <Clock className="h-3 w-3" />
             {orderType === "delivery" ? "Consegna stimata" : "Pronto al ritiro"}
+            {quote.isPreorder && (
+              <span className="ml-1.5 rounded-full bg-bamboo/15 px-1.5 py-0.5 text-[9px] font-semibold tracking-wide text-bamboo-deep">
+                Pre-ordine
+              </span>
+            )}
           </p>
           <p className="mt-1 text-2xl font-bold text-ink">
+            {quote.dayLabel && quote.dayLabel !== "oggi" && (
+              <span className="block text-sm font-medium uppercase tracking-wider text-bamboo">
+                {quote.dayLabel}
+              </span>
+            )}
             Tra le <span className="text-bamboo">{quote.slotStart}</span> e le{" "}
             <span className="text-bamboo">{quote.slotEnd}</span>
           </p>

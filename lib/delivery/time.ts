@@ -143,3 +143,54 @@ export function isWeekendRome(d: Date): boolean {
   const w = weekdayInRome(d);
   return w === 0 || w === 6;
 }
+
+/**
+ * Costruisce un istante UTC che rappresenta una data Roma + un wall-clock time "HH:mm".
+ * @param baseDate giorno di riferimento (legge year/month/day in Roma da qui)
+ * @param hhmm es. "12:30"
+ * @param dayOffset 0 = stesso giorno, 1 = giorno dopo, ecc.
+ */
+export function romeAtTimeOfDay(
+  baseDate: Date,
+  hhmm: string,
+  dayOffset = 0,
+): Date {
+  const r = toZonedTime(baseDate, TZ_ROME);
+  const [hh, mm] = hhmm.split(":").map(Number);
+  // Genera la data target sommando i giorni in UTC (i.e. salta DST safely)
+  const target = new Date(
+    Date.UTC(r.getFullYear(), r.getMonth(), r.getDate() + dayOffset),
+  );
+  return romeToUtc(
+    target.getUTCFullYear(),
+    target.getUTCMonth() + 1,
+    target.getUTCDate(),
+    hh,
+    mm,
+  );
+}
+
+/**
+ * Display friendly italiano per una data: "oggi", "domani" o "lun 15 giu".
+ * Confronta col day-in-Rome corrente.
+ */
+export function relativeDayLabel(slot: Date, now: Date = new Date()): string {
+  const slotDate = dateInRome(slot);
+  const todayDate = dateInRome(now);
+  if (slotDate === todayDate) return "oggi";
+  const tomorrow = new Date(Date.UTC(
+    parseInt(todayDate.slice(0, 4)),
+    parseInt(todayDate.slice(5, 7)) - 1,
+    parseInt(todayDate.slice(8, 10)) + 1,
+  ));
+  const tomorrowStr = `${tomorrow.getUTCFullYear()}-${String(tomorrow.getUTCMonth() + 1).padStart(2, "0")}-${String(tomorrow.getUTCDate()).padStart(2, "0")}`;
+  if (slotDate === tomorrowStr) return "domani";
+  // Più in là: "lun 15 giu"
+  const r = toZonedTime(slot, TZ_ROME);
+  const days = ["dom", "lun", "mar", "mer", "gio", "ven", "sab"];
+  const months = [
+    "gen", "feb", "mar", "apr", "mag", "giu",
+    "lug", "ago", "set", "ott", "nov", "dic",
+  ];
+  return `${days[r.getDay()]} ${r.getDate()} ${months[r.getMonth()]}`;
+}

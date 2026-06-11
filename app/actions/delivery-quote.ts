@@ -2,7 +2,7 @@
 
 import { geocodeAddress } from "@/lib/geocoding";
 import { validateDelivery } from "@/lib/delivery/validate";
-import { formatRomeHHmm } from "@/lib/delivery/time";
+import { formatRomeHHmm, relativeDayLabel } from "@/lib/delivery/time";
 
 export interface DeliveryQuoteResult {
   ok: boolean;
@@ -17,6 +17,10 @@ export interface DeliveryQuoteResult {
   slotEndIso?: string;
   formattedAddress?: string;
   service?: "lunch" | "dinner";
+  /** "oggi", "domani" o "lun 15 giu" — per display UI */
+  dayLabel?: string;
+  /** True se slot in un futuro servizio (pre-order) */
+  isPreorder?: boolean;
   // Error fields:
   errorCode?: string;
   errorMessage?: string;
@@ -62,6 +66,8 @@ export async function getDeliveryQuote(
       service: result.service,
       freeDelivery: true,
       distanceKm: 0,
+      dayLabel: relativeDayLabel(result.slot.start),
+      isPreorder: result.isPreorder,
     };
   }
 
@@ -135,5 +141,7 @@ export async function getDeliveryQuote(
     slotEndIso: result.slot.end.toISOString(),
     formattedAddress,
     service: result.service,
+    dayLabel: relativeDayLabel(result.slot.start),
+    isPreorder: result.isPreorder,
   };
 }

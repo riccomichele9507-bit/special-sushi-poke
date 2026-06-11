@@ -1,16 +1,17 @@
-// Catena di validazione delivery: 7 check in ordine.
-// Primo errore → blocca + messaggio user-friendly italiano.
+// Catena di validazione delivery: distanza/minimo HARD prima del fuori orario.
+// Se il servizio corrente è chiuso, cerca lo slot successivo disponibile
+// (lunch → dinner → giorno dopo, fino a 7 giorni avanti). Modello pre-order.
 
 import "server-only";
 import { computeEta, computePickupEta } from "./eta";
 import { computeSlot, shiftSlotForward, type SlotResult } from "./slot";
 import {
-  nowInRome,
   weekdayInRome,
   timeOfDayRome,
   isTimeBefore,
   dateInRome,
   isWeekendRome,
+  romeAtTimeOfDay,
 } from "./time";
 import { estimatedRoadKm, RESTAURANT_COORDS_FALLBACK, type LatLng } from "@/lib/geocoding";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -35,19 +36,21 @@ export type ValidationSuccess = {
   ok: true;
   distanceKm: number;
   freeDelivery: boolean;
-  minCartCents: number; // 0 se freeDelivery
+  minCartCents: number;
   etaMinutes: number;
   slot: SlotResult;
   service: "lunch" | "dinner";
+  /** True se lo slot è oltre il "ora corrente + ETA" → pre-ordine */
+  isPreorder: boolean;
 };
 
 export type ValidationResult = ValidationError | ValidationSuccess;
 
 export interface ValidationInput {
   orderType: "delivery" | "pickup";
-  customerCoords?: LatLng; // obbligatorio se delivery
-  cartTotalCents: number; // subtotale corrente, per check minimo
-  now?: Date; // optional, default ora corrente
+  customerCoords?: LatLng;
+  cartTotalCents: number;
+  now?: Date;
 }
 
 interface DeliverySettingsRow {
@@ -69,18 +72,34 @@ interface DeliverySettingsRow {
   max_distance_km: number;
   free_delivery_max_km: number;
   min_cart_cents_above_free: number;
-  travel_buckets: unknown; // jsonb
+  travel_buckets: unknown;
 }
 
-/**
- * Esegue tutta la catena di validazione + ritorna slot + eta se ok.
- */
+interface ClosureRow {
+  start_date: string;
+  end_date: string;
+  closes_lunch: boolean;
+  closes_dinner: boolean;
+}
+
+interface ServiceContext {
+  service: "lunch" | "dinner";
+  /** Quando "parte" il calcolo ETA (now se siamo già nel servizio, else inizio servizio futuro) */
+  startsAt: Date;
+  lastOrderTime: string;
+  lastDeliveryTime: string;
+  isPreorder: boolean;
+  /** Data Roma YYYY-MM-DD a cui appartiene il servizio (per matching closures) */
+  dateRome: string;
+}
+
+const MAX_LOOKAHEAD_DAYS = 7;
+
 export async function validateDelivery(
   input: ValidationInput,
 ): Promise<ValidationResult> {
   const sb = createAdminClient();
 
-  // Carica delivery_settings + restaurant_settings (manual_pause + coords)
   const [settingsRes, restaurantRes] = await Promise.all([
     sb.from("delivery_settings").select("*").eq("id", 1).maybeSingle(),
     sb
@@ -100,13 +119,7 @@ export async function validateDelivery(
   const settings = settingsRes.data as DeliverySettingsRow;
   const manualPause = restaurantRes.data.manual_pause;
 
-  // Coords ristorante da DB (modificabili da admin), con fallback hardcoded
-  const restaurantCoords: LatLng = {
-    lat: restaurantRes.data.lat ?? RESTAURANT_COORDS_FALLBACK.lat,
-    lng: restaurantRes.data.lng ?? RESTAURANT_COORDS_FALLBACK.lng,
-  };
-
-  // CHECK #7: pausa manuale (la mettiamo per prima così è veloce)
+  // CHECK #1: pausa manuale
   if (manualPause) {
     return {
       ok: false,
@@ -116,77 +129,14 @@ export async function validateDelivery(
     };
   }
 
+  const restaurantCoords: LatLng = {
+    lat: restaurantRes.data.lat ?? RESTAURANT_COORDS_FALLBACK.lat,
+    lng: restaurantRes.data.lng ?? RESTAURANT_COORDS_FALLBACK.lng,
+  };
+
   const now = input.now ?? new Date();
 
-  // Determina servizio corrente (lunch o dinner) in base all'orario Roma
-  const nowHHmm = timeOfDayRome(now);
-  const weekday = weekdayInRome(now); // 0=Dom, 1=Lun, ...
-  const isClosedDay = settings.closed_weekdays.includes(weekday);
-
-  if (isClosedDay) {
-    return {
-      ok: false,
-      code: "closure",
-      message:
-        "Oggi siamo chiusi. Ti aspettiamo nel prossimo giorno di apertura 🍣",
-    };
-  }
-
-  // Check closures table
-  const today = dateInRome(now);
-  const { data: closures } = await sb
-    .from("closures")
-    .select("closes_lunch, closes_dinner")
-    .lte("start_date", today)
-    .gte("end_date", today);
-
-  const isLunchClosure = closures?.some((c) => c.closes_lunch) ?? false;
-  const isDinnerClosure = closures?.some((c) => c.closes_dinner) ?? false;
-
-  // Determina servizio (lunch/dinner) in base all'orario
-  let service: "lunch" | "dinner";
-  let lastOrderTime: string;
-  let lastDeliveryTime: string;
-
-  const isWeekend = isWeekendRome(now);
-
-  if (
-    !isLunchClosure &&
-    nowHHmm >= settings.service_lunch_start_time &&
-    isTimeBefore(nowHHmm, settings.service_lunch_last_order_time)
-  ) {
-    service = "lunch";
-    lastOrderTime = settings.service_lunch_last_order_time;
-    lastDeliveryTime = settings.service_lunch_last_delivery_time;
-  } else if (
-    !isDinnerClosure &&
-    nowHHmm >= settings.service_dinner_start_time &&
-    isTimeBefore(
-      nowHHmm,
-      isWeekend
-        ? settings.service_dinner_weekend_last_order_time
-        : settings.service_dinner_last_order_time,
-    )
-  ) {
-    service = "dinner";
-    lastOrderTime = isWeekend
-      ? settings.service_dinner_weekend_last_order_time
-      : settings.service_dinner_last_order_time;
-    lastDeliveryTime = isWeekend
-      ? settings.service_dinner_weekend_last_delivery_time
-      : settings.service_dinner_last_delivery_time;
-  } else {
-    // Fuori orario di servizio
-    return {
-      ok: false,
-      code: "outside_service_hours",
-      message: getOutsideServiceMessage(nowHHmm, settings, isWeekend),
-    };
-  }
-
-  // CHECK #5: now < last_order_time già implicito sopra (il blocco else cattura quando supera)
-
-  // Calcola distanza + check delivery rules (solo per delivery, non pickup)
+  // CHECK #2 + #3: distanza + minimo (HARD, indipendenti dall'orario)
   let distanceKm = 0;
   let freeDelivery = true;
   let minCartCents = 0;
@@ -203,7 +153,6 @@ export async function validateDelivery(
 
     distanceKm = estimatedRoadKm(restaurantCoords, input.customerCoords);
 
-    // CHECK #1: distanza
     if (distanceKm > settings.max_distance_km) {
       return {
         ok: false,
@@ -213,7 +162,6 @@ export async function validateDelivery(
       };
     }
 
-    // CHECK #2: minimo carrello se oltre la zona gratuita
     freeDelivery = distanceKm <= settings.free_delivery_max_km;
     if (
       !freeDelivery &&
@@ -235,52 +183,63 @@ export async function validateDelivery(
     if (!freeDelivery) minCartCents = settings.min_cart_cents_above_free;
   }
 
-  // CHECK #3: calcola ETA
+  // CHECK #4: trova service slot disponibile (oggi o nei prossimi 7 giorni)
+  const today = dateInRome(now);
+  const allClosures = await loadClosures(sb, today, MAX_LOOKAHEAD_DAYS);
+
+  const serviceCtx = findNextAvailableService(now, settings, allClosures);
+  if (!serviceCtx) {
+    return {
+      ok: false,
+      code: "outside_service_hours",
+      message:
+        "Servizio non disponibile nei prossimi giorni. Controlla i nostri orari o riprova più tardi.",
+    };
+  }
+
+  // CHECK #5: calcola ETA (partendo da serviceCtx.startsAt, NON da now)
   const buckets = (settings.travel_buckets as Array<{
     max_km: number;
     min: number;
   }>) ?? [];
+
   const eta =
     input.orderType === "delivery"
-      ? computeEta(distanceKm, now, {
+      ? computeEta(distanceKm, serviceCtx.startsAt, {
           prepMinutes: settings.prep_minutes,
           bufferMinutes: settings.buffer_minutes,
           baselineMinMinutes: settings.baseline_min_minutes,
           travelBuckets: buckets,
         })
-      : computePickupEta(now, {
+      : computePickupEta(serviceCtx.startsAt, {
           prepMinutes: settings.prep_minutes,
           bufferMinutes: settings.buffer_minutes,
           baselinePickupMin: settings.baseline_pickup_min,
         });
 
-  // CHECK #4 + #6: calcola slot con auto-shift per capacità
+  // CHECK #6 + #7: slot + capacità con auto-shift
   let slot = computeSlot(eta.t1, settings.slot_duration_minutes);
-
-  // Limite di sicurezza per auto-shift: massimo 20 iterazioni
   const MAX_SHIFTS = 20;
   let shifts = 0;
 
   while (shifts < MAX_SHIFTS) {
-    // CHECK #4: slot_end deve essere <= last_delivery_time del servizio corrente
     const slotEndHHmm = timeOfDayRome(slot.end);
-    const slotEndDate = dateInRome(slot.end);
-    const slotEndIsTomorrow = slotEndDate !== today;
+    const slotEndDateRome = dateInRome(slot.end);
+    const slotEndOnDifferentDay = slotEndDateRome !== serviceCtx.dateRome;
 
-    // Se lo slot finisce oltre la mezzanotte e il servizio non è weekend-late, rifiuta
-    if (slotEndIsTomorrow && lastDeliveryTime !== "00:00") {
-      return outsideTimeWindow(eta.minutes, lastDeliveryTime);
+    // Slot oltre l'orario di chiusura del servizio?
+    if (slotEndOnDifferentDay && serviceCtx.lastDeliveryTime !== "00:00") {
+      return slotOutsideWindow(eta.minutes, serviceCtx.lastDeliveryTime);
     }
-    // Confronto orario
     if (
-      !slotEndIsTomorrow &&
-      !isTimeBefore(slotEndHHmm, lastDeliveryTime) &&
-      slotEndHHmm !== lastDeliveryTime
+      !slotEndOnDifferentDay &&
+      !isTimeBefore(slotEndHHmm, serviceCtx.lastDeliveryTime) &&
+      slotEndHHmm !== serviceCtx.lastDeliveryTime
     ) {
-      return outsideTimeWindow(eta.minutes, lastDeliveryTime);
+      return slotOutsideWindow(eta.minutes, serviceCtx.lastDeliveryTime);
     }
 
-    // CHECK #6: capacità slot
+    // Capacità
     const { count: usedCount } = await sb
       .from("orders")
       .select("id", { count: "exact", head: true })
@@ -289,7 +248,6 @@ export async function validateDelivery(
       .not("status", "in", "(delivered,cancelled,refunded)");
 
     if ((usedCount ?? 0) < settings.max_orders_per_slot) {
-      // OK trovato slot disponibile
       return {
         ok: true,
         distanceKm,
@@ -297,24 +255,23 @@ export async function validateDelivery(
         minCartCents,
         etaMinutes: eta.minutes,
         slot,
-        service,
+        service: serviceCtx.service,
+        isPreorder: serviceCtx.isPreorder,
       };
     }
 
-    // Auto-shift al prossimo slot
     slot = shiftSlotForward(slot, settings.slot_duration_minutes);
     shifts++;
   }
 
-  // Cascade auto-shift esaurita = capacità piena per il resto della giornata
   return {
     ok: false,
     code: "all_slots_full",
-    message: "Per stasera siamo al completo. Ti aspettiamo domani 🍣",
+    message: "Siamo al completo per questo slot. Riprova tra qualche ora 🍣",
   };
 }
 
-function outsideTimeWindow(
+function slotOutsideWindow(
   etaMinutes: number,
   lastDeliveryTime: string,
 ): ValidationError {
@@ -326,19 +283,125 @@ function outsideTimeWindow(
   };
 }
 
-function getOutsideServiceMessage(
-  nowHHmm: string,
+async function loadClosures(
+  sb: ReturnType<typeof createAdminClient>,
+  fromDate: string,
+  lookaheadDays: number,
+): Promise<ClosureRow[]> {
+  // Calcola la data + lookaheadDays in formato YYYY-MM-DD
+  const fromD = new Date(fromDate);
+  const toD = new Date(fromD.getTime() + lookaheadDays * 86400_000);
+  const toDate = toD.toISOString().slice(0, 10);
+
+  const { data } = await sb
+    .from("closures")
+    .select("start_date, end_date, closes_lunch, closes_dinner")
+    .lte("start_date", toDate)
+    .gte("end_date", fromDate);
+
+  return (data as ClosureRow[]) ?? [];
+}
+
+function findNextAvailableService(
+  now: Date,
   settings: DeliverySettingsRow,
-  isWeekend: boolean,
-): string {
-  if (nowHHmm < settings.service_lunch_start_time) {
-    return `Apriamo per il pranzo alle ${settings.service_lunch_start_time}. Riprova tra poco 🍱`;
+  closures: ClosureRow[],
+): ServiceContext | null {
+  for (let dayOffset = 0; dayOffset <= MAX_LOOKAHEAD_DAYS; dayOffset++) {
+    const dayDate = addDaysRome(now, dayOffset);
+    const dayDateStr = dateInRome(dayDate);
+    const weekday = weekdayInRome(dayDate);
+    const isWeekend = isWeekendRome(dayDate);
+
+    // Giorno chiuso (lunedì di default)
+    if (settings.closed_weekdays.includes(weekday)) continue;
+
+    const dayClosures = closures.filter(
+      (c) => c.start_date <= dayDateStr && c.end_date >= dayDateStr,
+    );
+    const lunchClosed = dayClosures.some((c) => c.closes_lunch);
+    const dinnerClosed = dayClosures.some((c) => c.closes_dinner);
+
+    const dinnerLastOrder = isWeekend
+      ? settings.service_dinner_weekend_last_order_time
+      : settings.service_dinner_last_order_time;
+    const dinnerLastDelivery = isWeekend
+      ? settings.service_dinner_weekend_last_delivery_time
+      : settings.service_dinner_last_delivery_time;
+
+    // Solo per "oggi" (dayOffset=0) controlliamo se siamo già dentro un servizio
+    const isToday = dayOffset === 0;
+    const nowHHmm = isToday ? timeOfDayRome(now) : "00:00";
+
+    // Lunch
+    if (!lunchClosed) {
+      const lunchEnd = settings.service_lunch_last_order_time;
+      if (isToday) {
+        if (
+          isTimeBefore(nowHHmm, lunchEnd) ||
+          nowHHmm === settings.service_lunch_start_time
+        ) {
+          // Dentro al lunch o prima del lunch oggi
+          const startsAt = isTimeBefore(nowHHmm, settings.service_lunch_start_time)
+            ? romeAtTimeOfDay(dayDate, settings.service_lunch_start_time, 0)
+            : now;
+          return {
+            service: "lunch",
+            startsAt,
+            lastOrderTime: settings.service_lunch_last_order_time,
+            lastDeliveryTime: settings.service_lunch_last_delivery_time,
+            isPreorder: startsAt.getTime() > now.getTime(),
+            dateRome: dayDateStr,
+          };
+        }
+      } else {
+        return {
+          service: "lunch",
+          startsAt: romeAtTimeOfDay(dayDate, settings.service_lunch_start_time, 0),
+          lastOrderTime: settings.service_lunch_last_order_time,
+          lastDeliveryTime: settings.service_lunch_last_delivery_time,
+          isPreorder: true,
+          dateRome: dayDateStr,
+        };
+      }
+    }
+
+    // Dinner
+    if (!dinnerClosed) {
+      if (isToday) {
+        if (
+          isTimeBefore(nowHHmm, dinnerLastOrder) ||
+          nowHHmm === settings.service_dinner_start_time
+        ) {
+          const startsAt = isTimeBefore(nowHHmm, settings.service_dinner_start_time)
+            ? romeAtTimeOfDay(dayDate, settings.service_dinner_start_time, 0)
+            : now;
+          return {
+            service: "dinner",
+            startsAt,
+            lastOrderTime: dinnerLastOrder,
+            lastDeliveryTime: dinnerLastDelivery,
+            isPreorder: startsAt.getTime() > now.getTime(),
+            dateRome: dayDateStr,
+          };
+        }
+      } else {
+        return {
+          service: "dinner",
+          startsAt: romeAtTimeOfDay(dayDate, settings.service_dinner_start_time, 0),
+          lastOrderTime: dinnerLastOrder,
+          lastDeliveryTime: dinnerLastDelivery,
+          isPreorder: true,
+          dateRome: dayDateStr,
+        };
+      }
+    }
   }
-  if (nowHHmm < settings.service_dinner_start_time) {
-    return `Pranzo chiuso. Riapriamo per la cena alle ${settings.service_dinner_start_time}. Ti aspettiamo!`;
-  }
-  const dinnerEnd = isWeekend
-    ? settings.service_dinner_weekend_last_order_time
-    : settings.service_dinner_last_order_time;
-  return `Ordini chiusi per oggi (ultimo ordine alle ${dinnerEnd}). Ti aspettiamo domani 🍣`;
+
+  return null;
+}
+
+function addDaysRome(d: Date, days: number): Date {
+  // Aggiungere giorni in UTC è safe rispetto al DST
+  return new Date(d.getTime() + days * 86400_000);
 }
