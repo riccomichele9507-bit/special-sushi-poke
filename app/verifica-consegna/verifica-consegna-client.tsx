@@ -61,6 +61,7 @@ export function VerificaConsegnaClient() {
         formattedAddress={formattedAddress}
         cartCents={cartCents}
         orderType="delivery"
+        onSlotChange={() => {}}
       />
 
       {/* Box informativo regole */}

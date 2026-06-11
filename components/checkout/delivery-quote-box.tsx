@@ -5,7 +5,9 @@ import { Clock, CheckCircle2, XCircle, Truck, MapPin } from "lucide-react";
 import {
   getDeliveryQuote,
   type DeliveryQuoteResult,
+  type SlotOption,
 } from "@/app/actions/delivery-quote";
+import { cn } from "@/lib/utils";
 
 interface Props {
   /** Coords selezionate (da autocomplete). null = nessun indirizzo confermato. */
@@ -16,30 +18,32 @@ interface Props {
   cartCents: number;
   /** Tipo ordine. */
   orderType: "delivery" | "pickup";
-  /** Callback quando lo slot cambia (per salvare ISO nel form). */
-  onQuoteChange?: (quote: DeliveryQuoteResult | null) => void;
+  /** Callback quando lo slot selezionato cambia (per salvare ISO nel form). */
+  onSlotChange?: (slot: SlotOption | null, quote: DeliveryQuoteResult | null) => void;
 }
 
-const REFRESH_INTERVAL_MS = 60_000; // 60s
+const REFRESH_INTERVAL_MS = 60_000;
 
 export function DeliveryQuoteBox({
   coords,
   formattedAddress,
   cartCents,
   orderType,
-  onQuoteChange,
+  onSlotChange,
 }: Props) {
   const [quote, setQuote] = useState<DeliveryQuoteResult | null>(null);
+  const [selectedIso, setSelectedIso] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  // Determina se è il momento di chiamare (delivery richiede coords, pickup no)
-  const shouldFetch = orderType === "pickup" || (orderType === "delivery" && !!coords);
+  const shouldFetch =
+    orderType === "pickup" || (orderType === "delivery" && !!coords);
 
-  // Fetch iniziale + ogni volta che cambiano gli input
+  // Fetch al cambio input
   useEffect(() => {
     if (!shouldFetch) {
       setQuote(null);
-      onQuoteChange?.(null);
+      setSelectedIso(null);
+      onSlotChange?.(null, null);
       return;
     }
     startTransition(async () => {
@@ -50,19 +54,19 @@ export function DeliveryQuoteBox({
         orderType,
       });
       setQuote(r);
-      onQuoteChange?.(r);
+      if (r.ok && r.slots && r.slots.length > 0) {
+        const defaultSlot = r.slots[r.defaultSlotIndex ?? 0];
+        setSelectedIso(defaultSlot.endIso);
+        onSlotChange?.(defaultSlot, r);
+      } else {
+        setSelectedIso(null);
+        onSlotChange?.(null, r);
+      }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    shouldFetch,
-    coords?.lat,
-    coords?.lng,
-    cartCents,
-    orderType,
-    formattedAddress,
-  ]);
+  }, [shouldFetch, coords?.lat, coords?.lng, cartCents, orderType, formattedAddress]);
 
-  // Refresh periodico per aggiornare lo slot in base all'ora corrente
+  // Refresh periodico
   useEffect(() => {
     if (!shouldFetch || !quote?.ok) return;
     const id = setInterval(() => {
@@ -74,12 +78,24 @@ export function DeliveryQuoteBox({
           orderType,
         });
         setQuote(r);
-        onQuoteChange?.(r);
+        if (r.ok && r.slots && r.slots.length > 0) {
+          // Se lo slot selezionato è ancora nella lista nuova → mantienilo.
+          // Altrimenti reset al default (prima disponibile).
+          const stillAvailable = r.slots.find((s) => s.endIso === selectedIso);
+          const chosen = stillAvailable ?? r.slots[r.defaultSlotIndex ?? 0];
+          setSelectedIso(chosen.endIso);
+          onSlotChange?.(chosen, r);
+        }
       });
     }, REFRESH_INTERVAL_MS);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shouldFetch, quote?.ok, coords?.lat, coords?.lng, cartCents, orderType]);
+  }, [shouldFetch, quote?.ok, coords?.lat, coords?.lng, cartCents, orderType, selectedIso]);
+
+  function handleSelect(slot: SlotOption) {
+    setSelectedIso(slot.endIso);
+    onSlotChange?.(slot, quote);
+  }
 
   // Stato 1: nessuna richiesta ancora (delivery senza coords)
   if (!shouldFetch) {
@@ -87,7 +103,7 @@ export function DeliveryQuoteBox({
       <div className="rounded-2xl border border-dashed border-border bg-paper-warm/30 p-4 text-center">
         <MapPin className="mx-auto mb-1 h-5 w-5 text-warm-gray/60" />
         <p className="text-sm text-warm-gray">
-          Inserisci l&apos;indirizzo per calcolare lo slot di consegna.
+          Inserisci l&apos;indirizzo per vedere gli orari di consegna disponibili.
         </p>
       </div>
     );
@@ -110,7 +126,9 @@ export function DeliveryQuoteBox({
         <div className="flex items-center gap-2">
           <XCircle className="h-5 w-5 text-sushi-red" />
           <p className="font-semibold text-sushi-red">
-            {orderType === "delivery" ? "Consegna non possibile" : "Ritiro non disponibile"}
+            {orderType === "delivery"
+              ? "Consegna non possibile"
+              : "Ritiro non disponibile"}
           </p>
         </div>
         <p className="text-sm text-ink">{quote.errorMessage}</p>
@@ -124,8 +142,8 @@ export function DeliveryQuoteBox({
     );
   }
 
-  // Stato 4: success
-  if (quote && quote.ok) {
+  // Stato 4: success con slot picker
+  if (quote && quote.ok && quote.slots && quote.slots.length > 0) {
     return (
       <div className="rounded-2xl border border-bamboo/40 bg-bamboo/5 p-4 space-y-3 relative">
         {pending && (
@@ -138,7 +156,7 @@ export function DeliveryQuoteBox({
           <p className="font-semibold text-bamboo">
             {orderType === "delivery"
               ? "Consegniamo nella tua zona"
-              : "Pronto al ritiro"}
+              : "Ritiro disponibile"}
           </p>
         </div>
 
@@ -148,27 +166,6 @@ export function DeliveryQuoteBox({
             <span>{quote.formattedAddress}</span>
           </p>
         )}
-
-        <div className="border-t border-bamboo/20 pt-3">
-          <p className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-warm-gray">
-            <Clock className="h-3 w-3" />
-            {orderType === "delivery" ? "Consegna stimata" : "Pronto al ritiro"}
-            {quote.isPreorder && (
-              <span className="ml-1.5 rounded-full bg-bamboo/15 px-1.5 py-0.5 text-[9px] font-semibold tracking-wide text-bamboo-deep">
-                Pre-ordine
-              </span>
-            )}
-          </p>
-          <p className="mt-1 text-2xl font-bold text-ink">
-            {quote.dayLabel && quote.dayLabel !== "oggi" && (
-              <span className="block text-sm font-medium uppercase tracking-wider text-bamboo">
-                {quote.dayLabel}
-              </span>
-            )}
-            Tra le <span className="text-bamboo">{quote.slotStart}</span> e le{" "}
-            <span className="text-bamboo">{quote.slotEnd}</span>
-          </p>
-        </div>
 
         {orderType === "delivery" && (
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-warm-gray">
@@ -181,11 +178,65 @@ export function DeliveryQuoteBox({
                 ? "Consegna gratuita"
                 : `Minimo €${((quote.minCartCents ?? 0) / 100).toFixed(0)}`}
             </span>
-            <span>
-              servizio {quote.service === "lunch" ? "pranzo" : "cena"}
-            </span>
+            <span>servizio {quote.service === "lunch" ? "pranzo" : "cena"}</span>
           </div>
         )}
+
+        <div className="border-t border-bamboo/20 pt-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-warm-gray">
+              <Clock className="h-3 w-3" />
+              {orderType === "delivery"
+                ? "Scegli quando ricevere"
+                : "Scegli quando ritirare"}
+            </p>
+            {quote.dayLabel && quote.dayLabel !== "oggi" && (
+              <span className="rounded-full bg-bamboo/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-bamboo-deep">
+                {quote.dayLabel}
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {quote.slots.map((slot, idx) => {
+              const isSelected = slot.endIso === selectedIso;
+              const isFirst = idx === (quote.defaultSlotIndex ?? 0);
+              return (
+                <button
+                  key={slot.endIso}
+                  type="button"
+                  onClick={() => handleSelect(slot)}
+                  aria-pressed={isSelected}
+                  className={cn(
+                    "relative rounded-xl border px-2 py-2.5 text-center text-sm transition",
+                    isSelected
+                      ? "border-bamboo bg-bamboo text-paper shadow-[0_2px_8px_-2px_rgba(90,122,100,0.4)]"
+                      : "border-border bg-paper hover:border-bamboo/60 hover:bg-bamboo/5",
+                  )}
+                >
+                  <div className={cn("font-semibold tabular-nums", isSelected ? "text-paper" : "text-ink")}>
+                    {slot.startHHmm} – {slot.endHHmm}
+                  </div>
+                  {isFirst && (
+                    <div
+                      className={cn(
+                        "text-[9px] uppercase tracking-wider mt-0.5",
+                        isSelected ? "text-paper/80" : "text-bamboo",
+                      )}
+                    >
+                      Il prima possibile
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <p className="text-[11px] text-warm-gray">
+            {quote.slots.length} {quote.slots.length === 1 ? "fascia" : "fasce"} disponibili
+            {quote.isPreorder && " — pre-ordine"}
+          </p>
+        </div>
       </div>
     );
   }

@@ -5,6 +5,7 @@
 import "server-only";
 import { computeEta, computePickupEta } from "./eta";
 import { computeSlot, shiftSlotForward, type SlotResult } from "./slot";
+// shiftSlotForward usata per generare la lista di slot consecutivi
 import {
   weekdayInRome,
   timeOfDayRome,
@@ -38,9 +39,12 @@ export type ValidationSuccess = {
   freeDelivery: boolean;
   minCartCents: number;
   etaMinutes: number;
-  slot: SlotResult;
+  /** Lista degli slot disponibili nel servizio corrente/prossimo. Almeno 1. */
+  slots: SlotResult[];
+  /** Indice slot di default (sempre 0 = il prima disponibile) */
+  defaultSlotIndex: number;
   service: "lunch" | "dinner";
-  /** True se lo slot è oltre il "ora corrente + ETA" → pre-ordine */
+  /** True se il primo slot è in un servizio futuro (pre-ordine) */
   isPreorder: boolean;
 };
 
@@ -217,29 +221,27 @@ export async function validateDelivery(
           baselinePickupMin: settings.baseline_pickup_min,
         });
 
-  // CHECK #6 + #7: slot + capacità con auto-shift
+  // CHECK #6 + #7: costruisci la LISTA degli slot disponibili nel servizio
+  const slots: SlotResult[] = [];
   let slot = computeSlot(eta.t1, settings.slot_duration_minutes);
-  const MAX_SHIFTS = 20;
-  let shifts = 0;
+  const MAX_CANDIDATES = 20;
 
-  while (shifts < MAX_SHIFTS) {
+  for (let i = 0; i < MAX_CANDIDATES; i++) {
     const slotEndHHmm = timeOfDayRome(slot.end);
     const slotEndDateRome = dateInRome(slot.end);
     const slotEndOnDifferentDay = slotEndDateRome !== serviceCtx.dateRome;
 
-    // Slot oltre l'orario di chiusura del servizio?
-    if (slotEndOnDifferentDay && serviceCtx.lastDeliveryTime !== "00:00") {
-      return slotOutsideWindow(eta.minutes, serviceCtx.lastDeliveryTime);
-    }
+    // Slot oltre la chiusura del servizio? Stop la generazione.
+    if (slotEndOnDifferentDay && serviceCtx.lastDeliveryTime !== "00:00") break;
     if (
       !slotEndOnDifferentDay &&
       !isTimeBefore(slotEndHHmm, serviceCtx.lastDeliveryTime) &&
       slotEndHHmm !== serviceCtx.lastDeliveryTime
     ) {
-      return slotOutsideWindow(eta.minutes, serviceCtx.lastDeliveryTime);
+      break;
     }
 
-    // Capacità
+    // Capacità: se pieno, salta (no auto-shift, no include in lista)
     const { count: usedCount } = await sb
       .from("orders")
       .select("id", { count: "exact", head: true })
@@ -248,38 +250,31 @@ export async function validateDelivery(
       .not("status", "in", "(delivered,cancelled,refunded)");
 
     if ((usedCount ?? 0) < settings.max_orders_per_slot) {
-      return {
-        ok: true,
-        distanceKm,
-        freeDelivery,
-        minCartCents,
-        etaMinutes: eta.minutes,
-        slot,
-        service: serviceCtx.service,
-        isPreorder: serviceCtx.isPreorder,
-      };
+      slots.push(slot);
     }
 
     slot = shiftSlotForward(slot, settings.slot_duration_minutes);
-    shifts++;
+  }
+
+  if (slots.length === 0) {
+    return {
+      ok: false,
+      code: "all_slots_full",
+      message:
+        "Tutti gli slot di questo servizio sono al completo. Riprova tra qualche ora 🍣",
+    };
   }
 
   return {
-    ok: false,
-    code: "all_slots_full",
-    message: "Siamo al completo per questo slot. Riprova tra qualche ora 🍣",
-  };
-}
-
-function slotOutsideWindow(
-  etaMinutes: number,
-  lastDeliveryTime: string,
-): ValidationError {
-  return {
-    ok: false,
-    code: "after_last_order",
-    message: `Per la tua zona ci servirebbero ~${etaMinutes} min e chiudiamo le consegne alle ${lastDeliveryTime}. Ti aspettiamo nel prossimo servizio.`,
-    details: { etaMinutes, lastDeliveryTime },
+    ok: true,
+    distanceKm,
+    freeDelivery,
+    minCartCents,
+    etaMinutes: eta.minutes,
+    slots,
+    defaultSlotIndex: 0,
+    service: serviceCtx.service,
+    isPreorder: serviceCtx.isPreorder,
   };
 }
 

@@ -4,6 +4,13 @@ import { geocodeAddress } from "@/lib/geocoding";
 import { validateDelivery } from "@/lib/delivery/validate";
 import { formatRomeHHmm, relativeDayLabel } from "@/lib/delivery/time";
 
+export interface SlotOption {
+  startIso: string;
+  endIso: string;
+  startHHmm: string; // "20:00"
+  endHHmm: string; // "20:30"
+}
+
 export interface DeliveryQuoteResult {
   ok: boolean;
   // Success fields:
@@ -11,15 +18,11 @@ export interface DeliveryQuoteResult {
   freeDelivery?: boolean;
   minCartCents?: number;
   etaMinutes?: number;
-  slotStart?: string; // HH:mm Roma
-  slotEnd?: string; // HH:mm Roma
-  slotStartIso?: string;
-  slotEndIso?: string;
+  slots?: SlotOption[];
+  defaultSlotIndex?: number;
   formattedAddress?: string;
   service?: "lunch" | "dinner";
-  /** "oggi", "domani" o "lun 15 giu" — per display UI */
   dayLabel?: string;
-  /** True se slot in un futuro servizio (pre-order) */
   isPreorder?: boolean;
   // Error fields:
   errorCode?: string;
@@ -37,17 +40,11 @@ export interface DeliveryQuoteInput {
   orderType?: "delivery" | "pickup";
 }
 
-/**
- * Server action per ottenere il quote consegna live.
- * Path veloce: passa `coords` (da autocomplete) → niente geocoding.
- * Path legacy: passa `address` → geocoding via Google/Nominatim.
- */
 export async function getDeliveryQuote(
   input: DeliveryQuoteInput,
 ): Promise<DeliveryQuoteResult> {
   const orderType = input.orderType ?? "delivery";
 
-  // Pickup non richiede indirizzo
   if (orderType === "pickup") {
     const result = await validateDelivery({
       orderType: "pickup",
@@ -59,28 +56,23 @@ export async function getDeliveryQuote(
     return {
       ok: true,
       etaMinutes: result.etaMinutes,
-      slotStart: formatRomeHHmm(result.slot.start),
-      slotEnd: formatRomeHHmm(result.slot.end),
-      slotStartIso: result.slot.start.toISOString(),
-      slotEndIso: result.slot.end.toISOString(),
+      slots: result.slots.map(toSlotOption),
+      defaultSlotIndex: result.defaultSlotIndex,
       service: result.service,
       freeDelivery: true,
       distanceKm: 0,
-      dayLabel: relativeDayLabel(result.slot.start),
+      dayLabel: relativeDayLabel(result.slots[0].start),
       isPreorder: result.isPreorder,
     };
   }
 
-  // Delivery: due path possibili — coords diretti o address da geocodificare
   let coords: { lat: number; lng: number };
   let formattedAddress: string;
 
   if (input.coords) {
-    // Path veloce: autocomplete ha già fornito coords + formatted address
     coords = input.coords;
     formattedAddress = input.formattedAddress ?? "";
   } else {
-    // Path legacy: geocodifica da testo
     if (!input.address || input.address.trim().length < 5) {
       return {
         ok: false,
@@ -135,13 +127,20 @@ export async function getDeliveryQuote(
     freeDelivery: result.freeDelivery,
     minCartCents: result.minCartCents,
     etaMinutes: result.etaMinutes,
-    slotStart: formatRomeHHmm(result.slot.start),
-    slotEnd: formatRomeHHmm(result.slot.end),
-    slotStartIso: result.slot.start.toISOString(),
-    slotEndIso: result.slot.end.toISOString(),
+    slots: result.slots.map(toSlotOption),
+    defaultSlotIndex: result.defaultSlotIndex,
     formattedAddress,
     service: result.service,
-    dayLabel: relativeDayLabel(result.slot.start),
+    dayLabel: relativeDayLabel(result.slots[0].start),
     isPreorder: result.isPreorder,
+  };
+}
+
+function toSlotOption(slot: { start: Date; end: Date }): SlotOption {
+  return {
+    startIso: slot.start.toISOString(),
+    endIso: slot.end.toISOString(),
+    startHHmm: formatRomeHHmm(slot.start),
+    endHHmm: formatRomeHHmm(slot.end),
   };
 }

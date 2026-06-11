@@ -24,7 +24,7 @@ import {
   type AddressSelection,
 } from "./google-address-autocomplete";
 import { DeliveryQuoteBox } from "./delivery-quote-box";
-import type { DeliveryQuoteResult } from "@/app/actions/delivery-quote";
+import type { DeliveryQuoteResult, SlotOption } from "@/app/actions/delivery-quote";
 
 const INPUT_CLASSES =
   "h-12 rounded-xl border-border bg-paper-warm/40 px-4 text-base text-ink placeholder:text-warm-gray/70 focus-visible:border-bamboo/60 focus-visible:ring-bamboo/20 focus-visible:bg-paper";
@@ -83,16 +83,20 @@ export function CheckoutForm() {
     }
   }
 
-  function handleQuoteChange(q: DeliveryQuoteResult | null) {
+  function handleSlotChange(slot: SlotOption | null, q: DeliveryQuoteResult | null) {
     setQuote(q);
-    if (q?.ok && q.slotStartIso && q.slotEndIso) {
-      setValue("slotStartIso", q.slotStartIso, { shouldValidate: true });
-      setValue("slotEndIso", q.slotEndIso, { shouldValidate: true });
+    if (slot) {
+      setValue("slotStartIso", slot.startIso, { shouldValidate: true });
+      setValue("slotEndIso", slot.endIso, { shouldValidate: true });
     } else {
       setValue("slotStartIso", "", { shouldValidate: false });
       setValue("slotEndIso", "", { shouldValidate: false });
     }
   }
+
+  // Slot selezionato corrente per le label CTA
+  const selectedSlotEndIso = watch("slotEndIso");
+  const selectedSlot = quote?.slots?.find((s) => s.endIso === selectedSlotEndIso);
 
   async function onSubmit(data: CheckoutInput) {
     // Doppio check: il submit non parte se il quote non è OK
@@ -103,12 +107,15 @@ export function CheckoutForm() {
 
     await new Promise((r) => setTimeout(r, 400));
 
+    const slotLabel = selectedSlot
+      ? `${selectedSlot.startHHmm} – ${selectedSlot.endHHmm}`
+      : "";
+
     if (data.paymentMethod === "card") {
       const params = new URLSearchParams({
         type: data.orderType,
         name: data.name,
-        slotStart: quote.slotStart ?? "",
-        slotEnd: quote.slotEnd ?? "",
+        slot: slotLabel,
       });
       router.push(`/checkout/payment?${params.toString()}`);
       return;
@@ -118,14 +125,15 @@ export function CheckoutForm() {
     toast.success("Ordine ricevuto", {
       description:
         data.orderType === "delivery"
-          ? `Consegna tra le ${quote.slotStart} e le ${quote.slotEnd}. Ti chiamiamo a breve per conferma.`
-          : `Pronto al ritiro tra le ${quote.slotStart} e le ${quote.slotEnd}.`,
+          ? `Consegna tra le ${selectedSlot?.startHHmm} e le ${selectedSlot?.endHHmm}. Ti chiamiamo a breve per conferma.`
+          : `Pronto al ritiro tra le ${selectedSlot?.startHHmm} e le ${selectedSlot?.endHHmm}.`,
     });
     router.push("/checkout/success");
   }
 
   const cartEmpty = hydrated && count === 0;
-  const cannotSubmit = cartEmpty || isSubmitting || !quote?.ok;
+  const cannotSubmit =
+    cartEmpty || isSubmitting || !quote?.ok || !selectedSlot;
 
   return (
     <form
@@ -193,7 +201,7 @@ export function CheckoutForm() {
         formattedAddress={formattedAddress}
         cartCents={cartCents}
         orderType={orderType}
-        onQuoteChange={handleQuoteChange}
+        onSlotChange={handleSlotChange}
       />
 
       <div className="space-y-2">
@@ -294,13 +302,13 @@ export function CheckoutForm() {
           ? "Invio in corso…"
           : cartEmpty
             ? "Il carrello è vuoto"
-            : !quote?.ok
+            : !quote?.ok || !selectedSlot
               ? isDelivery && !coords
                 ? "Inserisci l'indirizzo per procedere"
-                : "Conferma indirizzo / orario"
+                : "Scegli un orario di consegna"
               : paymentMethod === "card"
-                ? `Vai al pagamento · tra le ${quote.slotStart} e le ${quote.slotEnd}`
-                : `Conferma · tra le ${quote.slotStart} e le ${quote.slotEnd}`}
+                ? `Vai al pagamento · ${selectedSlot.startHHmm}–${selectedSlot.endHHmm}`
+                : `Conferma · ${selectedSlot.startHHmm}–${selectedSlot.endHHmm}`}
         {!isSubmitting && !cannotSubmit && (
           <ArrowRight
             className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
