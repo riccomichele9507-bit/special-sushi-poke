@@ -12,8 +12,10 @@ const baseFields = {
     .min(8, "Numero non valido")
     .regex(italianPhoneRegex, "Inserisci un numero italiano valido (es. 333 1234567)"),
   email: z.string().email("Inserisci un'email valida"),
-  deliveryTime: z.string().min(1, "Scegli un orario"),
   paymentMethod: z.enum(["cash", "card"]),
+  // Slot calcolato server-side, salvato come ISO 8601 (UTC)
+  slotStartIso: z.string().datetime({ message: "Slot non confermato" }),
+  slotEndIso: z.string().datetime({ message: "Slot non confermato" }),
 };
 
 export const checkoutSchema = z.discriminatedUnion("orderType", [
@@ -22,16 +24,15 @@ export const checkoutSchema = z.discriminatedUnion("orderType", [
     ...baseFields,
     addressLine: z
       .string()
-      .min(5, "Inserisci un indirizzo valido (via, civico, città)")
-      .max(140, "Indirizzo troppo lungo"),
+      .min(5, "Conferma un indirizzo dal menu suggerimenti")
+      .max(180, "Indirizzo troppo lungo"),
     addressNotes: z.string().max(80, "Massimo 80 caratteri").optional(),
     driverNotes: z.string().max(200, "Massimo 200 caratteri").optional(),
-    geo: z
-      .object({
-        lat: z.number(),
-        lng: z.number(),
-      })
-      .optional(),
+    // Geo richiesto per delivery: viene da Google Places Autocomplete
+    geo: z.object({
+      lat: z.number(),
+      lng: z.number(),
+    }),
   }),
   z.object({
     orderType: z.literal("pickup"),

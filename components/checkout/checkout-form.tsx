@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -10,11 +11,20 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { checkoutSchema, type CheckoutInput } from "@/lib/validations";
-import { useCartStore, useCartCount, useCartHydrated } from "@/store/cart-store";
-import { PickupTimeSelect } from "./pickup-time-select";
+import {
+  useCartStore,
+  useCartCount,
+  useCartHydrated,
+  useCartTotal,
+} from "@/store/cart-store";
 import { OrderTypeToggle } from "./order-type-toggle";
-import { DeliveryAddressInput } from "./delivery-address-input";
 import { PaymentMethodRadio } from "./payment-method-radio";
+import {
+  GoogleAddressAutocomplete,
+  type AddressSelection,
+} from "./google-address-autocomplete";
+import { DeliveryQuoteBox } from "./delivery-quote-box";
+import type { DeliveryQuoteResult } from "@/app/actions/delivery-quote";
 
 const INPUT_CLASSES =
   "h-12 rounded-xl border-border bg-paper-warm/40 px-4 text-base text-ink placeholder:text-warm-gray/70 focus-visible:border-bamboo/60 focus-visible:ring-bamboo/20 focus-visible:bg-paper";
@@ -26,6 +36,12 @@ export function CheckoutForm() {
   const clear = useCartStore((s) => s.clear);
   const count = useCartCount();
   const hydrated = useCartHydrated();
+  const cartCents = useCartTotal();
+
+  // Stato slot/coords sincronizzato col DeliveryQuoteBox
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [formattedAddress, setFormattedAddress] = useState<string>("");
+  const [quote, setQuote] = useState<DeliveryQuoteResult | null>(null);
 
   const {
     register,
@@ -43,24 +59,56 @@ export function CheckoutForm() {
       email: "",
       addressLine: "",
       addressNotes: "",
-      deliveryTime: "",
       driverNotes: "",
       paymentMethod: "cash",
+      slotStartIso: "",
+      slotEndIso: "",
     } as CheckoutInput,
   });
 
   const orderType = watch("orderType");
   const paymentMethod = watch("paymentMethod");
+  const addressLine = watch("addressLine");
   const isDelivery = orderType === "delivery";
 
+  function handleAddressSelect(selection: AddressSelection | null) {
+    if (selection) {
+      setCoords({ lat: selection.lat, lng: selection.lng });
+      setFormattedAddress(selection.address);
+      setValue("geo", { lat: selection.lat, lng: selection.lng }, { shouldValidate: true });
+    } else {
+      setCoords(null);
+      setFormattedAddress("");
+      setValue("geo", undefined as never, { shouldValidate: true });
+    }
+  }
+
+  function handleQuoteChange(q: DeliveryQuoteResult | null) {
+    setQuote(q);
+    if (q?.ok && q.slotStartIso && q.slotEndIso) {
+      setValue("slotStartIso", q.slotStartIso, { shouldValidate: true });
+      setValue("slotEndIso", q.slotEndIso, { shouldValidate: true });
+    } else {
+      setValue("slotStartIso", "", { shouldValidate: false });
+      setValue("slotEndIso", "", { shouldValidate: false });
+    }
+  }
+
   async function onSubmit(data: CheckoutInput) {
-    await new Promise((r) => setTimeout(r, 500));
+    // Doppio check: il submit non parte se il quote non è OK
+    if (!quote?.ok) {
+      toast.error("Slot di consegna non confermato. Aggiorna l'indirizzo.");
+      return;
+    }
+
+    await new Promise((r) => setTimeout(r, 400));
 
     if (data.paymentMethod === "card") {
       const params = new URLSearchParams({
         type: data.orderType,
         name: data.name,
-        time: data.deliveryTime,
+        slotStart: quote.slotStart ?? "",
+        slotEnd: quote.slotEnd ?? "",
       });
       router.push(`/checkout/payment?${params.toString()}`);
       return;
@@ -70,13 +118,14 @@ export function CheckoutForm() {
     toast.success("Ordine ricevuto", {
       description:
         data.orderType === "delivery"
-          ? "Ti chiamiamo a breve per confermare la consegna."
-          : "Ti chiamiamo a breve per confermare il ritiro.",
+          ? `Consegna tra le ${quote.slotStart} e le ${quote.slotEnd}. Ti chiamiamo a breve per conferma.`
+          : `Pronto al ritiro tra le ${quote.slotStart} e le ${quote.slotEnd}.`,
     });
     router.push("/checkout/success");
   }
 
-  const disabledSubmit = hydrated && count === 0;
+  const cartEmpty = hydrated && count === 0;
+  const cannotSubmit = cartEmpty || isSubmitting || !quote?.ok;
 
   return (
     <form
@@ -88,8 +137,63 @@ export function CheckoutForm() {
         control={control}
         name="orderType"
         render={({ field }) => (
-          <OrderTypeToggle value={field.value} onValueChange={field.onChange} />
+          <OrderTypeToggle
+            value={field.value}
+            onValueChange={(v) => {
+              field.onChange(v);
+              // Reset coords se passa a pickup
+              if (v === "pickup") {
+                setCoords(null);
+                setFormattedAddress("");
+                setValue("addressLine", "");
+                setValue("geo", undefined as never);
+              }
+            }}
+          />
         )}
+      />
+
+      {isDelivery && (
+        <>
+          <Controller
+            control={control}
+            name="addressLine"
+            render={({ field }) => (
+              <GoogleAddressAutocomplete
+                id="addressLine"
+                value={field.value ?? ""}
+                onValueChange={field.onChange}
+                onSelect={handleAddressSelect}
+                hasError={!!errors.addressLine}
+                errorMessage={errors.addressLine?.message}
+              />
+            )}
+          />
+
+          <div className="space-y-2">
+            <Label htmlFor="addressNotes" className={LABEL_CLASSES}>
+              Dettagli interno / piano
+              <span className="ml-1 normal-case tracking-normal text-warm-gray/60">
+                — opzionale
+              </span>
+            </Label>
+            <Input
+              id="addressNotes"
+              {...register("addressNotes")}
+              placeholder="Interno 3, scala B, citofono Rossi"
+              className={INPUT_CLASSES}
+            />
+          </div>
+        </>
+      )}
+
+      {/* Box slot Glovo: sempre visibile, mostra placeholder se delivery senza coords */}
+      <DeliveryQuoteBox
+        coords={coords}
+        formattedAddress={formattedAddress}
+        cartCents={cartCents}
+        orderType={orderType}
+        onQuoteChange={handleQuoteChange}
       />
 
       <div className="space-y-2">
@@ -150,66 +254,12 @@ export function CheckoutForm() {
       </div>
 
       {isDelivery && (
-        <>
-          <Controller
-            control={control}
-            name="addressLine"
-            render={({ field }) => (
-              <DeliveryAddressInput
-                id="addressLine"
-                value={field.value ?? ""}
-                onValueChange={field.onChange}
-                onGeoChange={(geo) => setValue("geo", geo, { shouldValidate: false })}
-                hasError={!!errors.addressLine}
-                errorMessage={errors.addressLine?.message}
-              />
-            )}
-          />
-
-          <div className="space-y-2">
-            <Label htmlFor="addressNotes" className={LABEL_CLASSES}>
-              Dettagli indirizzo
-              <span className="ml-1 normal-case tracking-normal text-warm-gray/60">— opzionale</span>
-            </Label>
-            <Input
-              id="addressNotes"
-              {...register("addressNotes")}
-              placeholder="Interno 3, scala B, citofono Rossi"
-              className={INPUT_CLASSES}
-            />
-          </div>
-        </>
-      )}
-
-      <div className="space-y-2">
-        <Label htmlFor="deliveryTime" className={LABEL_CLASSES}>
-          {isDelivery ? "Orario di consegna" : "Orario di ritiro"}
-        </Label>
-        <Controller
-          control={control}
-          name="deliveryTime"
-          render={({ field }) => (
-            <PickupTimeSelect
-              id="deliveryTime"
-              value={field.value}
-              onValueChange={field.onChange}
-              hasError={!!errors.deliveryTime}
-              placeholder={
-                isDelivery ? "Quando vuoi ricevere l'ordine" : "Quando vieni a ritirare"
-              }
-            />
-          )}
-        />
-        {errors.deliveryTime && (
-          <p className="text-xs text-sushi-red">{errors.deliveryTime.message}</p>
-        )}
-      </div>
-
-      {isDelivery && (
         <div className="space-y-2">
           <Label htmlFor="driverNotes" className={LABEL_CLASSES}>
             Note per il rider
-            <span className="ml-1 normal-case tracking-normal text-warm-gray/60">— opzionale</span>
+            <span className="ml-1 normal-case tracking-normal text-warm-gray/60">
+              — opzionale
+            </span>
           </Label>
           <Textarea
             id="driverNotes"
@@ -225,9 +275,7 @@ export function CheckoutForm() {
       )}
 
       <div className="space-y-3 pt-2">
-        <p className={LABEL_CLASSES}>
-          Metodo di pagamento
-        </p>
+        <p className={LABEL_CLASSES}>Metodo di pagamento</p>
         <Controller
           control={control}
           name="paymentMethod"
@@ -239,24 +287,31 @@ export function CheckoutForm() {
 
       <button
         type="submit"
-        disabled={isSubmitting || disabledSubmit}
+        disabled={cannotSubmit}
         className="group mt-2 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-bamboo px-6 font-sans text-sm font-semibold text-paper shadow-[0_4px_18px_-6px_rgba(90,122,100,0.5)] transition hover:bg-bamboo-deep hover:shadow-[0_8px_28px_-6px_rgba(90,122,100,0.6)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:shadow-none"
       >
         {isSubmitting
-          ? "Invio in corso..."
-          : disabledSubmit
+          ? "Invio in corso…"
+          : cartEmpty
             ? "Il carrello è vuoto"
-            : paymentMethod === "card"
-              ? "Vai al pagamento"
-              : "Conferma ordine"}
-        {!isSubmitting && !disabledSubmit && (
-          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" strokeWidth={2} />
+            : !quote?.ok
+              ? isDelivery && !coords
+                ? "Inserisci l'indirizzo per procedere"
+                : "Conferma indirizzo / orario"
+              : paymentMethod === "card"
+                ? `Vai al pagamento · tra le ${quote.slotStart} e le ${quote.slotEnd}`
+                : `Conferma · tra le ${quote.slotStart} e le ${quote.slotEnd}`}
+        {!isSubmitting && !cannotSubmit && (
+          <ArrowRight
+            className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
+            strokeWidth={2}
+          />
         )}
       </button>
 
       <p className="text-center text-[11px] text-warm-gray">
         {paymentMethod === "card"
-          ? "Pagamento sicuro tramite Stripe (demo — nessun addebito reale)."
+          ? "Pagamento sicuro tramite Stripe."
           : isDelivery
             ? "Ti chiameremo entro 5 minuti per confermare la consegna. Paghi al rider."
             : "Ti chiameremo entro 5 minuti per confermare il ritiro. Paghi al banco."}

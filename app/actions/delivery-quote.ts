@@ -22,15 +22,25 @@ export interface DeliveryQuoteResult {
   errorMessage?: string;
 }
 
-/**
- * Server action chiamata dal client per ottenere il quote consegna live.
- * Usata sia dal widget "Verifica consegna" sia dal checkout.
- */
-export async function getDeliveryQuote(input: {
-  address: string;
+export interface DeliveryQuoteInput {
+  /** Indirizzo testuale (per /verifica-consegna). Ignorato se coords presenti. */
+  address?: string;
+  /** Coords già note (da autocomplete) → skip geocoding. */
+  coords?: { lat: number; lng: number };
+  /** Indirizzo formattato dall'autocomplete da mostrare al cliente. */
+  formattedAddress?: string;
   cartTotalCents: number;
   orderType?: "delivery" | "pickup";
-}): Promise<DeliveryQuoteResult> {
+}
+
+/**
+ * Server action per ottenere il quote consegna live.
+ * Path veloce: passa `coords` (da autocomplete) → niente geocoding.
+ * Path legacy: passa `address` → geocoding via Google/Nominatim.
+ */
+export async function getDeliveryQuote(
+  input: DeliveryQuoteInput,
+): Promise<DeliveryQuoteResult> {
   const orderType = input.orderType ?? "delivery";
 
   // Pickup non richiede indirizzo
@@ -55,40 +65,53 @@ export async function getDeliveryQuote(input: {
     };
   }
 
-  // Delivery: prima geocodifica indirizzo
-  if (!input.address || input.address.trim().length < 5) {
-    return {
-      ok: false,
-      errorCode: "no_coords",
-      errorMessage: "Inserisci un indirizzo completo (via, civico, città).",
-    };
-  }
+  // Delivery: due path possibili — coords diretti o address da geocodificare
+  let coords: { lat: number; lng: number };
+  let formattedAddress: string;
 
-  let geo;
-  try {
-    geo = await geocodeAddress(input.address);
-  } catch (e) {
-    console.error("geocode error", e);
-    return {
-      ok: false,
-      errorCode: "system",
-      errorMessage: "Servizio mappe momentaneamente non disponibile. Riprova tra poco.",
-    };
-  }
+  if (input.coords) {
+    // Path veloce: autocomplete ha già fornito coords + formatted address
+    coords = input.coords;
+    formattedAddress = input.formattedAddress ?? "";
+  } else {
+    // Path legacy: geocodifica da testo
+    if (!input.address || input.address.trim().length < 5) {
+      return {
+        ok: false,
+        errorCode: "no_coords",
+        errorMessage: "Inserisci un indirizzo completo (via, civico, città).",
+      };
+    }
 
-  if (!geo) {
-    return {
-      ok: false,
-      errorCode: "no_coords",
-      errorMessage:
-        "Indirizzo non trovato. Riprova con un indirizzo più specifico (es. 'Via Sparano 10, Bari').",
-    };
+    let geo;
+    try {
+      geo = await geocodeAddress(input.address);
+    } catch (e) {
+      console.error("geocode error", e);
+      return {
+        ok: false,
+        errorCode: "system",
+        errorMessage:
+          "Servizio mappe momentaneamente non disponibile. Riprova tra poco.",
+      };
+    }
+
+    if (!geo) {
+      return {
+        ok: false,
+        errorCode: "no_coords",
+        errorMessage:
+          "Indirizzo non trovato. Riprova con un indirizzo più specifico (es. 'Via Sparano 10, Bari').",
+      };
+    }
+    coords = { lat: geo.lat, lng: geo.lng };
+    formattedAddress = geo.displayName;
   }
 
   const result = await validateDelivery({
     orderType: "delivery",
     cartTotalCents: input.cartTotalCents,
-    customerCoords: { lat: geo.lat, lng: geo.lng },
+    customerCoords: coords,
   });
 
   if (!result.ok) {
@@ -96,7 +119,7 @@ export async function getDeliveryQuote(input: {
       ok: false,
       errorCode: result.code,
       errorMessage: result.message,
-      formattedAddress: geo.displayName,
+      formattedAddress,
     };
   }
 
@@ -110,7 +133,7 @@ export async function getDeliveryQuote(input: {
     slotEnd: formatRomeHHmm(result.slot.end),
     slotStartIso: result.slot.start.toISOString(),
     slotEndIso: result.slot.end.toISOString(),
-    formattedAddress: geo.displayName,
+    formattedAddress,
     service: result.service,
   };
 }
