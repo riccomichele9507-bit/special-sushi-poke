@@ -129,7 +129,7 @@ export function Hero() {
             className="max-w-lg font-heading text-xl sm:text-2xl font-normal italic text-white/75 leading-snug will-change-transform"
           >
             Ingredienti freschi, tecnica giapponese,<br className="hidden sm:block" />
-            consegna o asporto in 30 minuti a Bari.
+            consegna gratuita o asporto a Bari.
           </p>
 
           <div ref={ctasRef} className="mt-2 flex flex-wrap items-center gap-3 will-change-transform">

@@ -189,6 +189,14 @@ export function DishDetailDrawer() {
               <p className="mt-2 font-sans text-sm leading-relaxed text-warm-gray">
                 {dish.description}
               </p>
+              {dish.ingredients.length > 0 && (
+                <p className="mt-2 font-sans text-xs text-warm-gray">
+                  <span className="font-semibold uppercase tracking-wider text-ink/70">
+                    Ingredienti:
+                  </span>{" "}
+                  {dish.ingredients.join(", ")}
+                </p>
+              )}
             </div>
 
             <div className="flex items-end justify-between gap-3">

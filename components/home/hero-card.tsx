@@ -50,7 +50,7 @@ export function HeroCard() {
           </span>
           <span className="inline-flex items-center gap-1.5 rounded-full bg-paper/95 px-2.5 py-1 text-[11px] font-semibold text-ink ring-1 ring-border">
             <Clock className="h-3 w-3 text-bamboo" strokeWidth={2.5} />
-            Consegna 30 min
+            Consegna gratuita
           </span>
         </div>
       </div>

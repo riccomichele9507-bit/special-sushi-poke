@@ -9,8 +9,8 @@ const usps = [
   },
   {
     icon: Bike,
-    title: "Consegna in 30 minuti",
-    description: "Ordini online, il rider arriva a casa tua entro mezz'ora.",
+    title: "Consegna gratuita",
+    description: "Gratis entro 6 km. Oltre, minimo d'ordine €30.",
   },
   {
     icon: ShoppingBag,

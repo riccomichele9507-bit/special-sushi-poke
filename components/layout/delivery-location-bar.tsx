@@ -13,7 +13,7 @@ export function DeliveryLocationBar() {
             {restaurant.name}
           </p>
           <p className="font-sans text-[11px] text-warm-gray">
-            <span className="text-bamboo font-medium">Consegna</span> · {restaurant.address.city} · 30 min
+            <span className="text-bamboo font-medium">Consegna gratuita</span> · {restaurant.address.city}
           </p>
         </div>
         <motion.a

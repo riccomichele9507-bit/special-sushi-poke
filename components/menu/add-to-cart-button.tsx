@@ -70,7 +70,7 @@ export function AddToCartButton({
         )}
       >
         <Plus className="h-3 w-3" strokeWidth={2.8} />
-        Add
+        Aggiungi
       </motion.button>
     );
   }

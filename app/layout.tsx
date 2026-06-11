@@ -28,14 +28,14 @@ export const metadata: Metadata = {
     default: `${restaurant.name} — ${restaurant.tagline}`,
     template: `%s — ${restaurant.name}`,
   },
-  description: `Sushi e Poke a Bari, ${restaurant.address.fullAddress}. Consegna a domicilio in 30 minuti.`,
+  description: `Sushi e Poke a Bari, ${restaurant.address.fullAddress}. Consegna gratuita a domicilio.`,
   keywords: ["sushi Bari", "poke Bari", "sushi delivery Bari", "poke delivery Bari", "Special Sushi Poke", "Via Petroni"],
   openGraph: {
     type: "website",
     locale: "it_IT",
     url: siteUrl,
     title: `${restaurant.name} — ${restaurant.tagline}`,
-    description: `Sushi e Poke a Bari. Menu navigabile, consegna a casa in 30 minuti.`,
+    description: `Sushi e Poke a Bari. Menu navigabile, consegna gratuita.`,
     siteName: restaurant.name,
     images: [
       {
