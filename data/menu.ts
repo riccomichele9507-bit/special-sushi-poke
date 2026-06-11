@@ -36,7 +36,7 @@ export const menu: Dish[] = [
     ingredients: ["uramaki", "sashimi misto", "nigiri", "gunkan", "hoso fritto"],
     price: 6000,
     category: "box",
-    image: "",
+    image: "/menu/box-100.png",
     imageAlt: "Box 100 pezzi sushi assortito",
     allergens: ["pesce", "crostacei", "soia", "glutine", "sesamo"],
     spicyLevel: 0,
@@ -49,7 +49,7 @@ export const menu: Dish[] = [
     ingredients: ["uramaki", "nigiri", "gunkan", "sashimi", "uramaki fritto"],
     price: 4000,
     category: "box",
-    image: "",
+    image: "/menu/box-70.png",
     imageAlt: "Box 70 pezzi sushi misto",
     allergens: ["pesce", "crostacei", "soia", "glutine"],
     spicyLevel: 0,
@@ -62,7 +62,7 @@ export const menu: Dish[] = [
     ingredients: ["uramaki", "nigiri", "sashimi salmone", "gunkan"],
     price: 2000,
     category: "box",
-    image: "",
+    image: "/menu/box-35.png",
     imageAlt: "Box 35 pezzi sushi",
     allergens: ["pesce", "soia"],
     spicyLevel: 0,
@@ -90,7 +90,7 @@ export const menu: Dish[] = [
     ingredients: ["uramaki", "nigiri", "gunkan", "sashimi", "hoso fritto"],
     price: 2800,
     category: "barca",
-    image: "",
+    image: "/menu/barca-piccola.png",
     imageAlt: "Barca piccola sushi 42 pezzi",
     allergens: ["pesce", "crostacei", "soia"],
     spicyLevel: 0,
@@ -270,22 +270,22 @@ export const menu: Dish[] = [
 
   // === HOSO MAKI ===
   { id: "hoso-salmon", name: "Hoso Salmon (6 pz)", description: "Hosomaki classico al salmone.", ingredients: ["riso", "salmone", "alga nori"], price: 400, category: "hosomaki", image: "/menu/hoso-salmon.png", imageAlt: "Hosomaki salmone", allergens: ["pesce"], spicyLevel: 0, pieces: 6 },
-  { id: "hoso-salmon-avocado", name: "Hoso Salmon & Avocado (6 pz)", description: "Salmone e avocado in piccolo rotolo.", ingredients: ["riso", "salmone", "avocado", "alga nori"], price: 450, category: "hosomaki", image: "", imageAlt: "Hosomaki salmone avocado", allergens: ["pesce"], spicyLevel: 0, pieces: 6 },
-  { id: "hoso-ebi-cotto", name: "Hoso Ebi Cotto (6 pz)", description: "Gamberi cotti nel rotolo.", ingredients: ["riso", "gamberi cotti", "alga nori"], price: 400, category: "hosomaki", image: "", imageAlt: "Hosomaki gambero", allergens: ["crostacei"], spicyLevel: 0, pieces: 6 },
-  { id: "hoso-avocado", name: "Hoso Avocado (6 pz)", description: "Avocado puro, vegano.", ingredients: ["riso", "avocado", "alga nori"], price: 350, category: "hosomaki", image: "", imageAlt: "Hosomaki avocado", allergens: [], spicyLevel: 0, pieces: 6, isVegan: true },
-  { id: "hoso-soy-frutta", name: "Hoso Soy & Frutta (6 pz)", description: "Salsa soia e frutta fresca.", ingredients: ["riso", "soia", "frutta"], price: 500, category: "hosomaki", image: "", imageAlt: "Hosomaki soy frutta", allergens: ["soia"], spicyLevel: 0, pieces: 6 },
-  { id: "hoso-ebiten", name: "Hoso Ebiten (6 pz)", description: "Gamberi tempura, dorato e croccante.", ingredients: ["riso", "gamberi tempura", "alga nori"], price: 500, category: "hosomaki", image: "", imageAlt: "Hosomaki ebiten", allergens: ["crostacei", "glutine", "uova"], spicyLevel: 0, pieces: 6 },
+  { id: "hoso-salmon-avocado", name: "Hoso Salmon & Avocado (6 pz)", description: "Salmone e avocado in piccolo rotolo.", ingredients: ["riso", "salmone", "avocado", "alga nori"], price: 450, category: "hosomaki", image: "/menu/hoso-salmon-avocado.png", imageAlt: "Hosomaki salmone avocado", allergens: ["pesce"], spicyLevel: 0, pieces: 6 },
+  { id: "hoso-ebi-cotto", name: "Hoso Ebi Cotto (6 pz)", description: "Gamberi cotti nel rotolo.", ingredients: ["riso", "gamberi cotti", "alga nori"], price: 400, category: "hosomaki", image: "/menu/hoso-ebi-cotto.png", imageAlt: "Hosomaki gambero", allergens: ["crostacei"], spicyLevel: 0, pieces: 6 },
+  { id: "hoso-avocado", name: "Hoso Avocado (6 pz)", description: "Avocado puro, vegano.", ingredients: ["riso", "avocado", "alga nori"], price: 350, category: "hosomaki", image: "/menu/hoso-avocado.png", imageAlt: "Hosomaki avocado", allergens: [], spicyLevel: 0, pieces: 6, isVegan: true },
+  { id: "hoso-soy-frutta", name: "Hoso Soy & Frutta (6 pz)", description: "Salsa soia e frutta fresca.", ingredients: ["riso", "soia", "frutta"], price: 500, category: "hosomaki", image: "/menu/hoso-soy-frutta.png", imageAlt: "Hosomaki soy frutta", allergens: ["soia"], spicyLevel: 0, pieces: 6 },
+  { id: "hoso-ebiten", name: "Hoso Ebiten (6 pz)", description: "Gamberi tempura, dorato e croccante.", ingredients: ["riso", "gamberi tempura", "alga nori"], price: 500, category: "hosomaki", image: "/menu/hoso-ebiten.png", imageAlt: "Hosomaki ebiten", allergens: ["crostacei", "glutine", "uova"], spicyLevel: 0, pieces: 6 },
 
   // === FRITTI ===
 
-  { id: "uramaki-fritto", name: "Uramaki Fritto (8 pz)", description: "Salmone, avocado, philadelphia, teriyaki, kataifi.", ingredients: ["salmone", "avocado", "philadelphia", "teriyaki", "kataifi"], price: 800, category: "fritto", image: "/menu/uramaki-fritto.png", imageAlt: "Uramaki fritto signature", allergens: ["pesce", "latte", "soia", "glutine", "uova"], spicyLevel: 0, pieces: 8 },  { id: "hoso-avocado-fritto", name: "Hoso Avocado Fritto (6 pz)", description: "Philadelphia, frutta, salsa di chef. Esterno croccante.", ingredients: ["philadelphia", "frutta", "salsa di chef"], price: 600, category: "fritto", image: "", imageAlt: "Hoso avocado fritto", allergens: ["latte", "glutine", "uova"], spicyLevel: 0, pieces: 6 },
-  { id: "hoso-salmon-fritto", name: "Hoso Salmon Fritto (6 pz)", description: "Salmone piccante, teriyaki e patate.", ingredients: ["salmone piccante", "teriyaki", "patata"], price: 600, category: "fritto", image: "", imageAlt: "Hoso salmone fritto", allergens: ["pesce", "soia", "glutine", "uova"], spicyLevel: 2, pieces: 6 },
-  { id: "fotomaki-fritto", name: "Fotomaki Fritto (8 pz)", description: "Tobiko, surimi, avocado, gamberi tempura, teriyaki e patate.", ingredients: ["tobiko", "surimi", "avocado", "gamberi tempura", "teriyaki", "patata"], price: 800, category: "fritto", image: "", imageAlt: "Fotomaki fritto", allergens: ["pesce", "crostacei", "soia", "glutine", "uova"], spicyLevel: 0, pieces: 8 },
+  { id: "uramaki-fritto", name: "Uramaki Fritto (8 pz)", description: "Salmone, avocado, philadelphia, teriyaki, kataifi.", ingredients: ["salmone", "avocado", "philadelphia", "teriyaki", "kataifi"], price: 800, category: "fritto", image: "/menu/uramaki-fritto.png", imageAlt: "Uramaki fritto signature", allergens: ["pesce", "latte", "soia", "glutine", "uova"], spicyLevel: 0, pieces: 8 },  { id: "hoso-avocado-fritto", name: "Hoso Avocado Fritto (6 pz)", description: "Philadelphia, frutta, salsa di chef. Esterno croccante.", ingredients: ["philadelphia", "frutta", "salsa di chef"], price: 600, category: "fritto", image: "/menu/hoso-avocado-fritto.png", imageAlt: "Hoso avocado fritto", allergens: ["latte", "glutine", "uova"], spicyLevel: 0, pieces: 6 },
+  { id: "hoso-salmon-fritto", name: "Hoso Salmon Fritto (6 pz)", description: "Salmone piccante, teriyaki e patate.", ingredients: ["salmone piccante", "teriyaki", "patata"], price: 600, category: "fritto", image: "/menu/hoso-salmon-fritto.png", imageAlt: "Hoso salmone fritto", allergens: ["pesce", "soia", "glutine", "uova"], spicyLevel: 2, pieces: 6 },
+  { id: "fotomaki-fritto", name: "Fotomaki Fritto (8 pz)", description: "Tobiko, surimi, avocado, gamberi tempura, teriyaki e patate.", ingredients: ["tobiko", "surimi", "avocado", "gamberi tempura", "teriyaki", "patata"], price: 800, category: "fritto", image: "/menu/fotomaki-fritto.png", imageAlt: "Fotomaki fritto", allergens: ["pesce", "crostacei", "soia", "glutine", "uova"], spicyLevel: 0, pieces: 8 },
 
   // === ONIGIRI ===
 
   { id: "onigiri-sake", name: "Onigiri Sake (1 pz)", description: "Philadelphia e sesamo.", ingredients: ["riso", "salmone", "philadelphia", "sesamo"], price: 300, category: "onigiri", image: "/menu/onigiri-sake.png", imageAlt: "Onigiri salmone", allergens: ["pesce", "latte", "sesamo"], spicyLevel: 0, pieces: 1 },  { id: "onigiri-ebi", name: "Onigiri Ebi (1 pz)", description: "Gamberi, teriyaki e sesamo.", ingredients: ["riso", "gamberi", "teriyaki", "sesamo"], price: 350, category: "onigiri", image: "", imageAlt: "Onigiri gamberi", allergens: ["crostacei", "soia", "sesamo"], spicyLevel: 0, pieces: 1 },
-  { id: "onigiri-salmon-cotto", name: "Onigiri Salmon Cotto (1 pz)", description: "Salmone cotto con teriyaki e patate.", ingredients: ["riso", "salmone cotto", "teriyaki", "patata"], price: 300, category: "onigiri", image: "", imageAlt: "Onigiri salmone cotto", allergens: ["pesce", "soia"], spicyLevel: 0, pieces: 1 },
+  { id: "onigiri-salmon-cotto", name: "Onigiri Salmon Cotto (1 pz)", description: "Salmone cotto con teriyaki e patate.", ingredients: ["riso", "salmone cotto", "teriyaki", "patata"], price: 300, category: "onigiri", image: "/menu/onigiri-salmon-cotto.png", imageAlt: "Onigiri salmone cotto", allergens: ["pesce", "soia"], spicyLevel: 0, pieces: 1 },
   { id: "onigiri-tonno-cotto", name: "Onigiri Tonno Cotto (1 pz)", description: "Tonno cotto, teriyaki, cipolla fritta e sesamo.", ingredients: ["riso", "tonno cotto", "teriyaki", "cipolla fritta", "sesamo"], price: 300, category: "onigiri", image: "", imageAlt: "Onigiri tonno cotto", allergens: ["pesce", "soia", "sesamo"], spicyLevel: 0, pieces: 1 },
 
   // === CHIRASHI ===
