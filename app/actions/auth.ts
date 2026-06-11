@@ -48,7 +48,9 @@ const passwordResetRequestSchema = z.object({ email: emailSchema });
 // ============================================================
 // Types ritorno (per il form client)
 // ============================================================
-export type ActionResult = { ok: true } | { ok: false; error: string };
+export type ActionResult =
+  | { ok: true; redirectTo?: string }
+  | { ok: false; error: string };
 
 // ============================================================
 // Login
@@ -63,7 +65,7 @@ export async function login(formData: FormData): Promise<ActionResult> {
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword(parsed.data);
+  const { error, data } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) {
     // Messaggi user-friendly per i casi comuni
     if (error.message.toLowerCase().includes("invalid login")) {
@@ -79,8 +81,19 @@ export async function login(formData: FormData): Promise<ActionResult> {
     return { ok: false, error: error.message };
   }
 
+  // Verifica se admin → redirect ad /admin invece che /account
+  let redirectTo = "/account";
+  if (data.user) {
+    const { data: adminRow } = await supabase
+      .from("admin_users")
+      .select("user_id")
+      .eq("user_id", data.user.id)
+      .maybeSingle();
+    if (adminRow) redirectTo = "/admin";
+  }
+
   revalidatePath("/", "layout");
-  return { ok: true };
+  return { ok: true, redirectTo };
 }
 
 // ============================================================

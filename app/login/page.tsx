@@ -20,7 +20,16 @@ export default async function LoginPage({
   } = await supabase.auth.getUser();
 
   if (user) {
-    redirect(params.returnTo ?? "/account");
+    // Se è già loggato e ha un returnTo lo onora, altrimenti decide in base a admin role
+    if (params.returnTo) {
+      redirect(params.returnTo);
+    }
+    const { data: adminRow } = await supabase
+      .from("admin_users")
+      .select("user_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    redirect(adminRow ? "/admin" : "/account");
   }
 
   return (
