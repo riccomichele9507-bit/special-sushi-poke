@@ -25,6 +25,7 @@ import {
 } from "./google-address-autocomplete";
 import { DeliveryQuoteBox } from "./delivery-quote-box";
 import type { DeliveryQuoteResult, SlotOption } from "@/app/actions/delivery-quote";
+import { createOrder } from "@/app/actions/orders";
 
 const INPUT_CLASSES =
   "h-12 rounded-xl border-border bg-paper-warm/40 px-4 text-base text-ink placeholder:text-warm-gray/70 focus-visible:border-bamboo/60 focus-visible:ring-bamboo/20 focus-visible:bg-paper";
@@ -98,24 +99,44 @@ export function CheckoutForm() {
   const selectedSlotEndIso = watch("slotEndIso");
   const selectedSlot = quote?.slots?.find((s) => s.endIso === selectedSlotEndIso);
 
+  const cartItems = useCartStore((s) => s.items);
+
   async function onSubmit(data: CheckoutInput) {
-    // Doppio check: il submit non parte se il quote non è OK
-    if (!quote?.ok) {
+    if (!quote?.ok || !selectedSlot) {
       toast.error("Slot di consegna non confermato. Aggiorna l'indirizzo.");
       return;
     }
 
-    await new Promise((r) => setTimeout(r, 400));
+    const result = await createOrder({
+      orderType: data.orderType,
+      name: data.name,
+      phone: data.phone,
+      email: data.email,
+      addressLine: data.orderType === "delivery" ? data.addressLine : undefined,
+      addressNotes: data.orderType === "delivery" ? data.addressNotes : undefined,
+      driverNotes: data.orderType === "delivery" ? data.driverNotes : undefined,
+      paymentMethod: data.paymentMethod,
+      slotStartIso: selectedSlot.startIso,
+      slotEndIso: selectedSlot.endIso,
+      geo:
+        data.orderType === "delivery" && coords
+          ? coords
+          : undefined,
+      items: cartItems,
+    });
 
-    const slotLabel = selectedSlot
-      ? `${selectedSlot.startHHmm} – ${selectedSlot.endHHmm}`
-      : "";
+    if (!result.ok) {
+      toast.error("Ordine non inviato", {
+        description: result.errorMessage,
+      });
+      return;
+    }
 
     if (data.paymentMethod === "card") {
+      // TODO C3: redirect a Stripe Checkout con orderId
       const params = new URLSearchParams({
-        type: data.orderType,
-        name: data.name,
-        slot: slotLabel,
+        orderId: result.orderId,
+        orderNumber: result.orderNumber,
       });
       router.push(`/checkout/payment?${params.toString()}`);
       return;
@@ -125,10 +146,10 @@ export function CheckoutForm() {
     toast.success("Ordine ricevuto", {
       description:
         data.orderType === "delivery"
-          ? `Consegna tra le ${selectedSlot?.startHHmm} e le ${selectedSlot?.endHHmm}. Ti chiamiamo a breve per conferma.`
-          : `Pronto al ritiro tra le ${selectedSlot?.startHHmm} e le ${selectedSlot?.endHHmm}.`,
+          ? `Consegna tra le ${selectedSlot.startHHmm} e le ${selectedSlot.endHHmm}. Ti chiamiamo a breve per conferma.`
+          : `Pronto al ritiro tra le ${selectedSlot.startHHmm} e le ${selectedSlot.endHHmm}.`,
     });
-    router.push("/checkout/success");
+    router.push(`/account/orders/${result.orderNumber}`);
   }
 
   const cartEmpty = hydrated && count === 0;

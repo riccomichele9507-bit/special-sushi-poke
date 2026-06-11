@@ -2,12 +2,16 @@ export const restaurant = {
   name: "Special Sushi Poke",
   tagline: "Sushi & Poke d'asporto a Bari",
   address: {
-    street: "Via Giuseppe Petroni",
+    street: "Via G. Petroni 12/H-i",
     city: "Bari",
     postalCode: "70124",
     country: "IT",
-    fullAddress: "Via G. Petroni, 70124 Bari",
+    fullAddress: "Via G. Petroni 12/H-i, 70124 Bari",
   },
+  // Google Business Profile - per email review automatica post-consegna
+  googlePlaceId: "ChIJmTVNUQDpRxMR5Ruq_YElJ5Q",
+  googleReviewUrl:
+    "https://search.google.com/local/writereview?placeid=ChIJmTVNUQDpRxMR5Ruq_YElJ5Q",
   phone: "+39 080 123 4567",
   phoneDisplay: "080 123 4567",
   whatsapp: "+393793697798",

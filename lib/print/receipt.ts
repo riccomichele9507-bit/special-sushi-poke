@@ -60,27 +60,38 @@ function formatRomeTime(iso: string): string {
 export function generateReceiptText(order: OrderRow): string {
   const items = (order.items as unknown as OrderItemSnapshot[]) ?? [];
   const lines: string[] = [];
+  const isDelivery = order.order_type === "delivery";
 
-  // Header
-  lines.push(rule("="));
+  // Banner GIGANTE DELIVERY o RITIRO - prima cosa che la cucina vede
+  lines.push(rule("#"));
+  lines.push(rule("#"));
+  if (isDelivery) {
+    lines.push(center(">>>   D E L I V E R Y   <<<"));
+    lines.push(center("CONSEGNA A DOMICILIO"));
+  } else {
+    lines.push(center(">>>     R I T I R O     <<<"));
+    lines.push(center("CLIENTE VIENE A RITIRARE"));
+  }
+  lines.push(rule("#"));
+  lines.push(rule("#"));
+  lines.push("");
+
+  // Header ristorante
   lines.push(center("SPECIAL SUSHI POKE"));
-  lines.push(center("via G. Petroni, Bari"));
+  lines.push(center("Via G. Petroni 12/H-i, Bari"));
   lines.push(rule("="));
   lines.push("");
 
   // Order meta
   lines.push(`Ordine:  ${order.order_number}`);
   lines.push(`Data:    ${formatRomeDate(order.created_at)}`);
-  lines.push(
-    `Tipo:    ${order.order_type === "delivery" ? "CONSEGNA A DOMICILIO" : "RITIRO AL LOCALE"}`,
-  );
-  if (order.order_type === "delivery") {
+  if (isDelivery) {
     lines.push(
-      `Slot:    ${formatRomeTime(order.slot_start)} - ${formatRomeTime(order.slot_end)}`,
+      `CONSEGNARE: ${formatRomeTime(order.slot_start)} - ${formatRomeTime(order.slot_end)}`,
     );
   } else {
     lines.push(
-      `Pronto:  ${formatRomeTime(order.slot_start)} - ${formatRomeTime(order.slot_end)}`,
+      `PRONTO PER:  ${formatRomeTime(order.slot_start)} - ${formatRomeTime(order.slot_end)}`,
     );
   }
   lines.push("");
