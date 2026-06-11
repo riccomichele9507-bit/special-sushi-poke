@@ -1,15 +1,10 @@
 import type { Metadata } from "next";
 import { Inter, Noto_Serif_JP } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
-import { DeliveryLocationBar } from "@/components/layout/delivery-location-bar";
-import { MobileTabBar } from "@/components/layout/mobile-tab-bar";
-import { CartDrawer } from "@/components/cart/cart-drawer";
-import { DishDetailDrawer } from "@/components/menu/dish-detail-drawer";
-import { WhatsAppFab } from "@/components/shared/whatsapp-fab";
-import { TestHelpers } from "@/components/shared/test-helpers";
 import { restaurant } from "@/data/restaurant";
 import { getMenu } from "@/lib/data/queries";
 import { MenuRegistryProvider } from "@/components/menu-registry-provider";
+import { CustomerLayoutShell } from "@/components/customer-layout-shell";
 import "./globals.css";
 
 const inter = Inter({
@@ -98,13 +93,7 @@ export default async function RootLayout({
     >
       <body className="min-h-full flex flex-col font-sans bg-paper text-ink">
         <MenuRegistryProvider initialMenu={menu}>
-          <DeliveryLocationBar />
-          <main className="flex-1 pb-24">{children}</main>
-          <MobileTabBar />
-          <CartDrawer />
-          <DishDetailDrawer />
-          <TestHelpers />
-          <WhatsAppFab />
+          <CustomerLayoutShell>{children}</CustomerLayoutShell>
         </MenuRegistryProvider>
         <Toaster
           position="top-center"
