@@ -62,8 +62,13 @@ export interface DishSizeVariant {
   priceMultiplier: number;
 }
 
+// Categorie con dimensione FISSA: ogni "taglia" è un piatto distinto nel menu
+// (es. Box 100 / 70 / 50 / 35 / 25 e Barca Grande / Piccola). Niente selettore variante.
+const FIXED_SIZE_CATEGORIES = new Set(["box", "barca"]);
+
 /** Ritorna le 3 varianti di dimensione (small / standard / large) se applicabile. */
 export function getDishSizeVariants(dish: Dish): DishSizeVariant[] | null {
+  if (FIXED_SIZE_CATEGORIES.has(dish.category)) return null;
   if (!dish.pieces || dish.pieces < 6) return null;
   const base = dish.pieces;
   const small = Math.max(2, Math.round(base * 0.7));
