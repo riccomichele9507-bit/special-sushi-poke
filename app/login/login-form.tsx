@@ -20,7 +20,8 @@ export function LoginForm({ returnTo }: { returnTo?: string }) {
       const result = await login(formData);
       if (result.ok) {
         toast.success("Accesso effettuato");
-        router.push(returnTo ?? "/account");
+        // Priorità: returnTo esplicito → redirectTo deciso dall'action (es. /admin per admin) → /account
+        router.push(returnTo ?? result.redirectTo ?? "/account");
         router.refresh();
       } else {
         setError(result.error);
