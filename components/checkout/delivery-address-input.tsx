@@ -100,7 +100,7 @@ export function DeliveryAddressInput({
 
       <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
         <p className="text-warm-gray">
-          Consegniamo entro <span className="font-semibold text-bamboo">{restaurant.deliveryRadiusKm} km</span> dal locale
+          <span className="font-semibold text-bamboo">Gratis</span> entro {restaurant.freeDeliveryMaxKm} km · fino a {restaurant.deliveryRadiusKm} km con min €30
         </p>
         {mapsCheckUrl && (
           <a

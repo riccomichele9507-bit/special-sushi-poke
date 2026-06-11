@@ -12,7 +12,7 @@ import {
   dateInRome,
   isWeekendRome,
 } from "./time";
-import { estimatedRoadKm, RESTAURANT_COORDS, type LatLng } from "@/lib/geocoding";
+import { estimatedRoadKm, RESTAURANT_COORDS_FALLBACK, type LatLng } from "@/lib/geocoding";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type ValidationError = {
@@ -80,12 +80,12 @@ export async function validateDelivery(
 ): Promise<ValidationResult> {
   const sb = createAdminClient();
 
-  // Carica delivery_settings + restaurant_settings.manual_pause
+  // Carica delivery_settings + restaurant_settings (manual_pause + coords)
   const [settingsRes, restaurantRes] = await Promise.all([
     sb.from("delivery_settings").select("*").eq("id", 1).maybeSingle(),
     sb
       .from("restaurant_settings")
-      .select("manual_pause")
+      .select("manual_pause, lat, lng")
       .eq("id", 1)
       .maybeSingle(),
   ]);
@@ -99,6 +99,12 @@ export async function validateDelivery(
   }
   const settings = settingsRes.data as DeliverySettingsRow;
   const manualPause = restaurantRes.data.manual_pause;
+
+  // Coords ristorante da DB (modificabili da admin), con fallback hardcoded
+  const restaurantCoords: LatLng = {
+    lat: restaurantRes.data.lat ?? RESTAURANT_COORDS_FALLBACK.lat,
+    lng: restaurantRes.data.lng ?? RESTAURANT_COORDS_FALLBACK.lng,
+  };
 
   // CHECK #7: pausa manuale (la mettiamo per prima così è veloce)
   if (manualPause) {
@@ -195,7 +201,7 @@ export async function validateDelivery(
       };
     }
 
-    distanceKm = estimatedRoadKm(RESTAURANT_COORDS, input.customerCoords);
+    distanceKm = estimatedRoadKm(restaurantCoords, input.customerCoords);
 
     // CHECK #1: distanza
     if (distanceKm > settings.max_distance_km) {

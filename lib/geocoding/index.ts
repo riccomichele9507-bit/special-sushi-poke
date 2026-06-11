@@ -9,8 +9,15 @@ import { geocodeAddressGoogle } from "./google";
 export { haversineKm, estimatedRoadKm, type LatLng } from "./haversine";
 export type { GeocodeResult } from "./nominatim";
 
-/** Coordinate ristorante hard-coded (sync con restaurant_settings). */
-export const RESTAURANT_COORDS = { lat: 41.1207, lng: 16.8693 } as const;
+/**
+ * Coordinate ristorante: hardcoded come fallback, ma la fonte di verità è
+ * restaurant_settings.lat/lng (modificabile dal dashboard admin).
+ * Vedi getRestaurantCoords() in lib/delivery/validate.ts.
+ */
+export const RESTAURANT_COORDS_FALLBACK = {
+  lat: 41.0967058,
+  lng: 16.8676296,
+} as const;
 
 /**
  * Geocodifica indirizzo. Sceglie automaticamente il provider:

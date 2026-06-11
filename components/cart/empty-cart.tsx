@@ -20,7 +20,7 @@ export function EmptyCart() {
           Carrello vuoto
         </h3>
         <p className="mt-2 max-w-xs text-sm text-warm-gray">
-          Aggiungi il tuo primo piatto e riceverai la consegna in 30 minuti.
+          Aggiungi il tuo primo piatto. Lo slot di consegna te lo mostriamo al checkout in base alla zona.
         </p>
         <Link
           href="/menu"

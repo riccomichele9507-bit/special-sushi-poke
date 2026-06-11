@@ -47,7 +47,7 @@ export function CartSummary({ showPickupNote = true }: { showPickupNote?: boolea
       {showPickupNote && (
         <p className="mt-1 flex items-center gap-1.5 text-[11px] text-warm-gray">
           <Clock className="h-3 w-3 text-bamboo" strokeWidth={1.75} />
-          Consegna in circa 30 minuti
+          Slot di consegna calcolato al checkout
         </p>
       )}
     </div>
