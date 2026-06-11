@@ -117,10 +117,21 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-12 flex flex-col items-start gap-2 border-t border-white/[0.06] pt-6 text-xs text-white/40 sm:flex-row sm:items-center sm:justify-between">
-          <p>
-            © {new Date().getFullYear()} {restaurant.name}. Tutti i diritti riservati.
-          </p>
+        <div className="mt-12 flex flex-col items-start gap-3 border-t border-white/[0.06] pt-6 text-xs text-white/40 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
+            <p>
+              © {new Date().getFullYear()} {restaurant.name}. Tutti i diritti riservati.
+            </p>
+            <span className="hidden sm:inline text-white/20">·</span>
+            <div className="flex gap-3">
+              <Link href="/privacy" className="hover:text-gold transition">
+                Privacy
+              </Link>
+              <Link href="/terms" className="hover:text-gold transition">
+                Termini di servizio
+              </Link>
+            </div>
+          </div>
           <p className="font-heading italic text-white/50">
             おもてなし · L&apos;arte dell&apos;ospitalità
           </p>
