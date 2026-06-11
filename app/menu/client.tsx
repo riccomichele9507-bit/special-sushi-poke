@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Search, X } from "lucide-react";
+import Link from "next/link";
+import { Search, X, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CategoryTabs } from "@/components/menu/category-tabs";
 import { DishCard } from "@/components/menu/dish-card";
@@ -109,6 +110,29 @@ export function MenuTabClient() {
                         {dishes.length} {dishes.length === 1 ? "piatto" : "piatti"}
                       </span>
                     </div>
+                    {cat.id === "poke" && (
+                      <Link
+                        href="/menu/crea-la-tua-poke"
+                        className="mb-3 block rounded-2xl border border-bamboo/40 bg-gradient-to-br from-bamboo/15 via-paper to-sakura/10 p-4 transition hover:from-bamboo/25"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="shrink-0 h-12 w-12 rounded-full bg-bamboo/20 flex items-center justify-center">
+                            <Sparkles className="h-6 w-6 text-bamboo" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-heading text-base font-bold text-ink leading-tight">
+                              Crea la tua poke
+                            </p>
+                            <p className="font-sans text-xs text-warm-gray mt-0.5">
+                              Base, proteine, condimenti, topping e salse a scelta
+                            </p>
+                          </div>
+                          <span className="shrink-0 text-bamboo text-xl leading-none">
+                            →
+                          </span>
+                        </div>
+                      </Link>
+                    )}
                     <div className="grid grid-cols-2 gap-3">
                       {dishes.map((dish) => (
                         <DishCard key={dish.id} dish={dish} />

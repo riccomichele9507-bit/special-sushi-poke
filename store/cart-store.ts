@@ -4,10 +4,39 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { useShallow } from "zustand/react/shallow";
 import { useEffect, useMemo, useState } from "react";
-import type { CartItem, CartItemWithDish, CartState } from "@/types/cart";
+import type {
+  CartItem,
+  CartItemWithDish,
+  CartState,
+  CustomPokeConfig,
+} from "@/types/cart";
+import type { Dish } from "@/types/dish";
 import { getDishById } from "@/lib/menu-registry";
 
-const STORAGE_KEY = "ssp-cart-v1";
+const STORAGE_KEY = "ssp-cart-v2";
+
+/**
+ * Sintetizza un Dish "virtuale" da una CustomPokeConfig, così il carrello può
+ * renderizzarlo come un qualsiasi piatto (stesso path nelle UI).
+ */
+function buildCustomPokeDish(
+  cartDishId: string,
+  config: CustomPokeConfig,
+): Dish {
+  const ingredientsFlat = Object.values(config.selectionLabels).flat();
+  return {
+    id: cartDishId,
+    name: "La tua poke",
+    description: ingredientsFlat.join(", "),
+    ingredients: ingredientsFlat,
+    price: config.basePriceCents + config.extrasCents,
+    category: "poke",
+    image: "/menu/poke-chicken-bowl.png",
+    imageAlt: "Poke personalizzata",
+    allergens: [],
+    spicyLevel: 0,
+  };
+}
 
 export const useCartStore = create<CartState>()(
   persist(
@@ -24,6 +53,17 @@ export const useCartStore = create<CartState>()(
             };
           }
           return { items: [...state.items, { dishId, quantity: 1 }] };
+        }),
+      addCustomPoke: (config) =>
+        set((state) => {
+          // Ogni custom poke = nuova riga distinta, mai unita ad altre.
+          const uniqueId = `custom-poke-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+          return {
+            items: [
+              ...state.items,
+              { dishId: uniqueId, quantity: 1, custom: config },
+            ],
+          };
         }),
       remove: (dishId) =>
         set((state) => ({
@@ -71,10 +111,17 @@ export function useCartCount(): number {
   return useCartStore((s) => s.items.reduce((sum, i) => sum + i.quantity, 0));
 }
 
+function resolveDish(item: CartItem) {
+  if (item.custom) {
+    return buildCustomPokeDish(item.dishId, item.custom);
+  }
+  return getDishById(item.dishId);
+}
+
 export function useCartTotal(): number {
   return useCartStore((s) =>
     s.items.reduce((sum, item) => {
-      const dish = getDishById(item.dishId);
+      const dish = resolveDish(item);
       return sum + (dish ? dish.price * item.quantity : 0);
     }, 0),
   );
@@ -86,7 +133,7 @@ export function useCartItemsWithDish(): CartItemWithDish[] {
     () =>
       items
         .map((item) => {
-          const dish = getDishById(item.dishId);
+          const dish = resolveDish(item);
           if (!dish) return null;
           return {
             dish,
