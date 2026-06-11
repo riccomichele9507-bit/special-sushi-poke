@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { CheckoutForm } from "@/components/checkout/checkout-form";
 import { OrderSummarySide } from "@/components/checkout/order-summary-side";
+import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "Checkout",
@@ -10,7 +12,15 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function CheckoutPage() {
+export default async function CheckoutPage() {
+  // Gate auth: niente checkout senza login
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    redirect("/login?returnTo=/checkout");
+  }
   return (
     <div className="mx-auto max-w-md px-4 pb-12 pt-2 lg:max-w-5xl">
       <Link

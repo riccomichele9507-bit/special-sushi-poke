@@ -126,6 +126,14 @@ export function CheckoutForm() {
     });
 
     if (!result.ok) {
+      // Sessione scaduta o non loggato → redirect login con returnTo
+      if (result.errorCode === "unauthenticated") {
+        toast.error("Sessione scaduta", {
+          description: "Accedi di nuovo per completare l'ordine.",
+        });
+        router.push("/login?returnTo=/checkout");
+        return;
+      }
       toast.error("Ordine non inviato", {
         description: result.errorMessage,
       });

@@ -30,8 +30,8 @@ export function AddToCartButton({
         description: "Crea un account o accedi in 10 secondi.",
         duration: 2500,
       });
-      const next = encodeURIComponent(pathname);
-      router.push(`/login?next=${next}`);
+      const returnTo = encodeURIComponent(pathname);
+      router.push(`/login?returnTo=${returnTo}`);
       return;
     }
     add(dishId);
