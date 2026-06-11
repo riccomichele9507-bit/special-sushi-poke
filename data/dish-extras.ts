@@ -13,12 +13,10 @@ const SUSHI_EXTRAS: DishExtra[] = [
   { id: "edamame", label: "Edamame Porzione", price: 400 },
 ];
 
-const POKE_EXTRAS: DishExtra[] = [
-  { id: "avocado", label: "Avocado Extra", price: 150 },
-  { id: "mango", label: "Mango Extra", price: 150 },
-  { id: "salmon", label: "Doppio Salmone", price: 300 },
-  { id: "ginger", label: "Zenzero", price: 100 },
-];
+// Le poke gia' pronte NON accettano aggiunte: se il cliente vuole personalizzare
+// usa la sezione "Crea la tua poke" col configuratore completo (max 4 condimenti
+// inclusi, +€1 per ogni aggiunta extra, +€1.50 per ogni proteina extra).
+const POKE_EXTRAS: DishExtra[] = [];
 
 const FRIED_EXTRAS: DishExtra[] = [
   { id: "spicy-mayo", label: "Salsa Spicy", price: 150 },
