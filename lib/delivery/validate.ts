@@ -221,8 +221,10 @@ export async function validateDelivery(
           baselinePickupMin: settings.baseline_pickup_min,
         });
 
-  // CHECK #6 + #7: costruisci la LISTA degli slot disponibili nel servizio
-  const slots: SlotResult[] = [];
+  // CHECK #6 + #7: costruisci la LISTA degli slot disponibili nel servizio.
+  // Ottimizzato: prima genera tutti i candidati validi per finestra oraria,
+  // poi UNA SOLA query per contare ordini per ogni slot_end (no N+1).
+  const candidateSlots: SlotResult[] = [];
   let slot = computeSlot(eta.t1, settings.slot_duration_minutes);
   const MAX_CANDIDATES = 20;
 
@@ -241,20 +243,38 @@ export async function validateDelivery(
       break;
     }
 
-    // Capacità: se pieno, salta (no auto-shift, no include in lista)
-    const { count: usedCount } = await sb
-      .from("orders")
-      .select("id", { count: "exact", head: true })
-      .eq("is_test", false)
-      .eq("slot_end", slot.end.toISOString())
-      .not("status", "in", "(delivered,cancelled,refunded)");
-
-    if ((usedCount ?? 0) < settings.max_orders_per_slot) {
-      slots.push(slot);
-    }
-
+    candidateSlots.push(slot);
     slot = shiftSlotForward(slot, settings.slot_duration_minutes);
   }
+
+  if (candidateSlots.length === 0) {
+    return {
+      ok: false,
+      code: "all_slots_full",
+      message: "Servizio chiuso. Riprova più tardi o per il prossimo servizio 🍣",
+    };
+  }
+
+  // Query unica: conta ordini attivi raggruppati per slot_end nei candidati
+  const slotEndIsoList = candidateSlots.map((s) => s.end.toISOString());
+  const { data: capacityRows } = await sb
+    .from("orders")
+    .select("slot_end")
+    .eq("is_test", false)
+    .in("slot_end", slotEndIsoList)
+    .not("status", "in", "(delivered,cancelled,refunded)");
+
+  // Conta in memoria
+  const usedBySlot = new Map<string, number>();
+  for (const row of capacityRows ?? []) {
+    const key = row.slot_end;
+    usedBySlot.set(key, (usedBySlot.get(key) ?? 0) + 1);
+  }
+
+  const slots: SlotResult[] = candidateSlots.filter((s) => {
+    const used = usedBySlot.get(s.end.toISOString()) ?? 0;
+    return used < settings.max_orders_per_slot;
+  });
 
   if (slots.length === 0) {
     return {

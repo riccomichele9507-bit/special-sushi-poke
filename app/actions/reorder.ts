@@ -1,7 +1,22 @@
 "use server";
 
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import type { CartItem, CustomPokeConfig } from "@/types/cart";
+
+const orderItemSnapshotSchema = z.object({
+  dishId: z.string().min(1),
+  qty: z.number().int().positive(),
+  custom: z
+    .object({
+      type: z.literal("custom-poke"),
+      basePriceCents: z.number().int().nonnegative(),
+      extrasCents: z.number().int().nonnegative(),
+      selectionLabels: z.record(z.string(), z.array(z.string())),
+    })
+    .optional(),
+});
+const orderItemsSchema = z.array(orderItemSnapshotSchema);
 
 interface OrderItemSnapshot {
   dishId: string;
@@ -38,7 +53,16 @@ export async function reorderFromOrder(orderNumber: string): Promise<ReorderResu
     return { ok: false, errorMessage: "Ordine non trovato." };
   }
 
-  const items = (order.items as unknown as OrderItemSnapshot[]) ?? [];
+  // Validazione runtime: se il jsonb è corrotto/manomesso, fail safe
+  const parsed = orderItemsSchema.safeParse(order.items);
+  if (!parsed.success) {
+    console.error("reorder: items snapshot invalido", parsed.error);
+    return {
+      ok: false,
+      errorMessage: "Dati ordine non leggibili. Aggiungi i piatti manualmente.",
+    };
+  }
+  const items = parsed.data as OrderItemSnapshot[];
   const dishIds = items.filter((i) => !i.custom).map((i) => i.dishId);
 
   // Verifica disponibilità piatti correnti

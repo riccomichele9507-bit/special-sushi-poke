@@ -17,16 +17,18 @@ type OrderRow = Database["public"]["Tables"]["orders"]["Row"];
 export async function enqueuePrintJob(order: OrderRow): Promise<boolean> {
   const supabase = createAdminClient();
 
-  // Skip se esiste già un job per questo ordine
+  // Skip solo se esiste un job non-fallito per quest'ordine (pending/in_progress/printed)
+  // Se l'ultimo era 'failed' o 'cancelled', dobbiamo riaccodare.
   const { data: existing } = await supabase
     .from("print_jobs")
-    .select("id")
+    .select("id, status")
     .eq("order_id", order.id)
+    .in("status", ["pending", "in_progress", "printed"])
     .limit(1)
     .maybeSingle();
 
   if (existing) {
-    return true; // già accodato in passato
+    return true; // job attivo/completato in passato → skip duplicate
   }
 
   const payload = generateReceiptText(order);

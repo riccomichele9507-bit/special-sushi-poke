@@ -20,6 +20,13 @@ interface RequestBody {
 }
 
 export async function POST(req: Request) {
+  // Anti-abuse: rifiuta chiamate da origini esterne (CSRF / cost amplification)
+  const origin = req.headers.get("origin");
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  if (origin && siteUrl && origin !== siteUrl) {
+    return NextResponse.json({ error: "Origin non autorizzata" }, { status: 403 });
+  }
+
   const apiKey = process.env.GOOGLE_MAPS_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
@@ -33,6 +40,11 @@ export async function POST(req: Request) {
     body = (await req.json()) as RequestBody;
   } catch {
     return NextResponse.json({ error: "Body non valido" }, { status: 400 });
+  }
+
+  // Validazione minima sessionToken: deve essere stringa non-vuota max 64 char
+  if (!body.sessionToken || typeof body.sessionToken !== "string" || body.sessionToken.length > 64) {
+    return NextResponse.json({ error: "sessionToken non valido" }, { status: 400 });
   }
 
   const input = body.input?.trim() ?? "";

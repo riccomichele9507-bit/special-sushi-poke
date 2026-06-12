@@ -15,6 +15,13 @@ interface RequestBody {
 }
 
 export async function POST(req: Request) {
+  // Anti-abuse: solo dalla nostra origin
+  const origin = req.headers.get("origin");
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  if (origin && siteUrl && origin !== siteUrl) {
+    return NextResponse.json({ error: "Origin non autorizzata" }, { status: 403 });
+  }
+
   const apiKey = process.env.GOOGLE_MAPS_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
@@ -30,8 +37,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Body non valido" }, { status: 400 });
   }
 
-  if (!body.placeId) {
-    return NextResponse.json({ error: "placeId mancante" }, { status: 400 });
+  if (!body.placeId || typeof body.placeId !== "string" || body.placeId.length > 256) {
+    return NextResponse.json({ error: "placeId non valido" }, { status: 400 });
+  }
+  if (!body.sessionToken || typeof body.sessionToken !== "string" || body.sessionToken.length > 64) {
+    return NextResponse.json({ error: "sessionToken non valido" }, { status: 400 });
   }
 
   const url = `${GOOGLE_DETAILS_BASE}${encodeURIComponent(body.placeId)}?sessionToken=${encodeURIComponent(body.sessionToken)}&languageCode=it&regionCode=IT`;
