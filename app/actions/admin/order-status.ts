@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendOrderOutForFulfillmentEmail } from "@/lib/email/send";
 import type { Database } from "@/lib/supabase/database.types";
 
 type OrderStatus = Database["public"]["Enums"]["order_status"];
@@ -45,6 +46,19 @@ export async function markOrderOutForFulfillment(orderId: string) {
     status: newStatus,
     changed_by: "admin",
   });
+
+  // Fire-and-forget: invio email "Il tuo ordine è partito" / "Pronto al ritiro"
+  // Recupera ordine completo + invia. Errori loggati ma non bloccano la transizione.
+  const { data: fullOrder } = await sb
+    .from("orders")
+    .select("*")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (fullOrder) {
+    sendOrderOutForFulfillmentEmail(fullOrder).catch((err) =>
+      console.error("[email] sendOrderOutForFulfillment failed:", err),
+    );
+  }
 
   revalidatePath("/admin/orders");
   revalidatePath(`/admin/orders/${orderId}`);
