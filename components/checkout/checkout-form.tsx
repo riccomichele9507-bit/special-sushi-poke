@@ -26,6 +26,7 @@ import {
 import { DeliveryQuoteBox } from "./delivery-quote-box";
 import type { DeliveryQuoteResult, SlotOption } from "@/app/actions/delivery-quote";
 import { createOrder } from "@/app/actions/orders";
+import { createCheckoutSession } from "@/app/actions/stripe";
 
 const INPUT_CLASSES =
   "h-12 rounded-xl border-border bg-paper-warm/40 px-4 text-base text-ink placeholder:text-warm-gray/70 focus-visible:border-bamboo/60 focus-visible:ring-bamboo/20 focus-visible:bg-paper";
@@ -143,12 +144,15 @@ export function CheckoutForm() {
     }
 
     if (data.paymentMethod === "card") {
-      // TODO C3: redirect a Stripe Checkout con orderId
-      const params = new URLSearchParams({
-        orderId: result.orderId,
-        orderNumber: result.orderNumber,
-      });
-      router.push(`/checkout/payment?${params.toString()}`);
+      // Crea Stripe Checkout Session e redirect al pagamento hosted
+      const stripeResult = await createCheckoutSession(result.orderId);
+      if (!stripeResult.ok) {
+        toast.error(stripeResult.errorMessage);
+        // Ordine già creato in stato 'received' — l'admin può manualmente
+        // confermare via dashboard o il cliente può riprovare il pagamento.
+        return;
+      }
+      window.location.href = stripeResult.url;
       return;
     }
 
