@@ -21,11 +21,11 @@ export function DeliveryLocationBar() {
           target="_blank"
           rel="noopener noreferrer"
           whileTap={{ scale: 0.93 }}
-          aria-label="Apri posizione su Google Maps"
+          aria-label="Raggiungi il locale Special Sushi Poke su Google Maps"
           className="inline-flex items-center gap-1.5 rounded-full bg-bamboo/10 px-3 py-1.5 text-xs font-medium text-bamboo ring-1 ring-bamboo/20 transition hover:bg-bamboo/15"
         >
           <Map className="h-3.5 w-3.5" strokeWidth={2} />
-          Mappa
+          Raggiungi il locale
           <ChevronRight className="h-3 w-3 -mr-1" strokeWidth={2} />
         </motion.a>
       </div>
