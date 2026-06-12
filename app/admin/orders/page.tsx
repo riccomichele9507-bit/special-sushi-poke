@@ -78,8 +78,19 @@ export default async function AdminOrdersPage({
           </thead>
           <tbody>
             {orders?.map((o) => (
-              <tr key={o.id} className="border-t border-bamboo/10 hover:bg-bamboo/5">
-                <td className="px-3 py-2 font-mono text-xs">{o.order_number}</td>
+              <tr
+                key={o.id}
+                className="border-t border-bamboo/10 hover:bg-bamboo/5 cursor-pointer"
+                onClick={undefined}
+              >
+                <td className="px-3 py-2 font-mono text-xs">
+                  <Link
+                    href={`/admin/orders/${o.id}`}
+                    className="text-bamboo hover:underline"
+                  >
+                    {o.order_number}
+                  </Link>
+                </td>
                 <td className="px-3 py-2 text-warm-gray">
                   {new Date(o.created_at).toLocaleString("it-IT", {
                     timeZone: "Europe/Rome",
