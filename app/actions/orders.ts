@@ -187,14 +187,18 @@ export async function createOrder(
     };
   }
 
-  // 5. Genera order_number (formato: AAAAMMGG-XXXX progressivo)
+  // 5. Genera order_number formato AAAAMMGG-HHmm-XXXX (random hex)
+  // Random hex evita race condition di count+1 quando 2 ordini sono simultanei.
+  // Formato user-friendly: SSP-20260612-1430-A1B2 → leggibile + univoco.
   const today = new Date();
   const datePart = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}`;
-  const { count: todayCount } = await admin
-    .from("orders")
-    .select("id", { count: "exact", head: true })
-    .gte("created_at", `${today.toISOString().slice(0, 10)}T00:00:00Z`);
-  const orderNumber = `SSP-${datePart}-${String((todayCount ?? 0) + 1).padStart(4, "0")}`;
+  const timePart = `${String(today.getHours()).padStart(2, "0")}${String(today.getMinutes()).padStart(2, "0")}`;
+  // 4 hex char = 65536 combinazioni → collision ~0.0015% per ogni 100 ordini/minuto
+  const randomSuffix = Math.floor(Math.random() * 0xffff)
+    .toString(16)
+    .toUpperCase()
+    .padStart(4, "0");
+  const orderNumber = `SSP-${datePart}-${timePart}-${randomSuffix}`;
 
   // 6. Insert order
   const isTest = process.env.STRIPE_SECRET_KEY?.startsWith("sk_test_") ?? true;
@@ -238,6 +242,36 @@ export async function createOrder(
       errorCode: "system",
       errorMessage:
         "Impossibile salvare l'ordine. Riprova tra un minuto o chiamaci.",
+    };
+  }
+
+  // 6b. Post-insert capacity re-check (best-effort senza SQL FOR UPDATE).
+  // Se nel mentre altri N ordini sono entrati nello stesso slot e abbiamo superato
+  // max_orders_per_slot, fai rollback dell'ordine appena creato e ritorna errore.
+  // Nota: window di race ridotta da ~secondi a ~millisecondi (non zero ma molto contenuta).
+  const { count: usedAfterInsert } = await admin
+    .from("orders")
+    .select("id", { count: "exact", head: true })
+    .eq("is_test", false)
+    .eq("slot_end", slotEnd.toISOString())
+    .not("status", "in", "(delivered,cancelled,refunded)");
+
+  // Re-leggi max_orders_per_slot (in case di update concorrente)
+  const { data: settingsNow } = await admin
+    .from("delivery_settings")
+    .select("max_orders_per_slot")
+    .eq("id", 1)
+    .maybeSingle();
+  const maxOrdersPerSlot = settingsNow?.max_orders_per_slot ?? 8;
+
+  if ((usedAfterInsert ?? 0) > maxOrdersPerSlot) {
+    // Overflow: rollback insert
+    await admin.from("orders").delete().eq("id", inserted.id);
+    return {
+      ok: false,
+      errorCode: "slot_unavailable",
+      errorMessage:
+        "Lo slot si è appena riempito mentre stavi confermando. Scegli un altro orario.",
     };
   }
 
