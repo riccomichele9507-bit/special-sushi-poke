@@ -100,6 +100,7 @@ export function CheckoutForm() {
   const selectedSlot = quote?.slots?.find((s) => s.endIso === selectedSlotEndIso);
 
   const cartItems = useCartStore((s) => s.items);
+  const [marketingConsent, setMarketingConsent] = useState(true);
 
   async function onSubmit(data: CheckoutInput) {
     if (!quote?.ok || !selectedSlot) {
@@ -123,6 +124,7 @@ export function CheckoutForm() {
           ? coords
           : undefined,
       items: cartItems,
+      marketingConsent,
     });
 
     if (!result.ok) {
@@ -150,14 +152,17 @@ export function CheckoutForm() {
       return;
     }
 
+    // Svuotare il carrello PRIMA della navigazione per evitare race con re-render
     clear();
-    toast.success("Ordine ricevuto", {
+    toast.success("Ordine ricevuto!", {
       description:
         data.orderType === "delivery"
-          ? `Consegna tra le ${selectedSlot.startHHmm} e le ${selectedSlot.endHHmm}. Ti chiamiamo a breve per conferma.`
+          ? `Consegna tra le ${selectedSlot.startHHmm} e le ${selectedSlot.endHHmm}.`
           : `Pronto al ritiro tra le ${selectedSlot.startHHmm} e le ${selectedSlot.endHHmm}.`,
     });
-    router.push(`/account/orders/${result.orderNumber}`);
+    // Navigation full-page: bypassa eventuali bug client-state che bloccavano
+    // router.push (rilevato bug: rimaneva sul checkout dopo conferma)
+    window.location.href = `/account/orders/${result.orderNumber}`;
   }
 
   const cartEmpty = hydrated && count === 0;
@@ -321,6 +326,24 @@ export function CheckoutForm() {
           )}
         />
       </div>
+
+      {/* Consenso marketing GDPR */}
+      <label className="flex items-start gap-3 rounded-xl border border-border bg-paper-warm/30 p-3 cursor-pointer hover:bg-paper-warm/60 transition">
+        <input
+          type="checkbox"
+          checked={marketingConsent}
+          onChange={(e) => setMarketingConsent(e.target.checked)}
+          className="mt-0.5 h-4 w-4 rounded border-warm-gray text-bamboo focus:ring-bamboo cursor-pointer"
+        />
+        <div className="text-xs">
+          <p className="font-medium text-ink">
+            Voglio ricevere offerte e novità via email
+          </p>
+          <p className="mt-0.5 text-warm-gray">
+            Promo, nuovi piatti, sconti compleanno. Niente spam. Puoi disiscriverti quando vuoi.
+          </p>
+        </div>
+      </label>
 
       <button
         type="submit"

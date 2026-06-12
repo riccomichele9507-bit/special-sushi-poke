@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { logout } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { AccountForm } from "./account-form";
+import { ReorderButton } from "@/components/account/reorder-button";
 import { getLoyaltyStatus, POINTS_REDEMPTION_THRESHOLD } from "@/lib/loyalty/points";
 
 export default async function AccountPage() {
@@ -90,30 +91,31 @@ export default async function AccountPage() {
           <h2 className="text-sm font-semibold text-ink mb-3">I miei ordini recenti</h2>
           <ul className="space-y-2">
             {recentOrders.map((o) => (
-              <li key={o.id}>
+              <li
+                key={o.id}
+                className="flex items-center justify-between rounded-xl border border-border bg-paper p-3 transition hover:border-bamboo/40 hover:bg-bamboo/5"
+              >
                 <Link
                   href={`/account/orders/${o.order_number}`}
-                  className="flex items-center justify-between rounded-xl border border-border bg-paper p-3 transition hover:border-bamboo/40 hover:bg-bamboo/5"
+                  className="flex-1 min-w-0"
                 >
-                  <div>
-                    <p className="text-sm font-medium text-ink">
-                      {o.order_type === "delivery" ? "🛵" : "🏪"} {o.order_number}
-                    </p>
-                    <p className="text-xs text-warm-gray">
-                      {new Date(o.created_at).toLocaleDateString("it-IT", {
-                        day: "2-digit",
-                        month: "short",
-                      })}{" "}
-                      · {o.status}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-ink tabular-nums">
-                      €{(o.total_cents / 100).toFixed(2).replace(".", ",")}
-                    </span>
-                    <ChevronRight className="h-4 w-4 text-warm-gray" />
-                  </div>
+                  <p className="text-sm font-medium text-ink truncate">
+                    {o.order_type === "delivery" ? "🛵" : "🏪"} {o.order_number}
+                  </p>
+                  <p className="text-xs text-warm-gray">
+                    {new Date(o.created_at).toLocaleDateString("it-IT", {
+                      day: "2-digit",
+                      month: "short",
+                    })}{" "}
+                    · {o.status}
+                  </p>
                 </Link>
+                <div className="flex items-center gap-2 ml-3 shrink-0">
+                  <span className="text-sm font-semibold text-ink tabular-nums">
+                    €{(o.total_cents / 100).toFixed(2).replace(".", ",")}
+                  </span>
+                  <ReorderButton orderNumber={o.order_number} />
+                </div>
               </li>
             ))}
           </ul>

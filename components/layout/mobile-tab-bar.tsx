@@ -17,7 +17,7 @@ const tabs: Tab[] = [
   { type: "link", id: "menu", href: "/menu", label: "Menu", icon: UtensilsCrossed },
   { type: "link", id: "search", href: "/search", label: "Cerca", icon: Search },
   { type: "action", id: "cart", label: "Carrello", icon: ShoppingBag, action: "openCart" },
-  { type: "link", id: "profile", href: "/profile", label: "Profilo", icon: User },
+  { type: "link", id: "profile", href: "/account", label: "Profilo", icon: User },
 ];
 
 export function MobileTabBar() {

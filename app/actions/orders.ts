@@ -32,6 +32,8 @@ export interface CreateOrderInput {
   geo?: { lat: number; lng: number };
   items: CartItem[];
   tipCents?: number;
+  /** Spuntato a checkout → aggiorna customers.marketing_consent se non già true */
+  marketingConsent?: boolean;
 }
 
 export type CreateOrderResult =
@@ -245,6 +247,20 @@ export async function createOrder(
     status: "received",
     changed_by: "system",
   });
+
+  // 7b. Aggiorna marketing_consent se il cliente l'ha spuntato al checkout
+  // (idempotente: aggiorna solo se attualmente false, mai abbassa a false)
+  if (input.marketingConsent === true) {
+    await admin
+      .from("customers")
+      .update({
+        marketing_consent: true,
+        // Aggiorna anche name + phone se erano vuoti
+        ...(input.name ? { name: input.name } : {}),
+        ...(input.phone ? { phone: input.phone } : {}),
+      })
+      .eq("id", user.id);
+  }
 
   // 8. Print job — solo per cash on delivery. Per card aspettiamo Stripe webhook.
   if (input.paymentMethod === "cash") {
