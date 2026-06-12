@@ -18,7 +18,11 @@ export async function GET(request: NextRequest) {
   // Verifica Bearer token (GitHub Actions lo aggiunge)
   const auth = request.headers.get("authorization");
   const expected = process.env.CRON_SECRET;
-  if (expected && auth !== `Bearer ${expected}`) {
+  if (!expected) {
+    console.error("CRON_SECRET non configurato — endpoint disabilitato");
+    return new NextResponse("Service unavailable", { status: 503 });
+  }
+  if (auth !== `Bearer ${expected}`) {
     return new NextResponse("Forbidden", { status: 403 });
   }
 

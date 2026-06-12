@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { AccountForm } from "./account-form";
 import { ReorderButton } from "@/components/account/reorder-button";
 import { getLoyaltyStatus, POINTS_REDEMPTION_THRESHOLD } from "@/lib/loyalty/points";
+import { getEffectiveStatus, statusLabel } from "@/lib/orders/status";
 
 export default async function AccountPage() {
   const supabase = await createClient();
@@ -107,7 +108,15 @@ export default async function AccountPage() {
                       day: "2-digit",
                       month: "short",
                     })}{" "}
-                    · {o.status}
+                    · {statusLabel(
+                      getEffectiveStatus({
+                        status: o.status,
+                        order_type: o.order_type,
+                        slot_start: o.slot_start,
+                        created_at: o.created_at,
+                      }),
+                      o.order_type,
+                    )}
                   </p>
                 </Link>
                 <div className="flex items-center gap-2 ml-3 shrink-0">

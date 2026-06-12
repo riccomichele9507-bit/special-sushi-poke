@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { safeRedirect } from "@/lib/auth/safe-redirect";
 import { LoginForm } from "./login-form";
 
 type SearchParams = {
@@ -20,9 +21,9 @@ export default async function LoginPage({
   } = await supabase.auth.getUser();
 
   if (user) {
-    // Se è già loggato e ha un returnTo lo onora, altrimenti decide in base a admin role
+    // Se è già loggato e ha un returnTo lo onora (validato anti open-redirect)
     if (params.returnTo) {
-      redirect(params.returnTo);
+      redirect(safeRedirect(params.returnTo, "/account"));
     }
     const { data: adminRow } = await supabase
       .from("admin_users")
@@ -31,6 +32,11 @@ export default async function LoginPage({
       .maybeSingle();
     redirect(adminRow ? "/admin" : "/account");
   }
+
+  // Sanitizza returnTo che passiamo al form
+  const safeReturnTo = params.returnTo
+    ? safeRedirect(params.returnTo, "/account")
+    : undefined;
 
   return (
     <div className="min-h-[calc(100vh-6rem)] flex flex-col items-center justify-center px-4 py-12">
@@ -48,15 +54,15 @@ export default async function LoginPage({
           </div>
         )}
 
-        <LoginForm returnTo={params.returnTo} />
+        <LoginForm returnTo={safeReturnTo} />
 
         <div className="text-center text-sm text-warm-gray space-y-2">
           <p>
             Non hai un account?{" "}
             <Link
               href={
-                params.returnTo
-                  ? `/signup?returnTo=${encodeURIComponent(params.returnTo)}`
+                safeReturnTo
+                  ? `/signup?returnTo=${encodeURIComponent(safeReturnTo)}`
                   : "/signup"
               }
               className="text-bamboo font-semibold hover:underline"

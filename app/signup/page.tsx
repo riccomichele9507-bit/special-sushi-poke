@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { safeRedirect } from "@/lib/auth/safe-redirect";
 import { SignupForm } from "./signup-form";
 
 type SearchParams = { returnTo?: string };
@@ -17,8 +18,12 @@ export default async function SignupPage({
   } = await supabase.auth.getUser();
 
   if (user) {
-    redirect(params.returnTo ?? "/account");
+    redirect(safeRedirect(params.returnTo, "/account"));
   }
+
+  const safeReturnTo = params.returnTo
+    ? safeRedirect(params.returnTo, "/account")
+    : undefined;
 
   return (
     <div className="min-h-[calc(100vh-6rem)] flex flex-col items-center justify-center px-4 py-12">
@@ -30,14 +35,14 @@ export default async function SignupPage({
           </p>
         </div>
 
-        <SignupForm returnTo={params.returnTo} />
+        <SignupForm returnTo={safeReturnTo} />
 
         <div className="text-center text-sm text-warm-gray">
           Hai già un account?{" "}
           <Link
             href={
-              params.returnTo
-                ? `/login?returnTo=${encodeURIComponent(params.returnTo)}`
+              safeReturnTo
+                ? `/login?returnTo=${encodeURIComponent(safeReturnTo)}`
                 : "/login"
             }
             className="text-bamboo font-semibold hover:underline"

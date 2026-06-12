@@ -1,9 +1,11 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 // ============================================================
 // Schemi zod
@@ -140,13 +142,35 @@ export async function signup(formData: FormData): Promise<ActionResult> {
   }
 
   // Il trigger DB `handle_new_user` crea la riga in customers.
-  // Aggiorniamo name/phone/marketing_consent subito dopo (idempotente).
-  // Nota: l'utente non è ancora confermato → l'update via service-role sarebbe
-  // pulito ma il client anon basta perché customers.id = auth.uid() (RLS update self).
-  // Lo faremo dal callback /auth/callback dopo la conferma email.
+  // Aggiorniamo name/phone subito via service-role (l'utente non è ancora confermato
+  // quindi RLS update self non funziona). marketing_consent viene applicato al
+  // callback /auth/callback dopo la conferma email tramite cookie temporaneo.
+  try {
+    const admin = createAdminClient();
+    await admin
+      .from("customers")
+      .update({
+        name: parsed.data.name,
+        phone: parsed.data.phone || null,
+      })
+      .eq("email", parsed.data.email);
+  } catch (e) {
+    console.error("signup: failed to update customer profile", e);
+    // non blocchiamo il signup per questo
+  }
 
-  // Salviamo le preferenze marketing in cookie temporaneo per dopo la conferma
-  // (alternativa: pendenti via tabella, ma più semplice il cookie 24h)
+  // Cookie temporaneo per applicare il consent dopo conferma email
+  if (parsed.data.marketingConsent) {
+    const cookieStore = await cookies();
+    cookieStore.set("ssp_pending_consent", "yes", {
+      maxAge: 60 * 60 * 24, // 24h
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+    });
+  }
+
   return { ok: true };
 }
 
@@ -196,7 +220,10 @@ export async function updateProfile(
     })
     .eq("id", user.id);
 
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    console.error("updateProfile error:", error);
+    return { ok: false, error: "Impossibile salvare il profilo. Riprova." };
+  }
 
   revalidatePath("/account");
   return { ok: true };

@@ -4,18 +4,35 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { safeRedirect } from "@/lib/auth/safe-redirect";
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/account";
+  const next = safeRedirect(searchParams.get("next"), "/account");
 
   if (code) {
     const supabase = await createClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { error, data } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      // Sessione creata, redirect alla destinazione
-      return NextResponse.redirect(`${origin}${next}`);
+      // Applica eventuale marketing consent salvato in cookie al signup email/password
+      const consentCookie = request.cookies.get("ssp_pending_consent")?.value;
+      if (data.user && consentCookie === "yes") {
+        try {
+          const admin = createAdminClient();
+          await admin
+            .from("customers")
+            .update({ marketing_consent: true })
+            .eq("id", data.user.id);
+        } catch (e) {
+          console.error("auth/callback: failed to apply pending consent", e);
+        }
+      }
+      const response = NextResponse.redirect(`${origin}${next}`);
+      // Pulisci cookie temporanei
+      response.cookies.delete("ssp_pending_consent");
+      return response;
     }
     console.error("auth/callback exchange error:", error);
   }

@@ -48,15 +48,32 @@ export async function markOrderOutForFulfillment(orderId: string) {
 
   revalidatePath("/admin/orders");
   revalidatePath(`/admin/orders/${orderId}`);
+  revalidatePath("/account");
   return { ok: true, newStatus };
 }
 
 /**
  * Chiude l'ordine come consegnato/ritirato.
+ * Solo da stato in_delivery (delivery) o ready (pickup).
  */
 export async function markOrderDelivered(orderId: string) {
   await requireAdmin();
   const sb = createAdminClient();
+
+  const { data: order } = await sb
+    .from("orders")
+    .select("status, order_type")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (!order) return { ok: false, error: "Ordine non trovato" };
+  const validPrevStatus =
+    order.order_type === "delivery" ? ["in_delivery"] : ["ready"];
+  if (!validPrevStatus.includes(order.status)) {
+    return {
+      ok: false,
+      error: `Non puoi marcare consegnato un ordine in stato "${order.status}". Prima clicca "${order.order_type === "delivery" ? "Affidato al rider" : "Pronto al ritiro"}".`,
+    };
+  }
 
   const { error } = await sb
     .from("orders")
@@ -75,15 +92,30 @@ export async function markOrderDelivered(orderId: string) {
 
   revalidatePath("/admin/orders");
   revalidatePath(`/admin/orders/${orderId}`);
+  revalidatePath("/account");
   return { ok: true };
 }
 
 /**
- * Inizio preparazione (opzionale, ma utile per tracking esplicito).
+ * Inizio preparazione manuale (anticipa la transizione auto).
+ * Solo da confirmed.
  */
 export async function markOrderPreparing(orderId: string) {
   await requireAdmin();
   const sb = createAdminClient();
+
+  const { data: order } = await sb
+    .from("orders")
+    .select("status")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (!order) return { ok: false, error: "Ordine non trovato" };
+  if (!["received", "confirmed"].includes(order.status)) {
+    return {
+      ok: false,
+      error: `Impossibile: ordine già in stato "${order.status}".`,
+    };
+  }
 
   const { error } = await sb
     .from("orders")
@@ -102,5 +134,6 @@ export async function markOrderPreparing(orderId: string) {
 
   revalidatePath("/admin/orders");
   revalidatePath(`/admin/orders/${orderId}`);
+  revalidatePath("/account");
   return { ok: true };
 }

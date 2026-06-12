@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { safeRedirect } from "@/lib/auth/safe-redirect";
 import { OrderTrackingClient } from "./order-tracking-client";
 
 export const metadata: Metadata = {
@@ -21,9 +22,8 @@ export default async function OrderTrackingPage({ params }: PageProps) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    redirect(
-      `/login?next=${encodeURIComponent(`/account/orders/${orderNumber}`)}`,
-    );
+    const returnTo = safeRedirect(`/account/orders/${orderNumber}`, "/account");
+    redirect(`/login?returnTo=${encodeURIComponent(returnTo)}`);
   }
 
   const { data: order } = await supabase

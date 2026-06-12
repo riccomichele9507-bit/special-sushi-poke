@@ -133,7 +133,7 @@ export function CheckoutForm() {
         toast.error("Sessione scaduta", {
           description: "Accedi di nuovo per completare l'ordine.",
         });
-        router.push("/login?returnTo=/checkout");
+        window.location.href = "/login?returnTo=/checkout";
         return;
       }
       toast.error("Ordine non inviato", {
