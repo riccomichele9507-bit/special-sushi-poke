@@ -201,7 +201,11 @@ export async function createOrder(
   const orderNumber = `SSP-${datePart}-${timePart}-${randomSuffix}`;
 
   // 6. Insert order
-  const isTest = process.env.STRIPE_SECRET_KEY?.startsWith("sk_test_") ?? true;
+  // is_test logic: ordine "test" solo in development locale o se Stripe è in test mode.
+  // In produzione (NODE_ENV=production su Vercel), tutti gli ordini sono REALI.
+  const isTest =
+    process.env.NODE_ENV !== "production" ||
+    (process.env.STRIPE_SECRET_KEY?.startsWith("sk_test_") ?? false);
   const { data: inserted, error: insertError } = await admin
     .from("orders")
     .insert({

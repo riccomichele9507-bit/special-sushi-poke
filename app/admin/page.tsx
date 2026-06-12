@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   ShoppingBag,
@@ -7,45 +8,60 @@ import {
   AlertCircle,
 } from "lucide-react";
 
-async function getKpi() {
+/** Veloce: solo gli stat indispensabili in 2 query parallele */
+async function getQuickStats() {
   const supabase = createAdminClient();
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 
-  const [ordersToday, dishesActive, dishesSoldOut, customersTotal, dormant] =
-    await Promise.all([
-      supabase
-        .from("orders")
-        .select("id", { count: "exact", head: true })
-        .gte("created_at", todayStart.toISOString())
-        .eq("is_test", false),
-      supabase
-        .from("dishes")
-        .select("id", { count: "exact", head: true })
-        .eq("is_active", true),
-      supabase
-        .from("dishes")
-        .select("id", { count: "exact", head: true })
-        .eq("is_active", false),
-      supabase.from("customers").select("id", { count: "exact", head: true }),
-      // Dormant: clienti senza ordini negli ultimi 30 gg
-      supabase.rpc("count_dormant_customers", { days: 30 }).then(
-        (r) => ({ count: (r.data as number | null) ?? null }),
-        () => ({ count: null }),
-      ),
-    ]);
+  const [ordersToday, dishesSoldOut] = await Promise.all([
+    supabase
+      .from("orders")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", todayStart.toISOString())
+      .eq("is_test", false),
+    supabase
+      .from("dishes")
+      .select("id", { count: "exact", head: true })
+      .eq("is_active", false),
+  ]);
 
   return {
     ordersToday: ordersToday.count ?? 0,
-    dishesActive: dishesActive.count ?? 0,
     dishesSoldOut: dishesSoldOut.count ?? 0,
-    customersTotal: customersTotal.count ?? 0,
-    dormant: dormant.count,
   };
 }
 
+/** Lento (RPC dormant): caricato in Suspense separato */
+async function SlowStats() {
+  const supabase = createAdminClient();
+  const [dishesActive, customersTotal] = await Promise.all([
+    supabase
+      .from("dishes")
+      .select("id", { count: "exact", head: true })
+      .eq("is_active", true),
+    supabase.from("customers").select("id", { count: "exact", head: true }),
+  ]);
+  return (
+    <>
+      <Kpi
+        label="Piatti attivi"
+        value={dishesActive.count ?? 0}
+        icon={UtensilsCrossed}
+        href="/admin/menu"
+      />
+      <Kpi
+        label="Clienti totali"
+        value={customersTotal.count ?? 0}
+        icon={Users}
+        href="/admin/customers"
+      />
+    </>
+  );
+}
+
 export default async function AdminHomePage() {
-  const k = await getKpi();
+  const k = await getQuickStats();
   return (
     <div className="space-y-8">
       <div>
@@ -58,7 +74,9 @@ export default async function AdminHomePage() {
       {/* KPI grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Kpi label="Ordini oggi" value={k.ordersToday} icon={ShoppingBag} href="/admin/orders" />
-        <Kpi label="Piatti attivi" value={k.dishesActive} icon={UtensilsCrossed} href="/admin/menu" />
+        <Suspense fallback={<KpiSkeleton />}>
+          <SlowStats />
+        </Suspense>
         <Kpi
           label="Piatti esauriti"
           value={k.dishesSoldOut}
@@ -66,7 +84,6 @@ export default async function AdminHomePage() {
           href="/admin/menu?filter=sold_out"
           accent={k.dishesSoldOut > 0 ? "warn" : undefined}
         />
-        <Kpi label="Clienti totali" value={k.customersTotal} icon={Users} href="/admin/customers" />
       </div>
 
       {/* Reminder fiscale permanente */}
@@ -124,6 +141,16 @@ export default async function AdminHomePage() {
           </Link>
         </div>
       </div>
+    </div>
+  );
+}
+
+function KpiSkeleton() {
+  return (
+    <div className="rounded-lg border border-bamboo/20 bg-paper p-4 animate-pulse">
+      <div className="h-5 w-5 rounded bg-bamboo/10" />
+      <div className="mt-2 h-6 w-12 rounded bg-bamboo/10" />
+      <div className="mt-2 h-3 w-20 rounded bg-bamboo/10" />
     </div>
   );
 }

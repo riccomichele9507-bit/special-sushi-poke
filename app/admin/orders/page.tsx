@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/database.types";
+import { QuickActionButton } from "./quick-action-button";
 
 type OrderStatus = Database["public"]["Enums"]["order_status"];
 type SearchParams = { status?: string };
@@ -71,24 +72,23 @@ export default async function AdminOrdersPage({
               <th className="px-3 py-2">Slot</th>
               <th className="px-3 py-2">Cliente</th>
               <th className="px-3 py-2 text-right">Totale</th>
-              <th className="px-3 py-2">Pagam.</th>
               <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2">Fisc.</th>
+              <th className="px-3 py-2 text-center">Azione rapida</th>
+              <th className="px-3 py-2 text-center">Fisc.</th>
             </tr>
           </thead>
           <tbody>
             {orders?.map((o) => (
               <tr
                 key={o.id}
-                className="border-t border-bamboo/10 hover:bg-bamboo/5 cursor-pointer"
-                onClick={undefined}
+                className="border-t border-bamboo/10 hover:bg-bamboo/5"
               >
                 <td className="px-3 py-2 font-mono text-xs">
                   <Link
                     href={`/admin/orders/${o.id}`}
-                    className="text-bamboo hover:underline"
+                    className="text-bamboo hover:underline font-semibold"
                   >
-                    {o.order_number}
+                    {o.order_number} →
                   </Link>
                 </td>
                 <td className="px-3 py-2 text-warm-gray">
@@ -121,13 +121,20 @@ export default async function AdminOrdersPage({
                   <div className="text-warm-gray text-xs">{o.customer_phone}</div>
                 </td>
                 <td className="px-3 py-2 text-right font-semibold">
+                  <span className="text-xs text-warm-gray mr-1">
+                    {o.payment_method === "card" ? "💳" : "💶"}
+                  </span>
                   €{(o.total_cents / 100).toFixed(2).replace(".", ",")}
                 </td>
                 <td className="px-3 py-2 text-xs">
-                  {o.payment_method === "card" ? "💳" : "💶"}
-                </td>
-                <td className="px-3 py-2 text-xs">
                   <StatusPill status={o.status} />
+                </td>
+                <td className="px-3 py-2 text-center">
+                  <QuickActionButton
+                    orderId={o.id}
+                    status={o.status}
+                    orderType={o.order_type}
+                  />
                 </td>
                 <td className="px-3 py-2 text-center">
                   {o.fiscal_receipt_issued ? "✅" : "⏳"}
@@ -144,6 +151,12 @@ export default async function AdminOrdersPage({
           </tbody>
         </table>
       </div>
+
+      <p className="text-xs text-warm-gray">
+        💡 Clicca sul numero ordine per il dettaglio completo (indirizzo, piatti, storico).
+        Il bottone verde nella colonna &quot;Azione rapida&quot; fa avanzare lo status di 1 step
+        senza aprire il dettaglio.
+      </p>
     </div>
   );
 }
