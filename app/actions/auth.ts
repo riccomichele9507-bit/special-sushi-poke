@@ -117,7 +117,7 @@ export async function signup(formData: FormData): Promise<ActionResult> {
   const supabase = await createClient();
   const siteUrl =
     process.env.NEXT_PUBLIC_SITE_URL ??
-    "https://special-sushi-poke.vercel.app";
+    "https://specialsushipokebari.com";
 
   const { error } = await supabase.auth.signUp({
     email: parsed.data.email,
@@ -245,7 +245,7 @@ export async function requestPasswordReset(
   const supabase = await createClient();
   const siteUrl =
     process.env.NEXT_PUBLIC_SITE_URL ??
-    "https://special-sushi-poke.vercel.app";
+    "https://specialsushipokebari.com";
 
   const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
     redirectTo: `${siteUrl}/auth/reset-password`,

@@ -58,7 +58,7 @@ export async function createCheckoutSession(
 
   const stripe = getStripe();
   const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://special-sushi-poke.vercel.app";
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://specialsushipokebari.com";
 
   try {
     const sessionParams = {

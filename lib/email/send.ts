@@ -11,7 +11,7 @@ import type { Database } from "@/lib/supabase/database.types";
 type Order = Database["public"]["Tables"]["orders"]["Row"];
 
 const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://special-sushi-poke.vercel.app";
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://specialsushipokebari.com";
 
 function formatRomeTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("it-IT", {

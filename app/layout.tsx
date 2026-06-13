@@ -20,7 +20,7 @@ const notoSerifJP = Noto_Serif_JP({
   display: "swap",
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://special-sushi-poke.vercel.app";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://specialsushipokebari.com";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

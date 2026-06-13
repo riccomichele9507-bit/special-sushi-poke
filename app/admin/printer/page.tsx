@@ -74,7 +74,7 @@ export default async function AdminPrinterPage() {
         <p className="font-semibold text-ink mb-2">🛠️ Setup stampante</p>
         <ol className="list-decimal pl-5 space-y-1">
           <li>Genera <code>CLOUDPRNT_TOKEN</code> (UUID) e mettilo in <code>.env.local</code> + Vercel env vars.</li>
-          <li>Configura la stampante: pannello web Star → CloudPRNT → URL <code>https://special-sushi-poke.vercel.app/api/cloudprnt</code>.</li>
+          <li>Configura la stampante: pannello web Star → CloudPRNT → URL <code>https://specialsushipokebari.com/api/cloudprnt</code>.</li>
           <li>Auth Basic: username <code>printer</code>, password = <code>CLOUDPRNT_TOKEN</code>.</li>
           <li>Polling: 10 secondi. Salva + reboot stampante.</li>
         </ol>

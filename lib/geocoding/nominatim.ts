@@ -9,7 +9,7 @@ import "server-only";
 import type { LatLng } from "./haversine";
 
 const NOMINATIM_BASE = "https://nominatim.openstreetmap.org";
-const USER_AGENT = "SpecialSushiPoke/1.0 (https://special-sushi-poke.vercel.app)";
+const USER_AGENT = "SpecialSushiPoke/1.0 (https://specialsushipokebari.com)";
 
 export interface GeocodeResult extends LatLng {
   displayName: string;
