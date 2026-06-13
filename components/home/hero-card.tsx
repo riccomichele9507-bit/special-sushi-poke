@@ -7,12 +7,13 @@ import { ArrowRight, Salad, Bike, Truck } from "lucide-react";
 
 /**
  * Hero immersiva edge-to-edge: il furgone occupa TUTTA la larghezza dello schermo
- * (no riquadro, no padding orizzontale). Sotto, 2 CTA prominenti food-photography style.
+ * (no riquadro, no padding orizzontale). Badge "Consegna gratuita" sovrapposto
+ * direttamente sul furgone. Sotto, 2 CTA prominenti food-photography style.
  */
 export function HeroCard() {
   return (
     <section className="relative">
-      {/* Furgone illustrato FULL-WIDTH (edge-to-edge) */}
+      {/* Furgone illustrato FULL-WIDTH edge-to-edge */}
       <div className="relative w-full bg-gradient-to-br from-ink/90 via-ink/85 to-bamboo-deep/80">
         <div className="relative aspect-[16/9] w-full">
           <Image
@@ -24,7 +25,35 @@ export function HeroCard() {
             sizes="100vw"
             className="object-cover object-center"
           />
-          {/* Vignette per integrare la transizione col contenuto sotto */}
+
+          {/* Badge 'Consegna gratuita' SOVRAPPOSTO sul furgone (in alto a sinistra) */}
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{
+              opacity: 1,
+              y: 0,
+              rotate: [0, -1.5, 1.5, -1.5, 0],
+            }}
+            transition={{
+              opacity: { duration: 0.4 },
+              y: { duration: 0.4 },
+              rotate: {
+                delay: 1.5,
+                duration: 1.2,
+                ease: "easeInOut",
+                repeat: Infinity,
+                repeatDelay: 4,
+              },
+            }}
+            className="absolute left-3 top-3 sm:left-4 sm:top-4"
+          >
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-sushi-red/95 px-3 py-1.5 text-xs font-extrabold text-paper shadow-[0_4px_14px_-3px_rgba(200,16,46,0.65)] ring-2 ring-paper/90 backdrop-blur">
+              <Truck className="h-3.5 w-3.5" strokeWidth={2.5} />
+              Consegna gratuita
+            </span>
+          </motion.div>
+
+          {/* Vignette gradient verso paper in basso per integrare con contenuto sotto */}
           <div
             aria-hidden
             className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-paper to-transparent"
@@ -32,28 +61,8 @@ export function HeroCard() {
         </div>
       </div>
 
-      {/* Badge "Consegna gratuita" tra furgone e CTA, centrato + bouncy */}
-      <div className="mx-auto -mt-3 flex max-w-md justify-center px-4">
-        <motion.span
-          animate={{ y: [0, -2, 0] }}
-          transition={{
-            duration: 2.2,
-            ease: "easeInOut",
-            repeat: Infinity,
-            repeatDelay: 0.5,
-          }}
-          className="inline-flex items-center gap-1.5 rounded-full bg-bamboo px-3.5 py-1.5 text-xs font-bold text-paper shadow-[0_4px_18px_-6px_rgba(90,122,100,0.55)] ring-2 ring-paper"
-        >
-          <Truck className="h-3.5 w-3.5" strokeWidth={2.5} />
-          Consegna gratuita
-          <span className="ml-0.5 inline-flex items-center gap-0.5 rounded-full bg-paper/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider">
-            a Bari
-          </span>
-        </motion.span>
-      </div>
-
-      {/* 2 CTA pulsanti food-photography style, padding tornato per allineare al resto */}
-      <div className="mx-auto mt-3 grid max-w-md grid-cols-2 gap-3 px-4">
+      {/* 2 CTA food-photography style */}
+      <div className="mx-auto mt-2 grid max-w-md grid-cols-2 gap-3 px-4">
         <motion.div
           whileTap={{ scale: 0.95 }}
           whileHover={{ y: -2 }}
