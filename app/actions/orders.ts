@@ -187,18 +187,24 @@ export async function createOrder(
     };
   }
 
-  // 5. Genera order_number formato AAAAMMGG-HHmm-XXXX (random hex)
-  // Random hex evita race condition di count+1 quando 2 ordini sono simultanei.
-  // Formato user-friendly: SSP-20260612-1430-A1B2 → leggibile + univoco.
-  const today = new Date();
-  const datePart = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}`;
-  const timePart = `${String(today.getHours()).padStart(2, "0")}${String(today.getMinutes()).padStart(2, "0")}`;
-  // 4 hex char = 65536 combinazioni → collision ~0.0015% per ogni 100 ordini/minuto
-  const randomSuffix = Math.floor(Math.random() * 0xffff)
-    .toString(16)
-    .toUpperCase()
-    .padStart(4, "0");
-  const orderNumber = `SSP-${datePart}-${timePart}-${randomSuffix}`;
+  // 5. Genera order_number progressivo atomico via Postgres SEQUENCE
+  // Format: "0001", "0002", "0003"... lpad 4 zero, espandibile auto (es. "12345").
+  // Atomic: niente race condition tra ordini simultanei.
+  let orderNumber: string;
+  {
+    const { data: seqValue, error: seqError } = await admin.rpc(
+      "get_next_order_number",
+    );
+    if (seqError || !seqValue) {
+      console.error("get_next_order_number failed:", seqError);
+      return {
+        ok: false,
+        errorCode: "system",
+        errorMessage: "Impossibile generare il numero d'ordine. Riprova.",
+      };
+    }
+    orderNumber = String(seqValue);
+  }
 
   // 6. Insert order
   // is_test logic: ordine "test" solo in development locale o se Stripe è in test mode.

@@ -32,19 +32,20 @@ export default async function CheckoutReturnPage({ searchParams }: PageProps) {
       (session.metadata?.order_number as string | undefined) ?? order_number;
 
     if (session.status === "complete") {
-      // Pagamento andato → vai al tracking. Il webhook ha (o sta per) confermare lo status DB.
-      redirect(`/account/orders/${finalOrderNumber}?paid=true`);
+      // Pagamento andato → porta direttamente al profilo (punti + lista ordini)
+      // Il cliente vede subito i suoi premi accumulati.
+      redirect(`/account?paid=${finalOrderNumber}`);
     }
     if (session.status === "open") {
       // Pagamento ancora aperto → riporta al checkout per riprovare
       redirect("/checkout?retry=1");
     }
     // session expired / altro
-    redirect(`/account/orders/${finalOrderNumber}?retry=1`);
+    redirect(`/account?retry=${finalOrderNumber}`);
   } catch (e) {
     // NEXT_REDIRECT non è un errore vero — è il modo in cui redirect() comunica
     if (e && typeof e === "object" && "digest" in e) throw e;
     console.error("Stripe session retrieve failed:", e);
-    redirect(order_number ? `/account/orders/${order_number}` : "/account");
+    redirect("/account");
   }
 }

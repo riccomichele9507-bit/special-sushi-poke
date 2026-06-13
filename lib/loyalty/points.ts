@@ -38,9 +38,18 @@ export async function getLoyaltyStatus(customerId: string): Promise<LoyaltyStatu
   let totalPointsRedeemed = 0;
   let ordersCount = 0;
 
+  // Punti maturati: ordini confermati o consegnati (cliente li vede subito post-pagamento).
+  // I confermati non-delivered restano contabilizzati: appena admin segna come
+  // delivered, niente cambia (sono già conteggiati). Cancellati/refunded esclusi.
+  const POINT_EARNING_STATUSES = new Set([
+    "confirmed",
+    "preparing",
+    "ready",
+    "in_delivery",
+    "delivered",
+  ]);
   for (const o of orders ?? []) {
-    if (o.status === "delivered") {
-      // Solo ordini effettivamente consegnati danno punti
+    if (POINT_EARNING_STATUSES.has(o.status)) {
       totalSpentCents += o.total_cents;
       totalPointsEarned += Math.floor(o.total_cents / 100) * POINTS_PER_EURO;
       ordersCount += 1;

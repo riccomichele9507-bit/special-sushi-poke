@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -80,12 +81,24 @@ export default async function EmbeddedPayPage({ searchParams }: PageProps) {
         Annulla
       </Link>
 
-      <header className="mb-5">
+      {/* Logo ristorante in cima (Stripe Embedded non mostra il logo del Branding) */}
+      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center">
+        <Image
+          src="/logo.png"
+          alt="Special Sushi Poke"
+          width={120}
+          height={120}
+          priority
+          className="h-full w-full object-contain"
+        />
+      </div>
+
+      <header className="mb-5 text-center">
         <p className="text-[10px] uppercase tracking-[0.32em] text-bamboo font-sans">
           Pagamento sicuro
         </p>
         <h1 className="mt-1 font-heading text-2xl font-bold text-ink">
-          Ordine {order.order_number}
+          Ordine #{order.order_number}
         </h1>
         <p className="mt-1 text-sm text-warm-gray">
           Totale:{" "}

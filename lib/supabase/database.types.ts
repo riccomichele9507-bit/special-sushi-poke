@@ -722,6 +722,7 @@ export type Database = {
     Views: { [_ in never]: never }
     Functions: {
       count_dormant_customers: { Args: { days?: number }; Returns: number }
+      get_next_order_number: { Args: never; Returns: string }
       is_admin: { Args: { uid: string }; Returns: boolean }
       list_dormant_customers: {
         Args: { days?: number }

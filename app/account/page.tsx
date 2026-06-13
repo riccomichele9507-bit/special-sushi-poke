@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Star, Sparkles, ChevronRight } from "lucide-react";
+import { Star, Sparkles, ChevronRight, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logout } from "@/app/actions/auth";
@@ -10,7 +10,13 @@ import { ReorderButton } from "@/components/account/reorder-button";
 import { getLoyaltyStatus, POINTS_REDEMPTION_THRESHOLD } from "@/lib/loyalty/points";
 import { getEffectiveStatus, statusLabel } from "@/lib/orders/status";
 
-export default async function AccountPage() {
+interface PageProps {
+  searchParams: Promise<{ paid?: string; retry?: string }>;
+}
+
+export default async function AccountPage({ searchParams }: PageProps) {
+  const { paid, retry } = await searchParams;
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -43,8 +49,43 @@ export default async function AccountPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 space-y-8">
+      {paid && (
+        <div className="rounded-xl border border-bamboo/40 bg-bamboo/5 p-4 flex items-start gap-3">
+          <CheckCircle2 className="h-6 w-6 text-bamboo shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold text-bamboo">Pagamento confermato!</p>
+            <p className="text-sm text-warm-gray mt-0.5">
+              Ordine{" "}
+              <span className="font-mono font-semibold text-ink">#{paid}</span>{" "}
+              ricevuto. I tuoi punti sono stati aggiornati qui sotto 👇
+            </p>
+            <Link
+              href={`/account/orders/${paid}`}
+              className="text-xs font-medium text-bamboo hover:text-bamboo-deep underline-offset-2 hover:underline"
+            >
+              Vedi stato ordine →
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {retry && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
+          <p className="font-semibold text-amber-900">Pagamento non completato</p>
+          <p className="text-sm text-amber-800 mt-0.5">
+            Riprova dall&apos;ordine{" "}
+            <Link
+              href={`/account/orders/${retry}`}
+              className="underline font-medium"
+            >
+              #{retry}
+            </Link>
+          </p>
+        </div>
+      )}
+
       <div className="space-y-2">
-        <h1 className="text-3xl font-serif-jp text-ink">Il mio account</h1>
+        <h1 className="text-3xl font-serif-jp text-ink">I miei Premi</h1>
         <p className="text-sm text-warm-gray">{user.email}</p>
       </div>
 

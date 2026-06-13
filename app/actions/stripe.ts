@@ -63,12 +63,12 @@ export async function createCheckoutSession(
   try {
     const sessionParams = {
       // EMBEDDED MODE: pagamento dentro la nostra pagina, no redirect a checkout.stripe.com
-      // Cast a unknown poiche' i tipi @types/stripe potrebbero non avere ancora
-      // 'embedded' nell'enum UiMode (lo accetta a runtime).
       // Stripe 2026 ha rinominato 'embedded' -> 'embedded_page'
       ui_mode: "embedded_page",
       mode: "payment",
-      // Apple Pay + Google Pay attivi automaticamente se abilitati nel dashboard
+      // automatic_payment_methods: Stripe sceglie tutti i metodi attivi nel dashboard
+      // (Card, Apple Pay, Google Pay, Klarna, Link, ecc.) in base al browser/device cliente
+      automatic_payment_methods: { enabled: true },
       line_items: [
         {
           price_data: {
