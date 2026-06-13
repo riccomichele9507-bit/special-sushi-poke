@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import {
@@ -59,14 +60,25 @@ export function CartDrawer() {
         className="border-border bg-paper text-ink data-[vaul-drawer-direction=bottom]:max-h-[92svh] data-[vaul-drawer-direction=right]:max-w-md data-[vaul-drawer-direction=right]:rounded-l-2xl"
       >
         <DrawerHeader className="shrink-0 border-b border-border px-5 pt-4 pb-3">
-          <DrawerTitle className="font-heading text-xl font-bold text-ink">
-            Il tuo carrello
+          <div className="flex items-baseline justify-between gap-3">
+            <DrawerTitle className="font-heading text-xl font-bold text-ink">
+              Il tuo carrello
+              {hydrated && count > 0 && (
+                <span className="ml-2 font-sans text-base font-normal text-warm-gray">
+                  ({count})
+                </span>
+              )}
+            </DrawerTitle>
             {hydrated && count > 0 && (
-              <span className="ml-2 font-sans text-base font-normal text-warm-gray">
-                ({count})
-              </span>
+              <Link
+                href="/menu"
+                onClick={closeDrawer}
+                className="inline-flex h-7 items-center gap-1 rounded-full bg-bamboo/10 px-2.5 text-[11px] font-semibold text-bamboo hover:bg-bamboo/20"
+              >
+                + Ordina ancora
+              </Link>
             )}
-          </DrawerTitle>
+          </div>
           <DrawerDescription className="text-[10px] uppercase tracking-[0.22em] text-bamboo">
             Consegna · Special Sushi Poke
           </DrawerDescription>

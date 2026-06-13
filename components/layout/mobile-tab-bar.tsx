@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, UtensilsCrossed, Search, ShoppingBag, User } from "lucide-react";
+import { Home, UtensilsCrossed, Search, ShoppingBag, User, Gift } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useCartCount, useCartHydrated } from "@/store/cart-store";
 import { useCartUI } from "@/lib/cart-ui-store";
+import { UserAvatarSmall } from "./user-avatar-small";
 
 type Tab =
   | { type: "link"; id: string; href: string; label: string; icon: typeof Home; matchExact?: boolean }
@@ -17,7 +18,9 @@ const tabs: Tab[] = [
   { type: "link", id: "menu", href: "/menu", label: "Menu", icon: UtensilsCrossed },
   { type: "link", id: "search", href: "/search", label: "Cerca", icon: Search },
   { type: "action", id: "cart", label: "Carrello", icon: ShoppingBag, action: "openCart" },
-  { type: "link", id: "profile", href: "/account", label: "Profilo", icon: User },
+  // "Premi" = pagina account dove il cliente vede i suoi punti loyalty + ordini.
+  // Icona dinamica: avatar con iniziali se loggato, icona User se anonimo.
+  { type: "link", id: "profile", href: "/account", label: "Premi", icon: Gift },
 ];
 
 export function MobileTabBar() {
@@ -54,10 +57,14 @@ export function MobileTabBar() {
               )}
             >
               <span className="relative">
-                <Icon
-                  className={cn("h-5 w-5 transition", active && "stroke-[2.25]")}
-                  strokeWidth={active ? 2.25 : 1.75}
-                />
+                {tab.id === "profile" ? (
+                  <UserAvatarSmall active={active} />
+                ) : (
+                  <Icon
+                    className={cn("h-5 w-5 transition", active && "stroke-[2.25]")}
+                    strokeWidth={active ? 2.25 : 1.75}
+                  />
+                )}
                 <AnimatePresence>
                   {showCartBadge && (
                     <motion.span

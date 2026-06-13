@@ -9,9 +9,9 @@ export default function HomePage() {
   return (
     <div className="mx-auto max-w-md pb-6">
       <HeroCard />
+      <CreatePokeCTA />
       <DailySpecials />
       <ChefRecommendations />
-      <CreatePokeCTA />
       <CategoryCircles />
       <RestaurantLocation />
     </div>
