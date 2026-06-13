@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { Minus, Plus, Star, X, Check, ChevronUp } from "lucide-react";
+import { Minus, Plus, Star, X, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import {
   Drawer,
@@ -16,9 +16,7 @@ import { cn } from "@/lib/utils";
 import { getDishById } from "@/data/menu";
 import { categoryColors, getCategoryKanji, getCategoryById } from "@/data/categories";
 import {
-  getDishExtras,
   getDishSizeVariants,
-  type DishExtra,
   type DishSizeVariant,
 } from "@/data/dish-extras";
 import {
@@ -39,19 +37,16 @@ export function DishDetailDrawer() {
   const dish = openDishId ? getDishById(openDishId) : null;
 
   const variants = useMemo(() => (dish ? getDishSizeVariants(dish) : null), [dish]);
-  const extras = useMemo(() => (dish ? getDishExtras(dish) : []), [dish]);
   const reviews = useMemo(() => (dish ? getDishReviews(dish.id) : []), [dish]);
   const rating = useMemo(() => (dish ? getDishRating(dish.id) : 0), [dish]);
   const reviewCount = useMemo(() => (dish ? getDishReviewCount(dish.id) : 0), [dish]);
 
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
-  const [selectedExtras, setSelectedExtras] = useState<Set<string>>(new Set());
   const [quantity, setQuantity] = useState(1);
 
   useEffect(() => {
     if (dish) {
       setSelectedVariantId(variants ? "standard" : null);
-      setSelectedExtras(new Set());
       setQuantity(1);
     }
   }, [dish, variants]);
@@ -68,11 +63,7 @@ export function DishDetailDrawer() {
     variants?.find((v) => v.id === selectedVariantId) ?? null;
   const variantMultiplier = selectedVariant?.priceMultiplier ?? 1;
 
-  const extrasTotal = extras
-    .filter((e) => selectedExtras.has(e.id))
-    .reduce((sum, e) => sum + e.price, 0);
-
-  const unitPrice = Math.round(dish.price * variantMultiplier + extrasTotal);
+  const unitPrice = Math.round(dish.price * variantMultiplier);
   const totalPrice = unitPrice * quantity;
 
   const colors = categoryColors[dish.category];
@@ -81,27 +72,12 @@ export function DishDetailDrawer() {
   const kanji = getCategoryKanji(dish.category);
   const category = getCategoryById(dish.category);
 
-  function toggleExtra(extraId: string) {
-    setSelectedExtras((prev) => {
-      const next = new Set(prev);
-      if (next.has(extraId)) next.delete(extraId);
-      else next.add(extraId);
-      return next;
-    });
-  }
-
   function handleAddToCart() {
     for (let i = 0; i < quantity; i++) add(dish!.id);
 
     const customizationParts: string[] = [];
     if (selectedVariant && selectedVariant.id !== "standard") {
       customizationParts.push(selectedVariant.label);
-    }
-    if (selectedExtras.size > 0) {
-      const extraLabels = extras
-        .filter((e) => selectedExtras.has(e.id))
-        .map((e) => e.label);
-      customizationParts.push(...extraLabels);
     }
     const description = customizationParts.length
       ? `${quantity > 1 ? `${quantity}× · ` : ""}${customizationParts.join(" · ")}`
@@ -247,53 +223,8 @@ export function DishDetailDrawer() {
               </div>
             )}
 
-            {extras.length > 0 && (
-              <div className="space-y-2">
-                <p className="font-heading text-sm font-bold text-ink">
-                  Aggiungi Extra / Toppings
-                </p>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {extras.map((extra) => {
-                    const selected = selectedExtras.has(extra.id);
-                    return (
-                      <button
-                        type="button"
-                        key={extra.id}
-                        onClick={() => toggleExtra(extra.id)}
-                        aria-pressed={selected}
-                        className={cn(
-                          "flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left transition",
-                          selected
-                            ? "border-bamboo bg-bamboo/[0.06]"
-                            : "border-border bg-paper-warm/40 hover:bg-paper-warm",
-                        )}
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <span
-                            className={cn(
-                              "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition",
-                              selected
-                                ? "border-bamboo bg-bamboo"
-                                : "border-warm-gray-soft bg-paper",
-                            )}
-                          >
-                            {selected && (
-                              <Check className="h-3 w-3 text-paper" strokeWidth={3} />
-                            )}
-                          </span>
-                          <span className="font-sans text-sm font-medium text-ink truncate">
-                            {extra.label}
-                          </span>
-                        </div>
-                        <span className="font-heading text-xs font-bold tabular-nums text-bamboo">
-                          +{formatPrice(extra.price)}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+            {/* Extras/Toppings ELIMINATI su richiesta utente: il drawer ora mostra
+                solo descrizione, ingredienti, allergeni, recensioni. */}
 
             {dish.allergens.length > 0 && (
               <div className="rounded-xl bg-sakura/15 px-3 py-2.5 ring-1 ring-sakura/30">
