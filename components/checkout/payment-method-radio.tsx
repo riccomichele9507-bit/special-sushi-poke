@@ -4,18 +4,25 @@ import { Banknote, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PaymentMethod } from "@/types/checkout";
 
-const options: { id: PaymentMethod; label: string; description: string; icon: typeof Banknote }[] = [
-  {
-    id: "cash",
-    label: "Contanti alla consegna",
-    description: "Paghi al rider quando arriva.",
-    icon: Banknote,
-  },
+const options: {
+  id: PaymentMethod;
+  label: string;
+  description: string;
+  badge?: string;
+  icon: typeof Banknote;
+}[] = [
   {
     id: "card",
     label: "Carta adesso",
-    description: "Pagamento sicuro online (demo Stripe).",
+    description: "Carta, Apple Pay, Google Pay. Pagamento sicuro Stripe.",
+    badge: "consigliato",
     icon: CreditCard,
+  },
+  {
+    id: "cash",
+    label: "Alla consegna",
+    description: "Paghi al rider con contanti o carta (POS).",
+    icon: Banknote,
   },
 ];
 
@@ -63,6 +70,11 @@ export function PaymentMethodRadio({
                 )}
               >
                 {opt.label}
+                {opt.badge && (
+                  <span className="ml-1.5 inline-flex items-center rounded-full bg-gold/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-gold-deep ring-1 ring-gold/30">
+                    {opt.badge}
+                  </span>
+                )}
               </p>
               <p className="mt-0.5 text-xs text-warm-gray">{opt.description}</p>
             </div>

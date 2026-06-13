@@ -148,11 +148,28 @@ export function generateReceiptText(order: OrderRow): string {
   lines.push(pad("TOTALE", eur(order.total_cents)));
   lines.push(rule("="));
 
-  // Payment
+  // Payment - banner visibile e contestuale
   lines.push("");
-  lines.push(
-    `Pagamento: ${order.payment_method === "cash" ? "CONTANTI ALLA CONSEGNA" : "CARTA (Stripe) - GIA' PAGATO"}`,
-  );
+  lines.push(rule("*"));
+  if (order.payment_method === "card") {
+    lines.push(center("*** GIA' PAGATO ONLINE ***"));
+    lines.push(center("Carta via Stripe"));
+    if (order.stripe_payment_intent_id) {
+      lines.push(center(`PI: ${order.stripe_payment_intent_id.slice(0, 18)}...`));
+    }
+  } else {
+    // cash on delivery - accetta sia contanti che POS rider
+    if (isDelivery) {
+      lines.push(center("*** DA INCASSARE ***"));
+      lines.push(center("CONTANTI o CARTA (POS rider)"));
+      lines.push(center(`Importo: ${eur(order.total_cents)}`));
+    } else {
+      lines.push(center("*** DA INCASSARE AL BANCO ***"));
+      lines.push(center("CONTANTI o CARTA"));
+      lines.push(center(`Importo: ${eur(order.total_cents)}`));
+    }
+  }
+  lines.push(rule("*"));
 
   // Reminder fiscale per il titolare
   if (!order.fiscal_receipt_issued) {

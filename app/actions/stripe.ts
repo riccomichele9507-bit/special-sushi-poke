@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe, isStripeConfigured } from "@/lib/stripe/server";
 
 export type CheckoutSessionResult =
-  | { ok: true; url: string }
+  | { ok: true; clientSecret: string; sessionId: string }
   | { ok: false; errorMessage: string };
 
 /**
@@ -61,10 +61,13 @@ export async function createCheckoutSession(
     process.env.NEXT_PUBLIC_SITE_URL ?? "https://special-sushi-poke.vercel.app";
 
   try {
-    const session = await stripe.checkout.sessions.create({
+    const sessionParams = {
+      // EMBEDDED MODE: pagamento dentro la nostra pagina, no redirect a checkout.stripe.com
+      // Cast a unknown poiche' i tipi @types/stripe potrebbero non avere ancora
+      // 'embedded' nell'enum UiMode (lo accetta a runtime).
+      ui_mode: "embedded",
       mode: "payment",
-      payment_method_types: ["card"],
-      // line_items singolo aggregato per pulizia in Stripe dashboard
+      // Apple Pay + Google Pay attivi automaticamente se abilitati nel dashboard
       line_items: [
         {
           price_data: {
@@ -87,12 +90,12 @@ export async function createCheckoutSession(
         order_number: order.order_number,
         customer_id: user.id,
       },
-      success_url: `${siteUrl}/account/orders/${order.order_number}?paid=true`,
-      cancel_url: `${siteUrl}/checkout/payment?orderId=${order.id}&cancelled=true`,
-      // Apple Pay + Google Pay attivi automaticamente se abilitati nel dashboard
-    });
+      // Embedded mode usa return_url invece di success/cancel
+      return_url: `${siteUrl}/checkout/return?session_id={CHECKOUT_SESSION_ID}&order_number=${order.order_number}`,
+    } as unknown as Parameters<typeof stripe.checkout.sessions.create>[0];
 
-    // Salva session id sull'ordine (per debug + idempotency)
+    const session = await stripe.checkout.sessions.create(sessionParams);
+
     if (session.id) {
       await admin
         .from("orders")
@@ -100,10 +103,14 @@ export async function createCheckoutSession(
         .eq("id", order.id);
     }
 
-    if (!session.url) {
-      return { ok: false, errorMessage: "URL pagamento non disponibile." };
+    if (!session.client_secret) {
+      return { ok: false, errorMessage: "client_secret non disponibile." };
     }
-    return { ok: true, url: session.url };
+    return {
+      ok: true,
+      clientSecret: session.client_secret,
+      sessionId: session.id,
+    };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Errore Stripe sconosciuto";
     console.error("createCheckoutSession failed:", msg);
