@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, UtensilsCrossed, Search, ShoppingBag, User, Gift } from "lucide-react";
+import { Home, UtensilsCrossed, ShoppingBag, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useCartCount, useCartHydrated } from "@/store/cart-store";
@@ -13,14 +13,13 @@ type Tab =
   | { type: "link"; id: string; href: string; label: string; icon: typeof Home; matchExact?: boolean }
   | { type: "action"; id: string; label: string; icon: typeof Home; action: "openCart" };
 
+// 4 tab (era 5): rimosso Cerca standalone (resta dentro /menu).
+// Profilo spostato al CENTRO. Ordina (ex carrello) all'estrema destra.
 const tabs: Tab[] = [
   { type: "link", id: "home", href: "/", label: "Home", icon: Home, matchExact: true },
   { type: "link", id: "menu", href: "/menu", label: "Menu", icon: UtensilsCrossed },
-  { type: "link", id: "search", href: "/search", label: "Cerca", icon: Search },
-  { type: "action", id: "cart", label: "Carrello", icon: ShoppingBag, action: "openCart" },
-  // "Premi" = pagina account dove il cliente vede i suoi punti loyalty + ordini.
-  // Icona dinamica: avatar con iniziali se loggato, icona User se anonimo.
-  { type: "link", id: "profile", href: "/account", label: "Premi", icon: Gift },
+  { type: "link", id: "profile", href: "/account", label: "Profilo", icon: User },
+  { type: "action", id: "cart", label: "Ordina", icon: ShoppingBag, action: "openCart" },
 ];
 
 export function MobileTabBar() {

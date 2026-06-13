@@ -41,7 +41,7 @@ export function AddToCartButton({
     });
   }
 
-  const aria = `Aggiungi ${dishName} al carrello`;
+  const aria = `Ordina ${dishName}`;
   const springTap = { type: "spring", stiffness: 460, damping: 18 } as const;
 
   if (variant === "inline") {
@@ -61,7 +61,7 @@ export function AddToCartButton({
         )}
       >
         <Plus className="h-4 w-4" strokeWidth={2.5} />
-        Aggiungi
+        Ordina
       </motion.button>
     );
   }
@@ -84,7 +84,7 @@ export function AddToCartButton({
         )}
       >
         <Plus className="h-3 w-3" strokeWidth={2.8} />
-        Aggiungi
+        Ordina
       </motion.button>
     );
   }

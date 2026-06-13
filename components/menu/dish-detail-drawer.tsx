@@ -396,7 +396,7 @@ export function DishDetailDrawer() {
               >
                 <span className="flex items-center gap-1.5">
                   <Plus className="h-4 w-4" strokeWidth={2.5} />
-                  Aggiungi al carrello
+                  Ordina
                 </span>
                 <span className="font-heading font-bold tabular-nums">
                   {formatPrice(totalPrice)}
