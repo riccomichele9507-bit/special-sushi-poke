@@ -14,11 +14,24 @@ interface RequestBody {
   sessionToken: string;
 }
 
+// Whitelist origin allineata con places-autocomplete
+const ALLOWED_ORIGINS = new Set([
+  "https://specialsushipokebari.com",
+  "https://www.specialsushipokebari.com",
+  "https://special-sushi-poke.vercel.app",
+  "http://localhost:3000",
+]);
+
+function isAllowedOrigin(origin: string): boolean {
+  if (ALLOWED_ORIGINS.has(origin)) return true;
+  if (/^https:\/\/special-sushi-poke[a-z0-9-]*\.vercel\.app$/.test(origin)) return true;
+  return false;
+}
+
 export async function POST(req: Request) {
-  // Anti-abuse: solo dalla nostra origin
+  // Anti-abuse: solo dalle nostre origin
   const origin = req.headers.get("origin");
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
-  if (origin && siteUrl && origin !== siteUrl) {
+  if (origin && !isAllowedOrigin(origin)) {
     return NextResponse.json({ error: "Origin non autorizzata" }, { status: 403 });
   }
 
