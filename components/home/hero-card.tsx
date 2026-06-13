@@ -3,85 +3,101 @@
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Clock, Sparkles, ArrowRight } from "lucide-react";
-import { restaurant } from "@/data/restaurant";
+import { ArrowRight, Salad, Bike } from "lucide-react";
 
+/**
+ * Hero ridisegnata:
+ * - Illustrazione 3D del furgone Special Sushi Poke (con logo brand reale)
+ * - 2 CTA prominenti food-photography style: "Ordina ora" + "Crea la tua poke"
+ */
 export function HeroCard() {
   return (
     <section className="relative px-4 pt-3">
-      <div className="relative mx-auto max-w-md overflow-hidden rounded-3xl shadow-[0_10px_40px_-15px_rgba(28,28,28,0.15)] ring-1 ring-border">
-        <div className="relative aspect-[16/10] w-full">
-          <Image
-            src="/hero/hero-home.png"
-            alt={`${restaurant.name} — assortimento sushi premium`}
-            fill
-            priority
-            quality={75}
-            sizes="(max-width: 480px) 100vw, 480px"
-            className="object-cover"
-          />
-          <div
-            aria-hidden
-            className="absolute inset-0 bg-gradient-to-t from-ink/85 via-ink/30 to-transparent"
-          />
-          <div
-            aria-hidden
-            className="absolute inset-0 bg-gradient-to-br from-ink/20 via-transparent to-transparent"
-          />
+      <div className="relative mx-auto max-w-md">
+        {/* Illustrazione furgone */}
+        <div className="relative overflow-hidden rounded-3xl shadow-[0_10px_40px_-15px_rgba(28,28,28,0.18)] ring-1 ring-border bg-gradient-to-br from-ink/90 via-ink/85 to-bamboo-deep/80">
+          <div className="relative aspect-[16/9] w-full">
+            <Image
+              src="/hero/hero-van.png"
+              alt="Special Sushi Poke — Bari · Sushi · Poke"
+              fill
+              priority
+              quality={85}
+              sizes="(max-width: 480px) 100vw, 480px"
+              className="object-cover object-center"
+            />
+          </div>
         </div>
 
-        <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-5">
-          <div>
-            <h2 className="font-heading text-2xl font-semibold leading-tight text-paper drop-shadow-md">
-              {restaurant.name}
-            </h2>
-            <p className="mt-1 font-sans text-xs text-paper/85 drop-shadow">
-              Sushi & Poke Premium · Bari
-            </p>
-          </div>
-          <span
-            aria-hidden
-            className="font-heading text-3xl text-paper/30 select-none drop-shadow"
-          >
-            寿司
-          </span>
-        </div>
-
-        <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 p-4">
-          <div className="flex flex-col gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-bamboo-soft/95 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-bamboo-deep ring-1 ring-bamboo/30">
-                <Sparkles className="h-3 w-3" strokeWidth={2.5} />
-                Aperto
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-paper/95 px-2.5 py-1 text-[11px] font-semibold text-ink ring-1 ring-border">
-                <Clock className="h-3 w-3 text-bamboo" strokeWidth={2.5} />
-                Consegna gratuita
-              </span>
-            </div>
-          </div>
-
-          {/* CTA Ordina Ora con animazione shake che attira l'occhio */}
+        {/* 2 CTA pulsanti food-photography style, sovrapposti al furgone in basso */}
+        <div className="mt-3 grid grid-cols-2 gap-3">
           <motion.div
-            animate={{
-              rotate: [0, -3, 3, -3, 3, 0],
-              scale: [1, 1.04, 1.04, 1.04, 1.04, 1],
-            }}
-            transition={{
-              duration: 1.2,
-              ease: "easeInOut",
-              repeat: Infinity,
-              repeatDelay: 3.5,
-            }}
-            whileTap={{ scale: 0.94 }}
+            whileTap={{ scale: 0.95 }}
+            whileHover={{ y: -2 }}
+            transition={{ type: "spring", stiffness: 380, damping: 20 }}
           >
             <Link
               href="/menu"
-              className="inline-flex h-10 items-center gap-1.5 rounded-full bg-sushi-red px-4 font-sans text-sm font-bold text-paper shadow-[0_4px_18px_-4px_rgba(200,16,46,0.7)] hover:bg-sushi-red/90"
-              aria-label="Vai al menu per ordinare ora"
+              className="group relative flex h-24 items-end overflow-hidden rounded-2xl bg-gradient-to-br from-sushi-red to-sushi-red/80 p-3 shadow-[0_6px_24px_-8px_rgba(200,16,46,0.5)]"
             >
-              Ordina ora
-              <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.5} />
+              <div className="absolute inset-0 opacity-30">
+                <Image
+                  src="/menu/uramaki-dragon.png"
+                  alt=""
+                  fill
+                  sizes="200px"
+                  className="object-cover object-center mix-blend-multiply"
+                  aria-hidden
+                />
+              </div>
+              <div className="absolute inset-0 bg-gradient-to-t from-sushi-red/95 via-sushi-red/60 to-transparent" />
+              <div className="relative z-10 flex flex-col items-start gap-1">
+                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-paper/95">
+                  <Bike className="h-3.5 w-3.5 text-sushi-red" strokeWidth={2.5} />
+                </span>
+                <span className="font-heading text-base font-bold leading-tight text-paper drop-shadow">
+                  Ordina ora
+                </span>
+                <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-paper/90">
+                  Vai al menu
+                  <ArrowRight className="h-2.5 w-2.5" strokeWidth={2.5} />
+                </span>
+              </div>
+            </Link>
+          </motion.div>
+
+          <motion.div
+            whileTap={{ scale: 0.95 }}
+            whileHover={{ y: -2 }}
+            transition={{ type: "spring", stiffness: 380, damping: 20 }}
+          >
+            <Link
+              href="/menu/crea-la-tua-poke"
+              className="group relative flex h-24 items-end overflow-hidden rounded-2xl bg-gradient-to-br from-bamboo to-bamboo-deep p-3 shadow-[0_6px_24px_-8px_rgba(90,122,100,0.55)]"
+            >
+              <div className="absolute inset-0 opacity-30">
+                <Image
+                  src="/menu/poke-fresh.png"
+                  alt=""
+                  fill
+                  sizes="200px"
+                  className="object-cover object-center mix-blend-multiply"
+                  aria-hidden
+                />
+              </div>
+              <div className="absolute inset-0 bg-gradient-to-t from-bamboo-deep/95 via-bamboo-deep/60 to-transparent" />
+              <div className="relative z-10 flex flex-col items-start gap-1">
+                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-paper/95">
+                  <Salad className="h-3.5 w-3.5 text-bamboo-deep" strokeWidth={2.5} />
+                </span>
+                <span className="font-heading text-base font-bold leading-tight text-paper drop-shadow">
+                  Crea la tua poke
+                </span>
+                <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-paper/90">
+                  Personalizza
+                  <ArrowRight className="h-2.5 w-2.5" strokeWidth={2.5} />
+                </span>
+              </div>
             </Link>
           </motion.div>
         </div>

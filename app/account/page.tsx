@@ -1,6 +1,7 @@
 import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
-import { Star, Sparkles, ChevronRight, CheckCircle2 } from "lucide-react";
+import { Star, Sparkles, ChevronRight, CheckCircle2, Heart } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logout } from "@/app/actions/auth";
@@ -39,6 +40,32 @@ export default async function AccountPage({ searchParams }: PageProps) {
     .eq("customer_id", user.id)
     .order("created_at", { ascending: false })
     .limit(5);
+
+  // Preferiti del cliente (con join sui dishes per nome+image+prezzo)
+  const { data: favoritesRaw } = await admin
+    .from("favorites")
+    .select(
+      "dish_id, created_at, dishes!inner(id, name, image, image_alt, price, is_active)",
+    )
+    .eq("customer_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(12);
+
+  const favorites = (favoritesRaw ?? [])
+    .map((f) => {
+      // dishes potrebbe essere object o array a seconda dello stato del client
+      const dish = Array.isArray(f.dishes) ? f.dishes[0] : f.dishes;
+      if (!dish) return null;
+      return {
+        id: dish.id,
+        name: dish.name,
+        image: dish.image,
+        imageAlt: dish.image_alt,
+        price: dish.price,
+        isActive: dish.is_active,
+      };
+    })
+    .filter((d): d is NonNullable<typeof d> => d !== null);
 
   const progressPct = Math.min(
     100,
@@ -126,6 +153,47 @@ export default async function AccountPage({ searchParams }: PageProps) {
           1€ speso = 1 punto. 100 punti = €10 di sconto. Solo ordini consegnati.
         </p>
       </div>
+
+      {/* Preferiti del cliente */}
+      {favorites.length > 0 && (
+        <div>
+          <h2 className="text-sm font-semibold text-ink mb-3 flex items-center gap-1.5">
+            <Heart className="h-4 w-4 fill-sushi-red text-sushi-red" />I miei preferiti
+          </h2>
+          <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+            {favorites.map((d) => (
+              <Link
+                key={d.id}
+                href={`/menu#dish-${d.id}`}
+                className="group flex flex-col gap-1"
+              >
+                <div className="relative aspect-square overflow-hidden rounded-xl ring-1 ring-border">
+                  {d.image ? (
+                    <Image
+                      src={d.image}
+                      alt={d.imageAlt}
+                      fill
+                      sizes="100px"
+                      className="object-cover transition group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 bg-paper-warm" />
+                  )}
+                  {!d.isActive && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-ink/60 text-[10px] font-bold uppercase tracking-wider text-paper">
+                      Esaurito
+                    </div>
+                  )}
+                </div>
+                <p className="text-[11px] font-medium text-ink truncate">{d.name}</p>
+                <p className="text-[10px] tabular-nums text-bamboo">
+                  €{(d.price / 100).toFixed(2).replace(".", ",")}
+                </p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Recent orders */}
       {recentOrders && recentOrders.length > 0 && (

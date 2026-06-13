@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import type { Dish } from "@/types/dish";
 import { DishBadges } from "./dish-badges";
 import { AddToCartButton } from "./add-to-cart-button";
+import { FavoriteButton } from "./favorite-button";
 import { Price } from "@/components/shared/price";
 import { categoryColors, getCategoryKanji } from "@/data/categories";
 import { useDishDetail } from "@/lib/dish-detail-store";
@@ -15,12 +16,14 @@ export function DishCard({
   className,
   priority = false,
   variant = "card",
+  initialFavorite = false,
 }: {
   dish: Dish;
   featured?: boolean;
   className?: string;
   priority?: boolean;
   variant?: "card" | "row";
+  initialFavorite?: boolean;
 }) {
   const openDetail = useDishDetail((s) => s.open);
   const isHighlight = featured || dish.isFeatured;
@@ -170,6 +173,17 @@ export function DishCard({
             {dish.pieces} pz
           </span>
         )}
+        <div
+          className="absolute bottom-2 right-2"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <FavoriteButton
+            dishId={dish.id}
+            dishName={dish.name}
+            initialFavorite={initialFavorite}
+            size="sm"
+          />
+        </div>
       </div>
 
       <div className="relative flex flex-1 flex-col gap-1 px-3 pb-3 pt-2.5">

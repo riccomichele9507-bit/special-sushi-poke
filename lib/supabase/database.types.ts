@@ -341,6 +341,39 @@ export type Database = {
           },
         ]
       }
+      favorites: {
+        Row: {
+          customer_id: string
+          dish_id: string
+          created_at: string
+        }
+        Insert: {
+          customer_id: string
+          dish_id: string
+          created_at?: string
+        }
+        Update: {
+          customer_id?: string
+          dish_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "favorites_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "favorites_dish_id_fkey"
+            columns: ["dish_id"]
+            isOneToOne: false
+            referencedRelation: "dishes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       marketing_emails_log: {
         Row: {
           customer_id: string | null
