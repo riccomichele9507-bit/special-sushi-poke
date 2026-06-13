@@ -1,34 +1,42 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { motion } from "framer-motion";
 import { Tag, X, Check } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { usePricing } from "@/lib/pricing-store";
+import { usePricing, discountShortLabel } from "@/lib/pricing-store";
+import { useCartTotal } from "@/store/cart-store";
+import { checkDiscountCode } from "@/app/actions/discount";
 
 export function DiscountCodeInput() {
   const [input, setInput] = useState("");
   const [error, setError] = useState(false);
-  const discountCode = usePricing((s) => s.discountCode);
-  const applyDiscount = usePricing((s) => s.applyDiscount);
+  const [pending, startTransition] = useTransition();
+  const subtotal = useCartTotal();
+  const discount = usePricing((s) => s.discount);
+  const setDiscount = usePricing((s) => s.setDiscount);
   const clearDiscount = usePricing((s) => s.clearDiscount);
 
   function handleApply() {
-    if (!input.trim()) return;
-    const success = applyDiscount(input);
-    if (success) {
-      toast.success("Codice applicato", { duration: 1400 });
-      setInput("");
-      setError(false);
-    } else {
-      setError(true);
-      setTimeout(() => setError(false), 1500);
-      toast.error("Codice non valido");
-    }
+    const code = input.trim();
+    if (!code) return;
+    startTransition(async () => {
+      const r = await checkDiscountCode(code, subtotal);
+      if (r.ok) {
+        setDiscount({ code: r.code, kind: r.kind, value: r.value, label: r.label });
+        toast.success("Codice applicato", { duration: 1400 });
+        setInput("");
+        setError(false);
+      } else {
+        setError(true);
+        setTimeout(() => setError(false), 1500);
+        toast.error(r.reason);
+      }
+    });
   }
 
-  if (discountCode) {
+  if (discount) {
     return (
       <motion.div
         initial={{ opacity: 0, y: -4 }}
@@ -40,11 +48,9 @@ export function DiscountCodeInput() {
             <Check className="h-3 w-3" strokeWidth={3} />
           </span>
           <span className="font-heading font-semibold text-bamboo-deep">
-            {discountCode.code}
+            {discount.code}
           </span>
-          <span className="text-warm-gray text-xs">
-            −{discountCode.percent}%
-          </span>
+          <span className="text-warm-gray text-xs">{discountShortLabel(discount)}</span>
         </span>
         <button
           type="button"
@@ -78,16 +84,16 @@ export function DiscountCodeInput() {
       <motion.button
         type="button"
         onClick={handleApply}
-        disabled={!input.trim()}
+        disabled={!input.trim() || pending}
         whileTap={{ scale: 0.93 }}
         className={cn(
           "inline-flex h-8 items-center rounded-full px-3 text-xs font-semibold transition",
-          input.trim()
+          input.trim() && !pending
             ? "bg-bamboo text-paper hover:bg-bamboo-deep"
             : "bg-warm-gray/20 text-warm-gray cursor-not-allowed",
         )}
       >
-        Applica
+        {pending ? "..." : "Applica"}
       </motion.button>
     </div>
   );

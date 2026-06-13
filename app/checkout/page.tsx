@@ -5,6 +5,11 @@ import { ArrowLeft } from "lucide-react";
 import { CheckoutForm } from "@/components/checkout/checkout-form";
 import { OrderSummarySide } from "@/components/checkout/order-summary-side";
 import { createClient } from "@/lib/supabase/server";
+import {
+  getLoyaltyStatus,
+  POINTS_REDEMPTION_THRESHOLD,
+  POINTS_REDEMPTION_VALUE_CENTS,
+} from "@/lib/loyalty/points";
 
 export const metadata: Metadata = {
   title: "Checkout",
@@ -21,6 +26,32 @@ export default async function CheckoutPage() {
   if (!user) {
     redirect("/login?returnTo=/checkout");
   }
+
+  // Precompila nome/telefono/email + ultimo indirizzo salvato (address_default)
+  const { data: customer } = await supabase
+    .from("customers")
+    .select("name, phone, address_default")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  // Sconto fedeltà disponibile (≥100 punti → −€5), mostrato nel riepilogo.
+  const loyalty = await getLoyaltyStatus(user.id);
+  const loyaltyDiscountCents =
+    loyalty.balance >= POINTS_REDEMPTION_THRESHOLD ? POINTS_REDEMPTION_VALUE_CENTS : 0;
+
+  const addr = customer?.address_default as
+    | { address?: string; lat?: number; lng?: number; notes?: string | null }
+    | null;
+  const defaultAddress =
+    addr && typeof addr.lat === "number" && typeof addr.lng === "number" && addr.address
+      ? {
+          address: addr.address,
+          lat: addr.lat,
+          lng: addr.lng,
+          notes: addr.notes ?? "",
+        }
+      : null;
+
   return (
     <div className="mx-auto max-w-md px-4 pb-12 pt-2 lg:max-w-5xl">
       <Link
@@ -44,9 +75,14 @@ export default async function CheckoutPage() {
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[7fr_5fr]">
-        <CheckoutForm />
+        <CheckoutForm
+          defaultName={customer?.name ?? ""}
+          defaultPhone={customer?.phone ?? ""}
+          defaultEmail={user.email ?? ""}
+          defaultAddress={defaultAddress}
+        />
         <div className="hidden lg:block">
-          <OrderSummarySide />
+          <OrderSummarySide loyaltyDiscountCents={loyaltyDiscountCents} />
         </div>
       </div>
     </div>

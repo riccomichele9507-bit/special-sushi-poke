@@ -4,6 +4,11 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validateDelivery } from "@/lib/delivery/validate";
 import { enqueuePrintJob } from "@/lib/print/queue";
+import { computeLoyaltyRedemption } from "@/lib/loyalty/points";
+import {
+  validateDiscountCodeDb,
+  incrementDiscountRedemption,
+} from "@/lib/discount/validate";
 import type { CartItem, CustomPokeConfig } from "@/types/cart";
 import type { Json } from "@/lib/supabase/database.types";
 
@@ -27,6 +32,8 @@ export interface CreateOrderInput {
   addressNotes?: string;
   driverNotes?: string;
   paymentMethod: "cash" | "card";
+  /** Codice sconto digitato dal cliente (validato server-side, opzionale). */
+  discountCode?: string;
   slotStartIso: string;
   slotEndIso: string;
   geo?: { lat: number; lng: number };
@@ -156,7 +163,32 @@ export async function createOrder(
   }
 
   const tipCents = Math.max(0, input.tipCents ?? 0);
-  const discountCents = 0; // TODO: integrare codice sconto + loyalty
+
+  // SCONTI (anti-tamper: ricalcolati SEMPRE lato server, mai dal client).
+  // 1) Codice sconto manuale (se presente): validato contro il DB (attivo, date, soglia).
+  let codeDiscountCents = 0;
+  let appliedManualCode: string | null = null;
+  if (input.discountCode?.trim()) {
+    const dv = await validateDiscountCodeDb(input.discountCode, subtotalCents);
+    if (!dv.ok) {
+      return {
+        ok: false,
+        errorCode: "invalid_discount",
+        errorMessage: dv.reason,
+      };
+    }
+    codeDiscountCents = dv.discountCents;
+    appliedManualCode = dv.code;
+  }
+  // 2) Sconto fedeltà automatico: se il saldo punti ≥ 100, applica -€5 e consuma i punti.
+  const loyalty = await computeLoyaltyRedemption(user.id);
+  // Somma i due sconti, mai oltre il subtotale.
+  const discountCents = Math.max(
+    0,
+    Math.min(subtotalCents, codeDiscountCents + loyalty.discountCents),
+  );
+  const discountCode =
+    [appliedManualCode, loyalty.code].filter(Boolean).join("+") || null;
   const totalCents = subtotalCents + tipCents - discountCents;
 
   // 4. Re-valida slot (race protection)
@@ -236,6 +268,7 @@ export async function createOrder(
       items: snapshots as unknown as Json,
       subtotal_cents: subtotalCents,
       discount_cents: discountCents,
+      discount_code: discountCode,
       tip_cents: tipCents,
       total_cents: totalCents,
       payment_method: input.paymentMethod,
@@ -285,6 +318,11 @@ export async function createOrder(
     };
   }
 
+  // 6c. Incrementa contatore usi del codice sconto manuale (best-effort).
+  if (appliedManualCode) {
+    await incrementDiscountRedemption(appliedManualCode);
+  }
+
   // 7. Order status history (record iniziale)
   await admin.from("order_status_history").insert({
     order_id: inserted.id,
@@ -292,18 +330,28 @@ export async function createOrder(
     changed_by: "system",
   });
 
-  // 7b. Aggiorna marketing_consent se il cliente l'ha spuntato al checkout
-  // (idempotente: aggiorna solo se attualmente false, mai abbassa a false)
-  if (input.marketingConsent === true) {
-    await admin
-      .from("customers")
-      .update({
-        marketing_consent: true,
-        // Aggiorna anche name + phone se erano vuoti
-        ...(input.name ? { name: input.name } : {}),
-        ...(input.phone ? { phone: input.phone } : {}),
-      })
-      .eq("id", user.id);
+  // 7b. Aggiorna profilo cliente: marketing_consent (se spuntato), name/phone,
+  // e SALVA l'indirizzo di consegna come address_default → riapparirà
+  // precompilato al prossimo checkout / riordino.
+  const customerUpdate: {
+    marketing_consent?: boolean;
+    name?: string;
+    phone?: string;
+    address_default?: Json;
+  } = {};
+  if (input.marketingConsent === true) customerUpdate.marketing_consent = true;
+  if (input.name) customerUpdate.name = input.name;
+  if (input.phone) customerUpdate.phone = input.phone;
+  if (input.orderType === "delivery" && input.addressLine && input.geo) {
+    customerUpdate.address_default = {
+      address: input.addressLine,
+      lat: input.geo.lat,
+      lng: input.geo.lng,
+      notes: input.addressNotes ?? null,
+    } as unknown as Json;
+  }
+  if (Object.keys(customerUpdate).length > 0) {
+    await admin.from("customers").update(customerUpdate).eq("id", user.id);
   }
 
   // 8. Print job — solo per cash on delivery. Per card aspettiamo Stripe webhook.

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { Clock, CheckCircle2, XCircle, Truck, MapPin } from "lucide-react";
+import { Clock, CheckCircle2, XCircle, Truck, MapPin, Moon } from "lucide-react";
 import {
   getDeliveryQuote,
   type DeliveryQuoteResult,
@@ -23,6 +23,17 @@ interface Props {
 }
 
 const REFRESH_INTERVAL_MS = 60_000;
+
+/** Frase amichevole per il pre-ordine: "stasera", "oggi a pranzo", "domani a cena"... */
+function preorderPhrase(
+  service: "lunch" | "dinner" | undefined,
+  dayLabel: string | undefined,
+): string {
+  const meal = service === "dinner" ? "cena" : "pranzo";
+  if (dayLabel === "oggi") return service === "dinner" ? "stasera" : "oggi a pranzo";
+  if (dayLabel) return `${dayLabel} a ${meal}`;
+  return `il prossimo servizio (${meal})`;
+}
 
 export function DeliveryQuoteBox({
   coords,
@@ -159,6 +170,18 @@ export function DeliveryQuoteBox({
               : "Ritiro disponibile"}
           </p>
         </div>
+
+        {quote.isPreorder && (
+          <div className="flex items-start gap-2 rounded-xl bg-gold/10 px-3 py-2.5 ring-1 ring-gold/30">
+            <Moon className="mt-0.5 h-4 w-4 shrink-0 text-gold" strokeWidth={2} />
+            <p className="text-xs text-ink">
+              <span className="font-semibold">Adesso siamo chiusi.</span>{" "}
+              Puoi pre-ordinare per{" "}
+              <span className="font-semibold">{preorderPhrase(quote.service, quote.dayLabel)}</span>
+              : scegli una fascia qui sotto, prepariamo all&apos;apertura.
+            </p>
+          </div>
+        )}
 
         {orderType === "delivery" && quote.formattedAddress && (
           <p className="flex items-start gap-1.5 text-xs text-warm-gray">

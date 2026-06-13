@@ -28,6 +28,8 @@ interface Props {
   errorMessage?: string;
   label?: string;
   placeholder?: string;
+  /** Se true, parte già "confermato" (indirizzo precompilato): non rifetcha i suggerimenti. */
+  initiallyConfirmed?: boolean;
 }
 
 const DEBOUNCE_MS = 300;
@@ -42,11 +44,12 @@ export function GoogleAddressAutocomplete({
   errorMessage,
   label = "Indirizzo di consegna",
   placeholder = "Inizia a scrivere via, civico, città…",
+  initiallyConfirmed = false,
 }: Props) {
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [confirmed, setConfirmed] = useState(false);
+  const [confirmed, setConfirmed] = useState(initiallyConfirmed);
 
   // Session token Google: stesso per tutto il typing + select finale
   const sessionTokenRef = useRef<string>("");

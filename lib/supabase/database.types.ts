@@ -261,6 +261,48 @@ export type Database = {
         }
         Relationships: []
       }
+      discount_codes: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          kind: string
+          label: string | null
+          max_redemptions: number | null
+          min_order_cents: number
+          redemptions: number
+          valid_from: string | null
+          valid_to: string | null
+          value: number
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          kind: string
+          label?: string | null
+          max_redemptions?: number | null
+          min_order_cents?: number
+          redemptions?: number
+          valid_from?: string | null
+          valid_to?: string | null
+          value: number
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          kind?: string
+          label?: string | null
+          max_redemptions?: number | null
+          min_order_cents?: number
+          redemptions?: number
+          valid_from?: string | null
+          valid_to?: string | null
+          value?: number
+        }
+        Relationships: []
+      }
       dishes: {
         Row: {
           allergens: string[]

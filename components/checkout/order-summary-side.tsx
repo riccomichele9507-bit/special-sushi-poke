@@ -10,7 +10,11 @@ import { CartSummary } from "@/components/cart/cart-summary";
 import { Price } from "@/components/shared/price";
 import { categoryColors, getCategoryKanji } from "@/data/categories";
 
-export function OrderSummarySide() {
+export function OrderSummarySide({
+  loyaltyDiscountCents = 0,
+}: {
+  loyaltyDiscountCents?: number;
+}) {
   const hydrated = useCartHydrated();
   const items = useCartItemsWithDish();
 
@@ -81,7 +85,7 @@ export function OrderSummarySide() {
             })}
           </ul>
           <div className="mt-5 border-t border-border pt-5">
-            <CartSummary showPickupNote />
+            <CartSummary showPickupNote loyaltyDiscountCents={loyaltyDiscountCents} />
           </div>
         </>
       )}

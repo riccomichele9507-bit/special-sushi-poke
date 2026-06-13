@@ -2,18 +2,28 @@
 
 import { Clock } from "lucide-react";
 import { useCartTotal } from "@/store/cart-store";
-import { usePricing } from "@/lib/pricing-store";
+import { usePricing, discountCentsFor, discountShortLabel } from "@/lib/pricing-store";
 import { Price } from "@/components/shared/price";
 
-export function CartSummary({ showPickupNote = true }: { showPickupNote?: boolean }) {
+export function CartSummary({
+  showPickupNote = true,
+  loyaltyDiscountCents = 0,
+}: {
+  showPickupNote?: boolean;
+  /** Sconto fedeltà (−€5) applicato in automatico se il cliente ha ≥100 punti. */
+  loyaltyDiscountCents?: number;
+}) {
   const subtotal = useCartTotal();
-  const discountCode = usePricing((s) => s.discountCode);
+  const discount = usePricing((s) => s.discount);
   const tipCents = usePricing((s) => s.tipCents);
 
-  const discountCents = discountCode
-    ? Math.round((subtotal * discountCode.percent) / 100)
-    : 0;
-  const total = Math.max(0, subtotal - discountCents) + tipCents;
+  const discountCents = discountCentsFor(discount, subtotal);
+  // La fedeltà non può scendere sotto zero col codice già applicato.
+  const loyaltyCents = Math.max(
+    0,
+    Math.min(loyaltyDiscountCents, subtotal - discountCents),
+  );
+  const total = Math.max(0, subtotal - discountCents - loyaltyCents) + tipCents;
 
   return (
     <div className="flex flex-col gap-2">
@@ -21,13 +31,23 @@ export function CartSummary({ showPickupNote = true }: { showPickupNote?: boolea
         <span>Subtotale</span>
         <Price cents={subtotal} size="sm" className="!text-ink" />
       </div>
-      {discountCents > 0 && discountCode && (
+      {discountCents > 0 && discount && (
         <div className="flex items-center justify-between text-sm">
           <span className="text-bamboo-deep">
-            Sconto <span className="font-mono">{discountCode.code}</span> (−{discountCode.percent}%)
+            Sconto <span className="font-mono">{discount.code}</span> ({discountShortLabel(discount)})
           </span>
           <span className="font-heading font-semibold text-bamboo-deep tabular-nums">
             −<Price cents={discountCents} size="sm" className="!text-bamboo-deep" />
+          </span>
+        </div>
+      )}
+      {loyaltyCents > 0 && (
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-gold flex items-center gap-1">
+            ⭐ Sconto fedeltà
+          </span>
+          <span className="font-heading font-semibold tabular-nums text-gold">
+            −<Price cents={loyaltyCents} size="sm" className="!text-gold" />
           </span>
         </div>
       )}

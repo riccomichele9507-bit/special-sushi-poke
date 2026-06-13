@@ -120,7 +120,7 @@ export function DailySpecials() {
             aria-label={`Aggiungi ${dish.name} al carrello`}
           >
             <Plus className="h-3 w-3" strokeWidth={2.8} />
-            Aggiungi
+            Ordina
           </motion.button>
         </div>
       </motion.div>

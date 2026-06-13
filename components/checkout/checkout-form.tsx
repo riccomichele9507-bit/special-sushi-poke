@@ -26,22 +26,46 @@ import {
 import { DeliveryQuoteBox } from "./delivery-quote-box";
 import type { DeliveryQuoteResult, SlotOption } from "@/app/actions/delivery-quote";
 import { createOrder } from "@/app/actions/orders";
+import { usePricing } from "@/lib/pricing-store";
 
 const INPUT_CLASSES =
   "h-12 rounded-xl border-border bg-paper-warm/40 px-4 text-base text-ink placeholder:text-warm-gray/70 focus-visible:border-bamboo/60 focus-visible:ring-bamboo/20 focus-visible:bg-paper";
 const LABEL_CLASSES =
   "font-sans text-[11px] font-medium uppercase tracking-[0.18em] text-warm-gray";
 
-export function CheckoutForm() {
+interface CheckoutFormProps {
+  defaultName?: string;
+  defaultPhone?: string;
+  defaultEmail?: string;
+  defaultAddress?: {
+    address: string;
+    lat: number;
+    lng: number;
+    notes?: string;
+  } | null;
+}
+
+export function CheckoutForm({
+  defaultName = "",
+  defaultPhone = "",
+  defaultEmail = "",
+  defaultAddress = null,
+}: CheckoutFormProps = {}) {
   const router = useRouter();
   const clear = useCartStore((s) => s.clear);
   const count = useCartCount();
   const hydrated = useCartHydrated();
   const cartCents = useCartTotal();
 
-  // Stato slot/coords sincronizzato col DeliveryQuoteBox
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [formattedAddress, setFormattedAddress] = useState<string>("");
+  // Stato slot/coords sincronizzato col DeliveryQuoteBox.
+  // Pre-inizializzato con l'ultimo indirizzo salvato del cliente (se presente),
+  // così lo slot di consegna viene calcolato subito senza ridigitare l'indirizzo.
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
+    defaultAddress ? { lat: defaultAddress.lat, lng: defaultAddress.lng } : null,
+  );
+  const [formattedAddress, setFormattedAddress] = useState<string>(
+    defaultAddress?.address ?? "",
+  );
   const [quote, setQuote] = useState<DeliveryQuoteResult | null>(null);
 
   const {
@@ -55,15 +79,18 @@ export function CheckoutForm() {
     resolver: zodResolver(checkoutSchema),
     defaultValues: {
       orderType: "delivery",
-      name: "",
-      phone: "",
-      email: "",
-      addressLine: "",
-      addressNotes: "",
+      name: defaultName,
+      phone: defaultPhone,
+      email: defaultEmail,
+      addressLine: defaultAddress?.address ?? "",
+      addressNotes: defaultAddress?.notes ?? "",
       driverNotes: "",
       paymentMethod: "cash",
       slotStartIso: "",
       slotEndIso: "",
+      ...(defaultAddress
+        ? { geo: { lat: defaultAddress.lat, lng: defaultAddress.lng } }
+        : {}),
     } as CheckoutInput,
   });
 
@@ -100,6 +127,8 @@ export function CheckoutForm() {
   const selectedSlot = quote?.slots?.find((s) => s.endIso === selectedSlotEndIso);
 
   const cartItems = useCartStore((s) => s.items);
+  const discount = usePricing((s) => s.discount);
+  const tipCents = usePricing((s) => s.tipCents);
   const [marketingConsent, setMarketingConsent] = useState(true);
 
   async function onSubmit(data: CheckoutInput) {
@@ -124,6 +153,8 @@ export function CheckoutForm() {
           ? coords
           : undefined,
       items: cartItems,
+      discountCode: discount?.code,
+      tipCents,
       marketingConsent,
     });
 
@@ -204,6 +235,7 @@ export function CheckoutForm() {
                 onSelect={handleAddressSelect}
                 hasError={!!errors.addressLine}
                 errorMessage={errors.addressLine?.message}
+                initiallyConfirmed={!!defaultAddress}
               />
             )}
           />

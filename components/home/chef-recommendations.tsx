@@ -117,7 +117,7 @@ function RankedCard({
           className="inline-flex h-7 items-center gap-0.5 rounded-full bg-bamboo px-2 text-[11px] font-semibold text-paper hover:bg-bamboo-deep"
         >
           <Plus className="h-3 w-3" strokeWidth={2.8} />
-          Add
+          Ordina
         </motion.button>
       </div>
     </motion.article>

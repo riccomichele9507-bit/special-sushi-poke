@@ -150,7 +150,8 @@ export default async function AccountPage({ searchParams }: PageProps) {
           </>
         )}
         <p className="mt-3 text-[11px] text-warm-gray/70">
-          1€ speso = 1 punto. 100 punti = €10 di sconto. Solo ordini consegnati.
+          1€ speso = 1 punto. 100 punti = €5 di sconto, applicato in automatico al
+          prossimo ordine. Mancia esclusa.
         </p>
       </div>
 
