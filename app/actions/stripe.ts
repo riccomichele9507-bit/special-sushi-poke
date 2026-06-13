@@ -66,9 +66,9 @@ export async function createCheckoutSession(
       // Stripe 2026 ha rinominato 'embedded' -> 'embedded_page'
       ui_mode: "embedded_page",
       mode: "payment",
-      // automatic_payment_methods: Stripe sceglie tutti i metodi attivi nel dashboard
-      // (Card, Apple Pay, Google Pay, Klarna, Link, ecc.) in base al browser/device cliente
-      automatic_payment_methods: { enabled: true },
+      // payment_method_types omesso -> Stripe usa AUTOMATICAMENTE tutti i metodi
+      // attivati nel dashboard Stripe (Card, Apple Pay, Google Pay, Link, ecc.).
+      // Per Checkout Sessions NON va usato automatic_payment_methods (param non valido).
       line_items: [
         {
           price_data: {
