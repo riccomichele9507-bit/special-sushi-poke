@@ -62,20 +62,13 @@ export interface DishSizeVariant {
   priceMultiplier: number;
 }
 
-// Categorie con dimensione FISSA: ogni "taglia" è un piatto distinto nel menu
-// (es. Box 100 / 70 / 50 / 35 / 25 e Barca Grande / Piccola). Niente selettore variante.
-const FIXED_SIZE_CATEGORIES = new Set(["box", "barca"]);
-
-/** Ritorna le 3 varianti di dimensione (small / standard / large) se applicabile. */
-export function getDishSizeVariants(dish: Dish): DishSizeVariant[] | null {
-  if (FIXED_SIZE_CATEGORIES.has(dish.category)) return null;
-  if (!dish.pieces || dish.pieces < 6) return null;
-  const base = dish.pieces;
-  const small = Math.max(2, Math.round(base * 0.7));
-  const large = Math.round(base * 1.5);
-  return [
-    { id: "small", label: `${small} pz`, pieces: small, priceMultiplier: 0.75 },
-    { id: "standard", label: `${base} pz`, pieces: base, priceMultiplier: 1 },
-    { id: "large", label: `${large} pz`, pieces: large, priceMultiplier: 1.45 },
-  ];
+// Decisione 13/06/2026: NESSUN piatto ha selettore varianti taglia.
+// Ogni piatto ha un numero pezzi FISSO definito dal ristorante:
+//   - Sashimi misto: 16 pz | altri sashimi: 12 pz | tataki: 8 pz
+//   - Hosomaki: 6 pz | Hoso fritti: 6 pz | Uramaki fritti: 8 pz
+//   - Box e Barca: ogni taglia e' un piatto distinto nel menu
+// Il cliente sceglie solo la quantita' (numero di porzioni) con +/-.
+/** Ritorna sempre null: nessuna variante taglia (decisione business). */
+export function getDishSizeVariants(_dish: Dish): DishSizeVariant[] | null {
+  return null;
 }
