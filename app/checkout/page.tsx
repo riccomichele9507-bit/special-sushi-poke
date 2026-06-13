@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { CheckoutForm } from "@/components/checkout/checkout-form";
 import { OrderSummarySide } from "@/components/checkout/order-summary-side";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   getLoyaltyStatus,
   POINTS_REDEMPTION_THRESHOLD,
@@ -42,7 +43,7 @@ export default async function CheckoutPage() {
   const addr = customer?.address_default as
     | { address?: string; lat?: number; lng?: number; notes?: string | null }
     | null;
-  const defaultAddress =
+  let defaultAddress =
     addr && typeof addr.lat === "number" && typeof addr.lng === "number" && addr.address
       ? {
           address: addr.address,
@@ -51,6 +52,37 @@ export default async function CheckoutPage() {
           notes: addr.notes ?? "",
         }
       : null;
+
+  // Fallback: se non c'è ancora un address_default salvato (cliente che ha
+  // ordinato prima di questa feature, o che clicca "riordina"), recupera
+  // l'indirizzo dall'ULTIMO ordine di consegna. Così l'indirizzo c'è sempre.
+  if (!defaultAddress) {
+    const admin = createAdminClient();
+    const { data: lastOrder } = await admin
+      .from("orders")
+      .select("address_line, address_notes, geo")
+      .eq("customer_id", user.id)
+      .eq("order_type", "delivery")
+      .not("geo", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const geo = lastOrder?.geo as { lat?: number; lng?: number } | null;
+    if (
+      lastOrder?.address_line &&
+      geo &&
+      typeof geo.lat === "number" &&
+      typeof geo.lng === "number"
+    ) {
+      defaultAddress = {
+        address: lastOrder.address_line,
+        lat: geo.lat,
+        lng: geo.lng,
+        notes: lastOrder.address_notes ?? "",
+      };
+    }
+  }
 
   return (
     <div className="mx-auto max-w-md px-4 pb-12 pt-2 lg:max-w-5xl">
