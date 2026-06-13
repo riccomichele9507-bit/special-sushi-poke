@@ -1,33 +1,69 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
-import {
-  Package,
-  Salad,
-  Sparkles,
-  Cherry,
-  Fish,
-  Wine,
-  Utensils,
-} from "lucide-react";
-import { categories, categoryColors } from "@/data/categories";
+import { categories } from "@/data/categories";
 
-const ICONS: Record<string, typeof Package> = {
-  box: Package,
-  poke: Salad,
-  uramaki: Sparkles,
-  nigiri: Cherry,
-  sashimi: Fish,
-  bevande: Wine,
+interface CategoryHero {
+  id: string;
+  imageSrc: string;
+  imageAlt: string;
+}
+
+/**
+ * Mapping categoria → foto piatto rappresentativo per il "thumb" della home.
+ * Usa foto vere del menu (no piu' icone Lucide generiche).
+ */
+const CATEGORY_HEROES: Record<string, CategoryHero> = {
+  box: {
+    id: "box",
+    imageSrc: "/menu/box-50.png",
+    imageAlt: "Box 50 pezzi assortito",
+  },
+  poke: {
+    id: "poke",
+    imageSrc: "/menu/poke-fresh.png",
+    imageAlt: "Poke Fresh colorata",
+  },
+  uramaki: {
+    id: "uramaki",
+    imageSrc: "/menu/uramaki-dragon.png",
+    imageAlt: "Uramaki Dragon",
+  },
+  nigiri: {
+    id: "nigiri",
+    imageSrc: "/menu/nigiri-salmon.png",
+    imageAlt: "Nigiri salmone",
+  },
+  sashimi: {
+    id: "sashimi",
+    imageSrc: "/menu/sashimi-salmon.png",
+    imageAlt: "Sashimi salmone",
+  },
+  bevande: {
+    id: "bevande",
+    imageSrc: "/menu/coca-cola.png",
+    imageAlt: "Bevande fredde",
+  },
 };
 
-const HOME_CATEGORIES = ["box", "poke", "uramaki", "nigiri", "sashimi", "bevande"] as const;
+const HOME_CATEGORIES = [
+  "box",
+  "poke",
+  "uramaki",
+  "nigiri",
+  "sashimi",
+  "bevande",
+] as const;
 
 export function CategoryCircles() {
-  const items = HOME_CATEGORIES.map((id) => categories.find((c) => c.id === id)).filter(
-    (c): c is NonNullable<typeof c> => c !== undefined,
-  );
+  const items = HOME_CATEGORIES.map((id) => {
+    const cat = categories.find((c) => c.id === id);
+    if (!cat) return null;
+    const hero = CATEGORY_HEROES[id];
+    return { cat, hero };
+  }).filter((x): x is { cat: NonNullable<typeof x>["cat"]; hero: CategoryHero } => x !== null);
 
   return (
     <section className="pt-7">
@@ -44,46 +80,37 @@ export function CategoryCircles() {
       </div>
 
       <div className="grid grid-cols-3 gap-3 px-4">
-        {items.map((cat) => {
-          const Icon = ICONS[cat.id] ?? Utensils;
-          const colors = categoryColors[cat.id];
-          return (
-            <Link
-              key={cat.id}
-              href={`/menu#category-${cat.slug}`}
-              className="group flex flex-col items-center gap-2"
+        {items.map(({ cat, hero }) => (
+          <Link
+            key={cat.id}
+            href={`/menu#category-${cat.slug}`}
+            className="group flex flex-col items-center gap-2"
+          >
+            <motion.div
+              whileTap={{ scale: 0.94 }}
+              whileHover={{ scale: 1.04, y: -2 }}
+              transition={{ type: "spring", stiffness: 380, damping: 20 }}
+              className="relative h-22 w-22 sm:h-24 sm:w-24 overflow-hidden rounded-full ring-2 ring-paper shadow-[0_6px_20px_-8px_rgba(28,28,28,0.25)] ring-offset-1 ring-offset-bamboo/15"
+              style={{ height: "5.5rem", width: "5.5rem" }}
             >
-              <motion.div
-                whileTap={{ scale: 0.93 }}
-                whileHover={{ scale: 1.04, y: -2 }}
-                transition={{ type: "spring", stiffness: 380, damping: 20 }}
-                className="relative inline-flex h-20 w-20 items-center justify-center overflow-hidden rounded-full ring-1 ring-border"
-                style={{
-                  backgroundImage: colors
-                    ? `linear-gradient(135deg, ${colors.from}30 0%, ${colors.to}45 100%)`
-                    : undefined,
-                  backgroundColor: "var(--color-paper-warm)",
-                }}
-              >
-                <span
-                  aria-hidden
-                  className="absolute inset-0 mix-blend-overlay opacity-40"
-                  style={{
-                    backgroundImage:
-                      "radial-gradient(circle at 30% 25%, rgba(255,255,255,0.5), transparent 60%)",
-                  }}
-                />
-                <Icon
-                  className="relative h-7 w-7 text-bamboo-deep transition-transform duration-300 group-hover:scale-110"
-                  strokeWidth={1.5}
-                />
-              </motion.div>
-              <span className="font-sans text-[12px] font-medium text-ink text-center leading-tight">
-                {cat.label}
-              </span>
-            </Link>
-          );
-        })}
+              <Image
+                src={hero.imageSrc}
+                alt={hero.imageAlt}
+                fill
+                sizes="(max-width: 480px) 90px, 96px"
+                className="object-cover transition duration-300 group-hover:scale-110"
+              />
+              {/* Overlay subtle per profondità */}
+              <div
+                aria-hidden
+                className="absolute inset-0 bg-gradient-to-tr from-ink/15 via-transparent to-transparent"
+              />
+            </motion.div>
+            <span className="font-sans text-[12px] font-semibold text-ink text-center leading-tight">
+              {cat.label}
+            </span>
+          </Link>
+        ))}
       </div>
     </section>
   );
