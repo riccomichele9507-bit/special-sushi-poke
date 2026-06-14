@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ArrowRight } from "lucide-react";
+import { motion } from "framer-motion";
+import { ArrowRight, ArrowLeft } from "lucide-react";
 import {
   Drawer,
   DrawerContent,
@@ -58,27 +60,59 @@ export function CartDrawer() {
         className="border-border bg-paper text-ink data-[vaul-drawer-direction=bottom]:max-h-[92svh] data-[vaul-drawer-direction=right]:max-w-md data-[vaul-drawer-direction=right]:rounded-l-2xl"
       >
         <DrawerHeader className="shrink-0 border-b border-border px-5 pt-4 pb-3">
-          <div className="flex items-baseline justify-between gap-3">
-            <DrawerTitle className="font-heading text-xl font-bold text-ink">
-              Il tuo carrello
-              {hydrated && count > 0 && (
-                <span className="ml-2 font-sans text-base font-normal text-warm-gray">
-                  ({count})
-                </span>
-              )}
-            </DrawerTitle>
-            {hydrated && count > 0 && (
-              <Link
-                href="/menu"
-                onClick={closeDrawer}
-                className="inline-flex h-7 items-center gap-1 rounded-full bg-bamboo/10 px-2.5 text-[11px] font-semibold text-bamboo hover:bg-bamboo/20"
+          <div className="flex items-center justify-between gap-3">
+            {/* Sinistra: freccia per tornare indietro (chiude il carrello) */}
+            <button
+              type="button"
+              onClick={closeDrawer}
+              aria-label="Torna indietro"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-warm-gray transition hover:bg-paper-warm hover:text-ink"
+            >
+              <ArrowLeft className="h-5 w-5" strokeWidth={2} />
+            </button>
+
+            {/* Centro: logo */}
+            <Image
+              src="/logo-mark.png"
+              alt="Special Sushi Poke"
+              width={32}
+              height={32}
+              className="h-8 w-8 shrink-0 object-contain"
+            />
+
+            {/* Destra: Ordina ancora (con micro-shake ogni 30s) */}
+            {hydrated && count > 0 ? (
+              <motion.div
+                animate={{ rotate: [0, -7, 6, -5, 4, 0], x: [0, -2, 2, -1, 1, 0] }}
+                transition={{
+                  duration: 0.6,
+                  repeat: Infinity,
+                  repeatDelay: 30,
+                  ease: "easeInOut",
+                }}
               >
-                + Ordina ancora
-              </Link>
+                <Link
+                  href="/menu"
+                  onClick={closeDrawer}
+                  className="inline-flex h-7 items-center gap-1 rounded-full bg-bamboo/10 px-2.5 text-[11px] font-semibold text-bamboo hover:bg-bamboo/20"
+                >
+                  + Ordina ancora
+                </Link>
+              </motion.div>
+            ) : (
+              <span className="h-7 w-8" aria-hidden />
             )}
           </div>
-          <DrawerDescription className="text-[10px] uppercase tracking-[0.22em] text-bamboo">
-            Consegna · Special Sushi Poke
+          <DrawerTitle className="mt-2 font-heading text-xl font-bold text-ink">
+            Il tuo carrello
+            {hydrated && count > 0 && (
+              <span className="ml-2 font-sans text-base font-normal text-warm-gray">
+                ({count})
+              </span>
+            )}
+          </DrawerTitle>
+          <DrawerDescription className="sr-only">
+            Riepilogo del tuo carrello Special Sushi Poke
           </DrawerDescription>
         </DrawerHeader>
 

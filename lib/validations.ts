@@ -26,7 +26,10 @@ export const checkoutSchema = z.discriminatedUnion("orderType", [
       .string()
       .min(5, "Conferma un indirizzo dal menu suggerimenti")
       .max(180, "Indirizzo troppo lungo"),
-    addressNotes: z.string().max(80, "Massimo 80 caratteri").optional(),
+    addressNotes: z
+      .string()
+      .min(2, "Indica interno, scala o piano")
+      .max(80, "Massimo 80 caratteri"),
     driverNotes: z.string().max(200, "Massimo 200 caratteri").optional(),
     // Geo richiesto per delivery: viene da Google Places Autocomplete
     geo: z.object({

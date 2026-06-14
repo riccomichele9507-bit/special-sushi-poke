@@ -101,9 +101,6 @@ export default async function CheckoutPage() {
         <h1 className="mt-1 font-heading text-2xl font-bold text-ink lg:text-3xl">
           Conferma il tuo ordine
         </h1>
-        <p className="mt-2 max-w-xl text-xs sm:text-sm text-warm-gray">
-          Ti chiamiamo per confermare la consegna o paghi qui se preferisci.
-        </p>
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[7fr_5fr]">

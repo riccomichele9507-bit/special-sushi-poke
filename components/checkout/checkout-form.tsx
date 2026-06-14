@@ -242,17 +242,18 @@ export function CheckoutForm({
 
           <div className="space-y-2">
             <Label htmlFor="addressNotes" className={LABEL_CLASSES}>
-              Dettagli interno / piano
-              <span className="ml-1 normal-case tracking-normal text-warm-gray/60">
-                — opzionale
-              </span>
+              Dettagli interno / scala / piano
             </Label>
             <Input
               id="addressNotes"
               {...register("addressNotes")}
               placeholder="Interno 3, scala B, citofono Rossi"
-              className={INPUT_CLASSES}
+              aria-invalid={!!errors.addressNotes}
+              className={cn(INPUT_CLASSES, errors.addressNotes && "border-sushi-red/60")}
             />
+            {errors.addressNotes && (
+              <p className="text-xs text-sushi-red">{errors.addressNotes.message}</p>
+            )}
           </div>
         </>
       )}
@@ -401,8 +402,8 @@ export function CheckoutForm({
         {paymentMethod === "card"
           ? "Pagamento sicuro tramite Stripe."
           : isDelivery
-            ? "Ti chiameremo entro 5 minuti per confermare la consegna. Paghi al rider."
-            : "Ti chiameremo entro 5 minuti per confermare il ritiro. Paghi al banco."}
+            ? "Paghi alla consegna, in contanti al rider."
+            : "Paghi al ritiro, in contanti al banco."}
       </p>
     </form>
   );
