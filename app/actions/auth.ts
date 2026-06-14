@@ -85,8 +85,8 @@ export async function login(formData: FormData): Promise<ActionResult> {
     return { ok: false, error: error.message };
   }
 
-  // Verifica se admin → redirect ad /admin invece che /account
-  let redirectTo = "/account";
+  // Verifica se admin → /admin; cliente normale → /menu (non al profilo)
+  let redirectTo = "/menu";
   if (data.user) {
     const { data: adminRow } = await supabase
       .from("admin_users")
@@ -163,7 +163,7 @@ export async function signup(formData: FormData): Promise<ActionResult> {
 
   // returnTo opzionale (es. se l'iscrizione parte dal checkout)
   const returnToRaw = (formData.get("returnTo") as string) || "";
-  const redirectTo = returnToRaw ? safeRedirect(returnToRaw, "/account") : "/account";
+  const redirectTo = returnToRaw ? safeRedirect(returnToRaw, "/menu") : "/menu";
 
   // Se "Confirm email" è disattivato su Supabase, signUp restituisce già una
   // sessione → l'utente è dentro subito, niente conferma. Applichiamo subito
@@ -279,8 +279,10 @@ export async function requestPasswordReset(
     process.env.NEXT_PUBLIC_SITE_URL ??
     "https://specialsushipokebari.com";
 
+  // Passa dal callback (route handler) che scambia il code e imposta la sessione,
+  // poi atterra su /auth/reset-password con sessione attiva.
   const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-    redirectTo: `${siteUrl}/auth/reset-password`,
+    redirectTo: `${siteUrl}/auth/callback?next=/auth/reset-password`,
   });
 
   // NON rivelare se l'email esiste o no (security best practice)
@@ -288,4 +290,28 @@ export async function requestPasswordReset(
     console.error("password reset error", error);
   }
   return { ok: true };
+}
+
+// ============================================================
+// Aggiorna password (dalla pagina reset, con sessione attiva)
+// ============================================================
+export async function updatePassword(formData: FormData): Promise<ActionResult> {
+  const parsed = passwordSchema.safeParse(formData.get("password"));
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Password non valida" };
+  }
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return {
+      ok: false,
+      error: "Sessione scaduta. Riapri il link dall'email e riprova.",
+    };
+  }
+  const { error } = await supabase.auth.updateUser({ password: parsed.data });
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/", "layout");
+  return { ok: true, redirectTo: "/account" };
 }

@@ -30,6 +30,7 @@ export function CustomerLayoutShell({
     pathname === "/login" ||
     pathname === "/signup" ||
     pathname === "/forgot-password" ||
+    pathname === "/auth/reset-password" ||
     pathname.startsWith("/reset-password");
   if (isAuthPage) {
     return <main className="flex-1">{children}</main>;

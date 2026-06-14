@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
+import { useCartStore } from "@/store/cart-store";
+import { usePricing } from "@/lib/pricing-store";
 
 export function LoginForm({ returnTo }: { returnTo?: string }) {
   const router = useRouter();
@@ -19,9 +21,13 @@ export function LoginForm({ returnTo }: { returnTo?: string }) {
     startTransition(async () => {
       const result = await login(formData);
       if (result.ok) {
+        // Nuova sessione → carrello pulito (evita residui di chi usava prima il browser)
+        useCartStore.getState().clear();
+        usePricing.getState().clearDiscount();
+        usePricing.getState().setTip(0);
         toast.success("Accesso effettuato");
-        // Priorità: returnTo esplicito → redirectTo deciso dall'action (es. /admin per admin) → /account
-        router.push(returnTo ?? result.redirectTo ?? "/account");
+        // Priorità: returnTo esplicito → redirectTo dell'action (es. /admin) → /menu
+        router.push(returnTo ?? result.redirectTo ?? "/menu");
         router.refresh();
       } else {
         setError(result.error);

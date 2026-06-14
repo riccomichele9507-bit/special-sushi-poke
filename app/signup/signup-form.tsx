@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
+import { useCartStore } from "@/store/cart-store";
+import { usePricing } from "@/lib/pricing-store";
 
 export function SignupForm({ returnTo }: { returnTo?: string }) {
   const [isPending, startTransition] = useTransition();
@@ -24,9 +26,13 @@ export function SignupForm({ returnTo }: { returnTo?: string }) {
           setSuccess(true);
           toast.success("Ti abbiamo inviato un'email di conferma");
         } else {
-          // Accesso immediato (nessuna conferma richiesta) → al profilo
+          // Nuova sessione → carrello pulito (no residui del browser precedente)
+          useCartStore.getState().clear();
+          usePricing.getState().clearDiscount();
+          usePricing.getState().setTip(0);
+          // Accesso immediato (nessuna conferma) → al menu
           toast.success("Registrazione completata! Benvenuto/a 🍣");
-          window.location.href = result.redirectTo ?? "/account";
+          window.location.href = result.redirectTo ?? "/menu";
         }
       } else {
         setError(result.error);

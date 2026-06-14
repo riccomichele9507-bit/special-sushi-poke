@@ -13,6 +13,7 @@ import {
   dateInRome,
   isWeekendRome,
   romeAtTimeOfDay,
+  addMinutes,
 } from "./time";
 import { estimatedRoadKm, RESTAURANT_COORDS_FALLBACK, type LatLng } from "@/lib/geocoding";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -207,19 +208,32 @@ export async function validateDelivery(
     min: number;
   }>) ?? [];
 
-  const eta =
-    input.orderType === "delivery"
-      ? computeEta(distanceKm, serviceCtx.startsAt, {
-          prepMinutes: settings.prep_minutes,
-          bufferMinutes: settings.buffer_minutes,
-          baselineMinMinutes: settings.baseline_min_minutes,
-          travelBuckets: buckets,
-        })
-      : computePickupEta(serviceCtx.startsAt, {
-          prepMinutes: settings.prep_minutes,
-          bufferMinutes: settings.buffer_minutes,
-          baselinePickupMin: settings.baseline_pickup_min,
-        });
+  let eta;
+  if (input.orderType === "pickup") {
+    eta = computePickupEta(serviceCtx.startsAt, {
+      prepMinutes: settings.prep_minutes,
+      bufferMinutes: settings.buffer_minutes,
+      baselinePickupMin: settings.baseline_pickup_min,
+    });
+  } else if (serviceCtx.isPreorder) {
+    // PREORDINE consegna: l'ordine è fatto ore prima → la cucina prepara
+    // all'apertura del servizio. Il primo slot = apertura + prep + buffer,
+    // senza il "baseline minimo da adesso" né il travel additivo (che
+    // spingerebbero lo slot troppo avanti). Es. cena 19:00 → primo slot 19:30–20:00.
+    const minutes = settings.prep_minutes + settings.buffer_minutes;
+    eta = {
+      minutes,
+      t1: addMinutes(serviceCtx.startsAt, minutes),
+      travelMinutes: 0,
+    };
+  } else {
+    eta = computeEta(distanceKm, serviceCtx.startsAt, {
+      prepMinutes: settings.prep_minutes,
+      bufferMinutes: settings.buffer_minutes,
+      baselineMinMinutes: settings.baseline_min_minutes,
+      travelBuckets: buckets,
+    });
+  }
 
   // CHECK #6 + #7: costruisci la LISTA degli slot disponibili nel servizio.
   // Ottimizzato: prima genera tutti i candidati validi per finestra oraria,
