@@ -27,6 +27,8 @@ import { DeliveryQuoteBox } from "./delivery-quote-box";
 import type { DeliveryQuoteResult, SlotOption } from "@/app/actions/delivery-quote";
 import { createOrder } from "@/app/actions/orders";
 import { usePricing } from "@/lib/pricing-store";
+import { DiscountCodeInput } from "@/components/cart/discount-code-input";
+import { TipSelector } from "@/components/cart/tip-selector";
 
 const INPUT_CLASSES =
   "h-12 rounded-xl border-border bg-paper-warm/40 px-4 text-base text-ink placeholder:text-warm-gray/70 focus-visible:border-bamboo/60 focus-visible:ring-bamboo/20 focus-visible:bg-paper";
@@ -88,7 +90,7 @@ export function CheckoutForm({
       addressLine: defaultAddress?.address ?? "",
       addressNotes: defaultAddress?.notes ?? "",
       driverNotes: "",
-      paymentMethod: "cash",
+      paymentMethod: "card",
       slotStartIso: "",
       slotEndIso: "",
       ...(defaultAddress
@@ -351,12 +353,22 @@ export function CheckoutForm({
       )}
 
       <div className="space-y-3 pt-2">
+        <p className={LABEL_CLASSES}>Codice sconto e mancia</p>
+        <DiscountCodeInput />
+        <TipSelector />
+      </div>
+
+      <div className="space-y-3 pt-2">
         <p className={LABEL_CLASSES}>Metodo di pagamento</p>
         <Controller
           control={control}
           name="paymentMethod"
           render={({ field }) => (
-            <PaymentMethodRadio value={field.value} onValueChange={field.onChange} />
+            <PaymentMethodRadio
+              value={field.value}
+              onValueChange={field.onChange}
+              orderType={orderType}
+            />
           )}
         />
       </div>

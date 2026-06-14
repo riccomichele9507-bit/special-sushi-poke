@@ -17,7 +17,7 @@ export default async function AdminOrdersPage({
   let query = supabase
     .from("orders")
     .select(
-      "id, order_number, created_at, slot_start, slot_end, order_type, status, customer_name, customer_phone, total_cents, payment_method, fiscal_receipt_issued, is_test",
+      "id, order_number, created_at, slot_start, slot_end, order_type, status, customer_name, customer_phone, customer_id, total_cents, payment_method, fiscal_receipt_issued, is_test",
     )
     .order("created_at", { ascending: false })
     .limit(100);
@@ -121,7 +121,14 @@ export default async function AdminOrdersPage({
                   })}
                 </td>
                 <td className="px-3 py-2">
-                  <div>{o.customer_name}</div>
+                  <div className="flex items-center gap-1.5">
+                    {o.customer_name}
+                    {!o.customer_id && (
+                      <span className="rounded bg-warm-gray/15 px-1 text-[9px] font-semibold uppercase text-warm-gray">
+                        non registrato
+                      </span>
+                    )}
+                  </div>
                   <div className="text-warm-gray text-xs">{o.customer_phone}</div>
                 </td>
                 <td className="px-3 py-2 text-right font-semibold">

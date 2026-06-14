@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { CheckCircle2, Star, ArrowRight } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatRomeHHmm, relativeDayLabel } from "@/lib/delivery/time";
+import { ClearCartOnMount } from "@/components/cart/clear-cart-on-mount";
 
 export const metadata: Metadata = {
   title: "Ordine confermato",
@@ -37,6 +38,7 @@ export default async function GraziePage({ searchParams }: PageProps) {
 
   return (
     <div className="mx-auto max-w-md px-4 py-12">
+      <ClearCartOnMount />
       <div className="text-center">
         <CheckCircle2 className="mx-auto h-16 w-16 text-bamboo" strokeWidth={1.5} />
         <h1 className="mt-4 font-heading text-2xl font-bold text-ink">

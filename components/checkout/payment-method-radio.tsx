@@ -4,35 +4,39 @@ import { Banknote, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PaymentMethod } from "@/types/checkout";
 
-const options: {
-  id: PaymentMethod;
-  label: string;
-  description: string;
-  badge?: string;
-  icon: typeof Banknote;
-}[] = [
-  {
-    id: "card",
-    label: "Carta adesso",
-    description: "Carta, Apple Pay, Google Pay. Pagamento sicuro Stripe.",
-    badge: "consigliato",
-    icon: CreditCard,
-  },
-  {
-    id: "cash",
-    label: "Alla consegna",
-    description: "Paghi al rider con contanti o carta (POS).",
-    icon: Banknote,
-  },
-];
-
 export function PaymentMethodRadio({
   value,
   onValueChange,
+  orderType = "delivery",
 }: {
   value: PaymentMethod;
   onValueChange: (value: PaymentMethod) => void;
+  orderType?: "delivery" | "pickup";
 }) {
+  const isPickup = orderType === "pickup";
+  const options: {
+    id: PaymentMethod;
+    label: string;
+    description: string;
+    badge?: string;
+    icon: typeof Banknote;
+  }[] = [
+    {
+      id: "card",
+      label: "Carta adesso",
+      description: "Carta, Apple Pay, Google Pay. Pagamento sicuro Stripe.",
+      badge: "consigliato",
+      icon: CreditCard,
+    },
+    {
+      id: "cash",
+      label: isPickup ? "Al ritiro" : "Alla consegna",
+      description: isPickup
+        ? "Paghi al ristorante con contanti o carta (POS)."
+        : "Paghi al rider con contanti o carta (POS).",
+      icon: Banknote,
+    },
+  ];
   return (
     <div role="radiogroup" aria-label="Metodo di pagamento" className="grid gap-3 sm:grid-cols-2">
       {options.map((opt) => {

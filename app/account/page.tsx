@@ -8,6 +8,7 @@ import { logout } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { AccountForm } from "./account-form";
 import { RecentOrderRow } from "@/components/account/recent-order-row";
+import { ClearCartOnMount } from "@/components/cart/clear-cart-on-mount";
 import { getLoyaltyStatus, POINTS_REDEMPTION_THRESHOLD } from "@/lib/loyalty/points";
 import { getEffectiveStatus, statusLabel } from "@/lib/orders/status";
 
@@ -76,6 +77,7 @@ export default async function AccountPage({ searchParams }: PageProps) {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 space-y-8">
+      {paid && <ClearCartOnMount />}
       {paid && (
         <div className="rounded-xl border border-bamboo/40 bg-bamboo/5 p-4 flex items-start gap-3">
           <CheckCircle2 className="h-6 w-6 text-bamboo shrink-0 mt-0.5" />

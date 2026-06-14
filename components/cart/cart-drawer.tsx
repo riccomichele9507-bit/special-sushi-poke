@@ -24,8 +24,6 @@ import { usePricing, discountCentsFor, discountShortLabel } from "@/lib/pricing-
 import { Price } from "@/components/shared/price";
 import { CartItemRow } from "./cart-item-row";
 import { CartUpsell } from "./cart-upsell";
-import { DiscountCodeInput } from "./discount-code-input";
-import { TipSelector } from "./tip-selector";
 import { EmptyCart } from "./empty-cart";
 
 export function CartDrawer() {
@@ -135,8 +133,6 @@ export function CartDrawer() {
                     />
                   ))}
                 </div>
-                <DiscountCodeInput />
-                <TipSelector />
                 {(discountCents > 0 || tipCents > 0) && (
                   <div className="flex flex-col gap-1.5 rounded-xl bg-paper-warm/40 p-3 text-sm ring-1 ring-border">
                     <div className="flex items-center justify-between text-warm-gray">
