@@ -227,20 +227,25 @@ export async function validateDelivery(
   const candidateSlots: SlotResult[] = [];
   let slot = computeSlot(eta.t1, settings.slot_duration_minutes);
   const MAX_CANDIDATES = 20;
+  // "00:00" come ultima consegna = MEZZANOTTE (servizio che sconfina oltre la
+  // giornata, tipico della cena del weekend). Gli HH:mm sono 0-padded, quindi
+  // il confronto come stringa è cronologico.
+  const lastDelivery = serviceCtx.lastDeliveryTime;
+  const lastIsMidnight = lastDelivery === "00:00";
 
   for (let i = 0; i < MAX_CANDIDATES; i++) {
     const slotEndHHmm = timeOfDayRome(slot.end);
     const slotEndDateRome = dateInRome(slot.end);
     const slotEndOnDifferentDay = slotEndDateRome !== serviceCtx.dateRome;
 
-    // Slot oltre la chiusura del servizio? Stop la generazione.
-    if (slotEndOnDifferentDay && serviceCtx.lastDeliveryTime !== "00:00") break;
-    if (
-      !slotEndOnDifferentDay &&
-      !isTimeBefore(slotEndHHmm, serviceCtx.lastDeliveryTime) &&
-      slotEndHHmm !== serviceCtx.lastDeliveryTime
-    ) {
-      break;
+    if (lastIsMidnight) {
+      // Slot ammessi fino alle 00:00 del giorno dopo (incluse). Stop appena
+      // si sconfina OLTRE la mezzanotte (es. 00:30).
+      if (slotEndOnDifferentDay && slotEndHHmm !== "00:00") break;
+    } else {
+      // Stop appena lo slot finisce in un altro giorno o oltre l'ultima consegna.
+      if (slotEndOnDifferentDay) break;
+      if (slotEndHHmm > lastDelivery) break;
     }
 
     candidateSlots.push(slot);
