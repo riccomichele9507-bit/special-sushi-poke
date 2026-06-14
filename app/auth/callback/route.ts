@@ -6,6 +6,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { safeRedirect } from "@/lib/auth/safe-redirect";
+import { sendWelcomeEmail } from "@/lib/email/send";
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
@@ -29,6 +30,17 @@ export async function GET(request: NextRequest) {
           console.error("auth/callback: failed to apply pending consent", e);
         }
       }
+      // Email di benvenuto (dedup per indirizzo → parte una sola volta). Copre
+      // anche le iscrizioni con Google. Saltata nel flusso reset password.
+      const isPasswordReset = next.includes("reset-password");
+      if (!isPasswordReset && data.user?.email) {
+        await sendWelcomeEmail({
+          to: data.user.email,
+          name: (data.user.user_metadata?.full_name as string) ?? "",
+          customerId: data.user.id,
+        });
+      }
+
       const response = NextResponse.redirect(`${origin}${next}`);
       // Pulisci cookie temporanei
       response.cookies.delete("ssp_pending_consent");
