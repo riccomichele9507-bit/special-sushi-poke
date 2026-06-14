@@ -19,11 +19,20 @@ export function CustomerLayoutShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const isAdmin = pathname.startsWith("/admin");
 
-  if (isAdmin) {
-    // Niente chrome cliente: l'admin layout fornisce la sua sidebar + banner stampante
+  // Admin: nessuna chrome cliente (l'admin layout ha la sua sidebar).
+  if (pathname.startsWith("/admin")) {
     return <>{children}</>;
+  }
+
+  // Pagine di accesso pulite (no menu/carrello/tab bar): login/registrazione/recupero.
+  const isAuthPage =
+    pathname === "/login" ||
+    pathname === "/signup" ||
+    pathname === "/forgot-password" ||
+    pathname.startsWith("/reset-password");
+  if (isAuthPage) {
+    return <main className="flex-1">{children}</main>;
   }
 
   return (
