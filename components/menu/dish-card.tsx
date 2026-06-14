@@ -83,7 +83,7 @@ export function DishCard({
             </h3>
             <DishBadges dish={dish} />
           </div>
-          <p className="mt-0.5 line-clamp-1 font-sans text-[12px] text-warm-gray">
+          <p className="mt-0.5 font-sans text-[12px] text-warm-gray">
             {dish.ingredients.join(" · ")}
           </p>
           <p className="mt-1 font-heading text-sm font-bold tabular-nums text-bamboo">
@@ -190,8 +190,8 @@ export function DishCard({
         <h3 className="font-heading text-[14px] font-semibold leading-tight text-ink line-clamp-1">
           {dish.name}
         </h3>
-        <p className="line-clamp-1 font-sans text-[11px] leading-snug text-warm-gray">
-          {dish.ingredients.slice(0, 3).join(" · ")}
+        <p className="font-sans text-[11px] leading-snug text-warm-gray">
+          {dish.ingredients.join(" · ")}
         </p>
 
         <div className="mt-1.5 flex items-center justify-between gap-2">

@@ -26,12 +26,10 @@ const recommendations: Recommendation[] = [
 function RankedCard({
   dish,
   rating,
-  reviewCount,
   rank,
 }: {
   dish: Dish;
   rating: number;
-  reviewCount: number;
   rank: number;
 }) {
   const add = useCartStore((s) => s.add);
@@ -99,9 +97,6 @@ function RankedCard({
           </p>
           <p className="font-sans text-[11px] tabular-nums text-warm-gray">
             {formatPrice(dish.price)}
-            <span className="ml-1 text-[9px] text-warm-gray/70">
-              · {reviewCount} ord.
-            </span>
           </p>
         </div>
         <motion.button
@@ -151,7 +146,6 @@ export function ChefRecommendations() {
             key={item.dishId}
             dish={item.dish}
             rating={item.rating}
-            reviewCount={item.reviewCount}
             rank={idx + 1}
           />
         ))}

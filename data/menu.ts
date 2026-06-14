@@ -73,8 +73,8 @@ export const menu: Dish[] = [
   {
     id: "barca-grande",
     name: "Barca Grande",
-    description: "Uramaki 24 pezzi, nigiri misto 8 pezzi, sashimi 8 pezzi, fotomaki fritto 8 pezzi, hosomaki 6 pezzi, gunkan 6 pezzi.",
-    ingredients: ["uramaki", "nigiri", "sashimi", "fotomaki fritto", "hosomaki", "gunkan"],
+    description: "Uramaki 24 pezzi, nigiri misto 8 pezzi, sashimi 8 pezzi, futomaki fritto 8 pezzi, hosomaki 6 pezzi, gunkan 6 pezzi.",
+    ingredients: ["uramaki", "nigiri", "sashimi", "futomaki fritto", "hosomaki", "gunkan"],
     price: 4500,
     category: "barca",
     image: "/menu/barca-grande.png",
@@ -280,7 +280,7 @@ export const menu: Dish[] = [
 
   { id: "uramaki-fritto", name: "Uramaki Fritto (8 pz)", description: "Salmone, avocado, philadelphia, teriyaki, kataifi.", ingredients: ["salmone", "avocado", "philadelphia", "teriyaki", "kataifi"], price: 800, category: "fritto", image: "/menu/uramaki-fritto.png", imageAlt: "Uramaki fritto signature", allergens: ["pesce", "latte", "soia", "glutine", "uova"], spicyLevel: 0, pieces: 8 },  { id: "hoso-avocado-fritto", name: "Hoso Avocado Fritto (6 pz)", description: "Philadelphia, frutta, salsa di chef. Esterno croccante.", ingredients: ["philadelphia", "frutta", "salsa di chef"], price: 600, category: "fritto", image: "/menu/hoso-avocado-fritto.png", imageAlt: "Hoso avocado fritto", allergens: ["latte", "glutine", "uova"], spicyLevel: 0, pieces: 6 },
   { id: "hoso-salmon-fritto", name: "Hoso Salmon Fritto (6 pz)", description: "Salmone piccante, teriyaki e patate.", ingredients: ["salmone piccante", "teriyaki", "patata"], price: 600, category: "fritto", image: "/menu/hoso-salmon-fritto.png", imageAlt: "Hoso salmone fritto", allergens: ["pesce", "soia", "glutine", "uova"], spicyLevel: 2, pieces: 6 },
-  { id: "fotomaki-fritto", name: "Fotomaki Fritto (8 pz)", description: "Tobiko, surimi, avocado, gamberi tempura, teriyaki e patate.", ingredients: ["tobiko", "surimi", "avocado", "gamberi tempura", "teriyaki", "patata"], price: 800, category: "fritto", image: "/menu/fotomaki-fritto.png", imageAlt: "Fotomaki fritto", allergens: ["pesce", "crostacei", "soia", "glutine", "uova"], spicyLevel: 0, pieces: 8 },
+  { id: "fotomaki-fritto", name: "Futomaki Fritto (8 pz)", description: "Tobiko, surimi, avocado, gamberi tempura, teriyaki e patate.", ingredients: ["tobiko", "surimi", "avocado", "gamberi tempura", "teriyaki", "patata"], price: 800, category: "fritto", image: "/menu/fotomaki-fritto.png", imageAlt: "Fotomaki fritto", allergens: ["pesce", "crostacei", "soia", "glutine", "uova"], spicyLevel: 0, pieces: 8 },
 
   // === ONIGIRI ===
 
@@ -300,13 +300,13 @@ export const menu: Dish[] = [
   // === TARTARE ===
 
   { id: "tris-tartar", name: "Tris Tartar", description: "Salmone, tonno, spigola, avocado, quinoa e salsa di chef.", ingredients: ["salmone", "tonno", "spigola", "avocado", "quinoa", "salsa di chef"], price: 800, category: "tartare", image: "/menu/tris-tartar.png", imageAlt: "Tris di tartare misto", allergens: ["pesce"], spicyLevel: 0 },  { id: "tartar-salmon", name: "Tartar Salmon", description: "Salmone, avocado, philadelphia, kataifi e salsa di chef.", ingredients: ["salmone", "avocado", "philadelphia", "kataifi", "salsa di chef"], price: 650, category: "tartare", image: "/menu/tartar-salmon.png", imageAlt: "Tartare salmone", allergens: ["pesce", "latte", "glutine"], spicyLevel: 0 },
-  { id: "tartar-tonno", name: "Tartar Tonno", description: "Tonno, avocado, mango, quinoa e salsa di chef.", ingredients: ["tonno", "avocado", "mango", "quinoa", "salsa di chef"], price: 600, category: "tartare", image: "/menu/tartar-tonno.png", imageAlt: "Tartare tonno", allergens: ["pesce"], spicyLevel: 0 },
+  { id: "tartar-tonno", name: "Tartar Tonno", description: "Tonno, avocado, mango, kiwi e salsa di chef.", ingredients: ["tonno", "avocado", "mango", "kiwi", "salsa di chef"], price: 600, category: "tartare", image: "/menu/tartar-tonno.png", imageAlt: "Tartare tonno", allergens: ["pesce"], spicyLevel: 0 },
   { id: "fresh-tartar", name: "Fresh Tartar", description: "Salmone, avocado, mango, sesamo e salsa di chef.", ingredients: ["salmone", "avocado", "mango", "sesamo", "salsa di chef"], price: 600, category: "tartare", image: "/menu/fresh-tartar.png", imageAlt: "Fresh tartar di salmone", allergens: ["pesce", "sesamo"], spicyLevel: 0 },
 
   // === CARPACCIO ===
 
-  { id: "carpaccio-misto", name: "Carpaccio Misto (12 pz)", description: "Salmone, tonno, spigola, mango, avocado, quinoa e salsa di chef.", ingredients: ["salmone", "tonno", "spigola", "mango", "avocado", "quinoa", "salsa di chef"], price: 800, category: "carpaccio", image: "/menu/carpaccio-misto.png", imageAlt: "Carpaccio misto di pesce", allergens: ["pesce"], spicyLevel: 0, pieces: 12 },  { id: "carpaccio-salmon", name: "Carpaccio Salmon (12 pz)", description: "Salmone, mango, avocado, quinoa e salsa di chef.", ingredients: ["salmone", "mango", "avocado", "quinoa", "salsa di chef"], price: 800, category: "carpaccio", image: "/menu/carpaccio-salmon.png", imageAlt: "Carpaccio di salmone", allergens: ["pesce"], spicyLevel: 0, pieces: 12 },
-  { id: "carpaccio-tonno", name: "Carpaccio Tonno (12 pz)", description: "Tonno, mango, avocado, quinoa e salsa di chef.", ingredients: ["tonno", "mango", "avocado", "quinoa", "salsa di chef"], price: 800, category: "carpaccio", image: "/menu/carpaccio-tonno.png", imageAlt: "Carpaccio di tonno", allergens: ["pesce"], spicyLevel: 0, pieces: 12 },
+  { id: "carpaccio-misto", name: "Carpaccio Misto (12 pz)", description: "Salmone, tonno, spigola, mango, avocado, kiwi e salsa di chef.", ingredients: ["salmone", "tonno", "spigola", "mango", "avocado", "kiwi", "salsa di chef"], price: 800, category: "carpaccio", image: "/menu/carpaccio-misto.png", imageAlt: "Carpaccio misto di pesce", allergens: ["pesce"], spicyLevel: 0, pieces: 12 },  { id: "carpaccio-salmon", name: "Carpaccio Salmon (12 pz)", description: "Salmone, mango, avocado, kiwi e salsa di chef.", ingredients: ["salmone", "mango", "avocado", "kiwi", "salsa di chef"], price: 800, category: "carpaccio", image: "/menu/carpaccio-salmon.png", imageAlt: "Carpaccio di salmone", allergens: ["pesce"], spicyLevel: 0, pieces: 12 },
+  { id: "carpaccio-tonno", name: "Carpaccio Tonno (12 pz)", description: "Tonno, mango, avocado, kiwi e salsa di chef.", ingredients: ["tonno", "mango", "avocado", "kiwi", "salsa di chef"], price: 800, category: "carpaccio", image: "/menu/carpaccio-tonno.png", imageAlt: "Carpaccio di tonno", allergens: ["pesce"], spicyLevel: 0, pieces: 12 },
 
   // === NIGIRI ===
   { id: "nigiri-misto", name: "Nigiri Misto (12 pz)", description: "Selezione assortita del giorno.", ingredients: ["riso", "pesce misto"], price: 1000, category: "nigiri", image: "/menu/nigiri-misto.png", imageAlt: "Nigiri misto", allergens: ["pesce"], spicyLevel: 0, pieces: 12 },
@@ -393,7 +393,7 @@ export const menu: Dish[] = [
   // === ANTIPASTI & RAVIOLI ===
 
   { id: "gyoza-pollo", name: "Gyoza Pollo (4 pz)", description: "Ravioli al vapore con pollo.", ingredients: ["pasta gyoza", "pollo"], price: 400, category: "antipasti", image: "/menu/gyoza-pollo.png", imageAlt: "Gyoza pollo", allergens: ["glutine"], spicyLevel: 0, pieces: 4 },  { id: "nuvoletta-gamberi", name: "Nuvolette Gamberi", description: "Croccante cracker ai gamberi.", ingredients: ["cracker", "gamberi"], price: 200, category: "antipasti", image: "/menu/nuvoletta-gamberi.png", imageAlt: "Nuvolette gamberi", allergens: ["crostacei", "glutine"], spicyLevel: 0 },
-  { id: "gomma-wakame", name: "Gomma Wakame", description: "Insalata di alghe wakame.", ingredients: ["alghe wakame"], price: 400, category: "antipasti", image: "/menu/gomma-wakame.png", imageAlt: "Insalata wakame", allergens: ["soia"], spicyLevel: 0, isVegan: true },
+  { id: "gomma-wakame", name: "Goma Wakame", description: "Insalata di alghe wakame.", ingredients: ["alghe wakame"], price: 400, category: "antipasti", image: "/menu/gomma-wakame.png", imageAlt: "Insalata wakame", allergens: ["soia"], spicyLevel: 0, isVegan: true },
   { id: "pane-fritto", name: "Pane Fritto (3 pz)", description: "Pane dolce fritto.", ingredients: ["pane dolce"], price: 200, category: "antipasti", image: "/menu/pane-fritto.png", imageAlt: "Pane fritto", allergens: ["glutine", "uova", "latte"], spicyLevel: 0, pieces: 3 },
   { id: "pane-coniglio", name: "Pane con Coniglio (3 pz)", description: "Pane dolce di uova con coniglio.", ingredients: ["pane dolce", "uova", "coniglio"], price: 400, category: "antipasti", image: "/menu/pane-coniglio.png", imageAlt: "Pane con coniglio", allergens: ["glutine", "uova"], spicyLevel: 0, pieces: 3 },
   { id: "chicken-bao", name: "Chicken Bao (1 pz)", description: "Panino bao al vapore con pollo.", ingredients: ["pane bao", "pollo"], price: 400, category: "antipasti", image: "/menu/chicken-bao.png", imageAlt: "Chicken bao", allergens: ["glutine"], spicyLevel: 0, pieces: 1 },
@@ -410,10 +410,10 @@ export const menu: Dish[] = [
   { id: "spiedini-pollo", name: "Spiedini Pollo (3 pz)", description: "Spiedini di pollo grigliato.", ingredients: ["pollo"], price: 600, category: "grigliati", image: "/menu/spiedini-pollo.png", imageAlt: "Spiedini pollo", allergens: [], spicyLevel: 0, pieces: 3 },
 
   // === YAKIMESI ===
-  { id: "yakimesi-gamberi", name: "Yakimesi Gamberi", description: "Riso saltato con gamberi, uova, cipolla e verdure.", ingredients: ["riso", "gamberi", "uova", "cipolla", "verdure"], price: 500, category: "yakimesi", image: "/menu/yakimesi-gamberi.png", imageAlt: "Yakimesi gamberi", allergens: ["crostacei", "uova", "soia"], spicyLevel: 0 },
-  { id: "yakimesi-pollo", name: "Yakimesi Pollo", description: "Riso saltato con pollo, uova e verdure.", ingredients: ["riso", "pollo", "uova", "verdure"], price: 500, category: "yakimesi", image: "/menu/yakimesi-pollo.png", imageAlt: "Yakimesi pollo", allergens: ["uova", "soia"], spicyLevel: 0 },
-  { id: "yakimesi-salmon", name: "Yakimesi Salmon", description: "Riso saltato con salmone, piselli e uova.", ingredients: ["riso", "salmone", "piselli", "uova"], price: 500, category: "yakimesi", image: "/menu/yakimesi-salmon.png", imageAlt: "Yakimesi salmone", allergens: ["pesce", "uova", "soia"], spicyLevel: 0 },
-  { id: "yakimesi-verdura", name: "Yakimesi Verdura", description: "Riso saltato con verdure e piselli.", ingredients: ["riso", "verdure", "piselli"], price: 500, category: "yakimesi", image: "/menu/yakimesi-verdura.png", imageAlt: "Yakimesi verdura", allergens: ["soia"], spicyLevel: 0, isVegan: true },
+  { id: "yakimesi-gamberi", name: "Yakimeshi Gamberi", description: "Riso saltato con gamberi, uova, cipolla e verdure.", ingredients: ["riso", "gamberi", "uova", "cipolla", "verdure"], price: 500, category: "yakimesi", image: "/menu/yakimesi-gamberi.png", imageAlt: "Yakimeshi gamberi", allergens: ["crostacei", "uova", "soia"], spicyLevel: 0 },
+  { id: "yakimesi-pollo", name: "Yakimeshi Pollo", description: "Riso saltato con pollo, uova e verdure.", ingredients: ["riso", "pollo", "uova", "verdure"], price: 500, category: "yakimesi", image: "/menu/yakimesi-pollo.png", imageAlt: "Yakimeshi pollo", allergens: ["uova", "soia"], spicyLevel: 0 },
+  { id: "yakimesi-salmon", name: "Yakimeshi Salmon", description: "Riso saltato con salmone, piselli e uova.", ingredients: ["riso", "salmone", "piselli", "uova"], price: 500, category: "yakimesi", image: "/menu/yakimesi-salmon.png", imageAlt: "Yakimeshi salmone", allergens: ["pesce", "uova", "soia"], spicyLevel: 0 },
+  { id: "yakimesi-verdura", name: "Yakimeshi Verdura", description: "Riso saltato con verdure e piselli.", ingredients: ["riso", "verdure", "piselli"], price: 500, category: "yakimesi", image: "/menu/yakimesi-verdura.png", imageAlt: "Yakimeshi verdura", allergens: ["soia"], spicyLevel: 0, isVegan: true },
 
   // === PIATTI CALDI ===
 
@@ -425,7 +425,7 @@ export const menu: Dish[] = [
   { id: "spaghetti-soia-vegetariani", name: "Spaghetti di Soia Vegetariani", description: "Spaghetti di soia con verdure miste.", ingredients: ["spaghetti di soia", "verdure"], price: 500, category: "caldi", image: "/menu/spaghetti-soia-vegetariani.png", imageAlt: "Spaghetti di soia vegetariani", allergens: ["soia"], spicyLevel: 0, isVegan: true },
   { id: "ramen-verdure", name: "Ramen Verdure", description: "Spaghetti ramen con verdure e uova.", ingredients: ["ramen", "verdure", "uova"], price: 550, category: "caldi", image: "/menu/ramen-verdure.png", imageAlt: "Ramen verdure", allergens: ["glutine", "uova", "soia"], spicyLevel: 0 },
   { id: "ramen-gamberi", name: "Ramen Gamberi", description: "Ramen con carote e gamberi.", ingredients: ["ramen", "carote", "gamberi"], price: 550, category: "caldi", image: "/menu/ramen-gamberi.png", imageAlt: "Ramen gamberi", allergens: ["crostacei", "glutine", "soia"], spicyLevel: 0 },
-  { id: "sarsina-spaghetti", name: "Sarsina Spaghetti", description: "Specialità della casa — chiedere allo chef.", ingredients: ["spaghetti"], price: 800, category: "caldi", image: "/menu/sarsina-spaghetti.png", imageAlt: "Sarsina spaghetti", allergens: ["glutine"], spicyLevel: 0 },
+  { id: "sarsina-spaghetti", name: "Spaghetti Assassina", description: "Spaghetti saltati con pomodoro, ricetta piccante della casa.", ingredients: ["spaghetti", "pomodoro"], price: 800, category: "caldi", image: "/menu/sarsina-spaghetti.png", imageAlt: "Spaghetti Assassina", allergens: ["glutine"], spicyLevel: 1 },
   { id: "udon-crema-avocado", name: "Udon Crema di Avocado", description: "Spaghetti udon in crema delicata di avocado.", ingredients: ["udon", "crema avocado"], price: 1000, category: "caldi", image: "/menu/udon-crema-avocado.png", imageAlt: "Udon crema avocado", allergens: ["glutine"], spicyLevel: 0, isVegan: true },
 
   // === BEVANDE ===
@@ -434,7 +434,7 @@ export const menu: Dish[] = [
     name: "Coca-Cola",
     description: "Lattina 33cl ghiacciata.",
     ingredients: ["lattina 33cl"],
-    price: 300,
+    price: 200,
     category: "bevande",
     image: "/menu/coca-cola.png",
     imageAlt: "Coca-Cola lattina 33cl",
