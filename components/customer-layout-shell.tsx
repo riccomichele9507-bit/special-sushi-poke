@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { DeliveryLocationBar } from "@/components/layout/delivery-location-bar";
 import { MobileTabBar } from "@/components/layout/mobile-tab-bar";
+import { Footer } from "@/components/layout/footer";
 import { CartDrawer } from "@/components/cart/cart-drawer";
 import { DishDetailDrawer } from "@/components/menu/dish-detail-drawer";
 import { WhatsAppFab } from "@/components/shared/whatsapp-fab";
@@ -39,7 +40,10 @@ export function CustomerLayoutShell({
   return (
     <>
       <DeliveryLocationBar />
-      <main className="flex-1 pb-24">{children}</main>
+      <main className="flex-1">{children}</main>
+      <Footer />
+      {/* spazio sotto il footer per non finire dietro la tab bar mobile fissa */}
+      <div aria-hidden className="h-20 md:hidden" />
       <MobileTabBar />
       <CartDrawer />
       <DishDetailDrawer />
