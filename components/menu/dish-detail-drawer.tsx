@@ -108,7 +108,7 @@ export function DishDetailDrawer() {
           type="button"
           onClick={close}
           aria-label="Chiudi"
-          className="absolute right-4 top-4 z-30 inline-flex h-9 w-9 items-center justify-center rounded-full bg-paper/90 text-ink shadow-md ring-1 ring-border backdrop-blur-md transition hover:bg-paper"
+          className="absolute right-4 top-4 z-50 inline-flex h-10 w-10 items-center justify-center rounded-full bg-ink/80 text-paper shadow-lg ring-1 ring-white/25 backdrop-blur-md transition hover:bg-ink"
         >
           <X className="h-4 w-4" strokeWidth={2} />
         </button>

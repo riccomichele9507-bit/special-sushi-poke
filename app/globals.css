@@ -139,5 +139,8 @@
   }
   html {
     @apply font-sans;
+    /* Riserva sempre lo spazio della scrollbar: niente scatto orizzontale
+       quando i risultati ricerca fanno comparire/sparire la barra. */
+    scrollbar-gutter: stable;
   }
 }
