@@ -9,6 +9,7 @@ import {
   validateDiscountCodeDb,
   incrementDiscountRedemption,
 } from "@/lib/discount/validate";
+import { sendOrderConfirmationEmail } from "@/lib/email/send";
 import type { CartItem, CustomPokeConfig } from "@/types/cart";
 import type { Json } from "@/lib/supabase/database.types";
 
@@ -381,7 +382,11 @@ export async function createOrder(
       .select("*")
       .eq("id", inserted.id)
       .single();
-    if (full) await enqueuePrintJob(full);
+    if (full) {
+      await enqueuePrintJob(full);
+      // Email "ordine ricevuto" (best-effort, non blocca l'ordine)
+      await sendOrderConfirmationEmail(full);
+    }
   }
 
   return {

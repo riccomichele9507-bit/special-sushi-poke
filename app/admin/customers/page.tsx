@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { DormantCampaignButton } from "./dormant-campaign-button";
 
 type SearchParams = { filter?: string };
 
@@ -50,12 +51,7 @@ export default async function AdminCustomersPage({
         <FilterLink href="/admin/customers?filter=dormant" active={isDormant}>Dormienti 30+ giorni</FilterLink>
       </div>
 
-      {isDormant && (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-          📨 Invio promo via email: in arrivo nella prossima release (richiede setup Resend).
-          Per ora puoi esportare gli indirizzi e mandare manualmente.
-        </div>
-      )}
+      {isDormant && <DormantCampaignButton />}
 
       <div className="rounded-lg border border-bamboo/20 overflow-x-auto">
         <table className="w-full text-sm">

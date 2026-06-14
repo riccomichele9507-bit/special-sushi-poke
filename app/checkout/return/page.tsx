@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getStripe, isStripeConfigured } from "@/lib/stripe/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { enqueuePrintJob } from "@/lib/print/queue";
+import { sendOrderConfirmationEmail } from "@/lib/email/send";
 import { PostPaymentRedirect } from "./redirect-client";
 
 /**
@@ -39,7 +40,10 @@ async function confirmPaidOrder(
     .select("*")
     .eq("id", order.id)
     .single();
-  if (full) await enqueuePrintJob(full);
+  if (full) {
+    await enqueuePrintJob(full);
+    await sendOrderConfirmationEmail(full); // best-effort
+  }
   return info;
 }
 

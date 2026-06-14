@@ -7,6 +7,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { safeRedirect } from "@/lib/auth/safe-redirect";
+import { sendWelcomeEmail } from "@/lib/email/send";
 
 // ============================================================
 // Schemi zod
@@ -179,6 +180,13 @@ export async function signup(formData: FormData): Promise<ActionResult> {
         console.error("signup: consent update failed", e);
       }
     }
+    // Email di benvenuto (best-effort, non blocca l'iscrizione)
+    await sendWelcomeEmail({
+      to: parsed.data.email,
+      name: parsed.data.name,
+      customerId: signUpData.user?.id ?? null,
+    });
+
     revalidatePath("/", "layout");
     return { ok: true, redirectTo };
   }
