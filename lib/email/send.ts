@@ -186,7 +186,6 @@ function escapeHtml(s: string): string {
 // Shell brandizzato condiviso + email benvenuto / ordine / promo
 // ============================================================
 const LOGO_URL = `${SITE_URL}/logo-mark.png`;
-const VAN_URL = `${SITE_URL}/hero/hero-van.png`;
 const WHATSAPP_DISPLAY = "+39 353 326 3829";
 const RESTAURANT_ADDR = "Via G. Petroni 12/H-i, 70124 Bari";
 
@@ -236,18 +235,19 @@ export async function sendWelcomeEmail(args: {
     .maybeSingle();
   if (existing) return { sent: false, reason: "already_sent" };
 
-  const subject = "Benvenuto in Special Sushi Poke 🍣 I tuoi premi ti aspettano";
+  // Tono "transazionale" (no immagine grande, meno cue da newsletter) → resta in
+  // Posta principale invece che Promozioni/Spam.
+  const subject = "Grazie per la tua iscrizione — Special Sushi Poke";
   const body = `
-    <h1 style="margin:0 0 12px;font-size:24px;font-weight:800;">Benvenuto/a, ${escapeHtml(args.name || "amico")}! 🎉</h1>
-    <p style="font-size:16px;line-height:1.55;margin:0 0 14px;color:#5a5048;">Grazie per esserti iscritto a Special Sushi Poke. Da ora ogni ordine ti fa guadagnare premi.</p>
-    <div style="background:#f3eee5;border-radius:16px;padding:16px 18px;margin:0 0 4px;">
-      <p style="margin:0;font-size:15px;line-height:1.7;color:#2d2a26;">⭐ <strong>1€ speso = 1 punto.</strong> A <strong>100 punti</strong> ricevi <strong>€5 di sconto</strong> automatico.<br/>🛵 <strong>Consegna gratuita</strong> a Bari.</p>
-    </div>
-    ${ctaButton(`${SITE_URL}/menu`, "Ordina ora")}
+    <h1 style="margin:0 0 12px;font-size:22px;font-weight:800;">Ciao ${escapeHtml(args.name || "")}, account creato ✓</h1>
+    <p style="font-size:16px;line-height:1.55;margin:0 0 14px;color:#5a5048;">Grazie per esserti iscritto a Special Sushi Poke. Il tuo account è attivo.</p>
+    <p style="font-size:15px;line-height:1.7;margin:0 0 14px;color:#2d2a26;">Da ora ogni ordine accumula punti: 1€ = 1 punto, a 100 punti ricevi 5€ di sconto automatico. La consegna a Bari è gratuita.</p>
+    <p style="font-size:15px;line-height:1.6;margin:0;color:#5a5048;">Quando vuoi, trovi il menu qui: <a href="${SITE_URL}/menu" style="color:#5a7a64;font-weight:600;">specialsushipokebari.com/menu</a></p>
   `;
-  const html = brandShell({ title: subject, bodyHtml: body, heroImg: VAN_URL });
+  const html = brandShell({ title: subject, bodyHtml: body });
+  const text = `Ciao ${args.name || ""}, account creato.\n\nGrazie per esserti iscritto a Special Sushi Poke. Il tuo account è attivo.\nOgni ordine accumula punti: 1€ = 1 punto, a 100 punti 5€ di sconto. Consegna gratuita a Bari.\n\nMenu: ${SITE_URL}/menu\n\nSpecial Sushi Poke - Via G. Petroni 12/H-i, Bari`;
   try {
-    const r = await resend.emails.send({ from: getFromEmail(), replyTo: getReplyTo(), bcc: getBccEmail(), to: args.to, subject, html });
+    const r = await resend.emails.send({ from: getFromEmail(), replyTo: getReplyTo(), bcc: getBccEmail(), to: args.to, subject, html, text });
     if (r.error) return { sent: false, reason: r.error.message };
     await admin.from("marketing_emails_log").insert({
       customer_id: args.customerId ?? null,
