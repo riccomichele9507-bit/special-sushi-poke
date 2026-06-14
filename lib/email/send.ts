@@ -4,7 +4,7 @@
 // è visibile in tempo reale sulla pagina /account/orders/[orderNumber].
 
 import "server-only";
-import { getResend, getFromEmail, getReplyTo } from "./client";
+import { getResend, getFromEmail, getReplyTo, getBccEmail } from "./client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -76,6 +76,7 @@ export async function sendOrderOutForFulfillmentEmail(
     const result = await resend.emails.send({
       from: getFromEmail(),
       replyTo: getReplyTo(),
+      bcc: getBccEmail(),
       to: order.customer_email,
       subject,
       html,
@@ -246,7 +247,7 @@ export async function sendWelcomeEmail(args: {
   `;
   const html = brandShell({ title: subject, bodyHtml: body, heroImg: VAN_URL });
   try {
-    const r = await resend.emails.send({ from: getFromEmail(), to: args.to, subject, html });
+    const r = await resend.emails.send({ from: getFromEmail(), replyTo: getReplyTo(), bcc: getBccEmail(), to: args.to, subject, html });
     if (r.error) return { sent: false, reason: r.error.message };
     await admin.from("marketing_emails_log").insert({
       customer_id: args.customerId ?? null,
@@ -307,7 +308,7 @@ export async function sendOrderConfirmationEmail(order: Order): Promise<SendResu
   `;
   const html = brandShell({ title: subject, bodyHtml: body });
   try {
-    const r = await resend.emails.send({ from: getFromEmail(), to: order.customer_email, subject, html });
+    const r = await resend.emails.send({ from: getFromEmail(), replyTo: getReplyTo(), bcc: getBccEmail(), to: order.customer_email, subject, html });
     if (r.error) return { sent: false, reason: r.error.message };
     await admin.from("marketing_emails_log").insert({
       customer_id: order.customer_id,
@@ -358,7 +359,7 @@ export async function sendDormantPromoEmail(args: {
   `;
   const html = brandShell({ title: subject, bodyHtml: body });
   try {
-    const r = await resend.emails.send({ from: getFromEmail(), to: args.to, subject, html });
+    const r = await resend.emails.send({ from: getFromEmail(), replyTo: getReplyTo(), to: args.to, subject, html });
     if (r.error) return { sent: false, reason: r.error.message };
     await admin.from("marketing_emails_log").insert({
       customer_id: args.customerId,

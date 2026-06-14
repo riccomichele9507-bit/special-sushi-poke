@@ -30,6 +30,16 @@ export function getReplyTo(): string {
   return process.env.RESEND_REPLY_TO ?? "specialsushipoke@gmail.com";
 }
 
+/**
+ * Copia nascosta (BCC) al titolare: gli fa vedere nella SUA casella che le email
+ * ai clienti partono davvero. Attivo SOLO col dominio verificato (in test/onboarding
+ * Resend rifiuta destinatari diversi dall'owner dell'account).
+ */
+export function getBccEmail(): string | undefined {
+  if (getFromEmail().includes("resend.dev")) return undefined;
+  return process.env.RESEND_BCC ?? "specialsushipoke@gmail.com";
+}
+
 export function isResendConfigured(): boolean {
   return !!process.env.RESEND_API_KEY;
 }
