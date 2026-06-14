@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -136,6 +136,16 @@ export function CheckoutForm({
   const tipCents = usePricing((s) => s.tipCents);
   const [marketingConsent, setMarketingConsent] = useState(true);
 
+  // Chiave anti-doppione: stabile per questo tentativo di checkout, così un
+  // doppio-tap / retry crea UN solo ordine (il server fa dedup su questa chiave).
+  const idempotencyKeyRef = useRef<string>("");
+  if (!idempotencyKeyRef.current) {
+    idempotencyKeyRef.current =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+
   async function onSubmit(data: CheckoutInput) {
     if (!quote?.ok || !selectedSlot) {
       toast.error("Slot di consegna non confermato. Aggiorna l'indirizzo.");
@@ -143,6 +153,7 @@ export function CheckoutForm({
     }
 
     const result = await createOrder({
+      idempotencyKey: idempotencyKeyRef.current,
       orderType: data.orderType,
       name: data.name,
       phone: data.phone,

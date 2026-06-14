@@ -508,6 +508,7 @@ export type Database = {
           fiscal_receipt_issued: boolean
           geo: Json | null
           id: string
+          idempotency_key: string | null
           is_test: boolean
           items: Json
           order_number: string
@@ -542,6 +543,7 @@ export type Database = {
           fiscal_receipt_issued?: boolean
           geo?: Json | null
           id?: string
+          idempotency_key?: string | null
           is_test?: boolean
           items: Json
           order_number: string
@@ -576,6 +578,7 @@ export type Database = {
           fiscal_receipt_issued?: boolean
           geo?: Json | null
           id?: string
+          idempotency_key?: string | null
           is_test?: boolean
           items?: Json
           order_number?: string

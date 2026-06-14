@@ -27,7 +27,13 @@ export default async function SignupPage({
     : undefined;
 
   return (
-    <div className="min-h-[calc(100vh-6rem)] flex flex-col items-center justify-center px-4 py-12">
+    <div className="relative min-h-[calc(100vh-6rem)] flex flex-col items-center justify-center px-4 py-12">
+      <Link
+        href="/"
+        className="absolute top-4 right-4 text-sm font-bold text-ink hover:text-bamboo"
+      >
+        Torna alla home →
+      </Link>
       <div className="w-full max-w-sm space-y-6">
         {/* Branding: logo + furgoncino + frase d'impatto */}
         <div className="space-y-4">
@@ -75,11 +81,6 @@ export default async function SignupPage({
               className="text-bamboo font-semibold hover:underline"
             >
               Accedi
-            </Link>
-          </p>
-          <p>
-            <Link href="/" className="text-warm-gray hover:text-ink underline">
-              ← Torna alla home senza registrarti
             </Link>
           </p>
         </div>

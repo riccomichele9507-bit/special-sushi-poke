@@ -42,6 +42,8 @@ export interface CreateOrderInput {
   tipCents?: number;
   /** Spuntato a checkout → aggiorna customers.marketing_consent se non già true */
   marketingConsent?: boolean;
+  /** Chiave anti-doppione per tentativo di checkout (UUID generato dal client). */
+  idempotencyKey?: string;
 }
 
 export type CreateOrderResult =
@@ -103,8 +105,26 @@ export async function createOrder(
     }
   }
 
-  // 3. Ricalcola items + totali da DB (anti-tamper)
+  // IDEMPOTENZA (anti-doppione): se questo tentativo di checkout è già stato
+  // registrato (doppio-tap / retry di rete), ritorna lo STESSO ordine invece di
+  // crearne uno nuovo.
   const admin = createAdminClient();
+  if (input.idempotencyKey) {
+    const { data: existing } = await admin
+      .from("orders")
+      .select("id, order_number")
+      .eq("idempotency_key", input.idempotencyKey)
+      .maybeSingle();
+    if (existing) {
+      return {
+        ok: true,
+        orderId: existing.id,
+        orderNumber: existing.order_number,
+      };
+    }
+  }
+
+  // 3. Ricalcola items + totali da DB (anti-tamper)
 
   // Separa custom poke dagli altri dishId
   const dishIds = input.items
@@ -284,11 +304,28 @@ export async function createOrder(
       payment_method: input.paymentMethod,
       status: "received",
       is_test: isTest,
+      idempotency_key: input.idempotencyKey ?? null,
     })
     .select("id, order_number")
     .single();
 
   if (insertError || !inserted) {
+    // Conflitto sulla chiave idempotenza (richiesta concorrente che ha vinto la
+    // corsa): ritorna l'ordine già creato invece di un errore.
+    if (insertError?.code === "23505" && input.idempotencyKey) {
+      const { data: existing } = await admin
+        .from("orders")
+        .select("id, order_number")
+        .eq("idempotency_key", input.idempotencyKey)
+        .maybeSingle();
+      if (existing) {
+        return {
+          ok: true,
+          orderId: existing.id,
+          orderNumber: existing.order_number,
+        };
+      }
+    }
     console.error("createOrder insert failed", insertError);
     return {
       ok: false,
