@@ -7,7 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { logout } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { AccountForm } from "./account-form";
-import { ReorderButton } from "@/components/account/reorder-button";
+import { RecentOrderRow } from "@/components/account/recent-order-row";
 import { getLoyaltyStatus, POINTS_REDEMPTION_THRESHOLD } from "@/lib/loyalty/points";
 import { getEffectiveStatus, statusLabel } from "@/lib/orders/status";
 
@@ -36,7 +36,7 @@ export default async function AccountPage({ searchParams }: PageProps) {
   const admin = createAdminClient();
   const { data: recentOrders } = await admin
     .from("orders")
-    .select("id, order_number, created_at, status, total_cents, order_type, slot_start, slot_end")
+    .select("id, order_number, created_at, status, total_cents, order_type, slot_start, slot_end, items")
     .eq("customer_id", user.id)
     .order("created_at", { ascending: false })
     .limit(5);
@@ -204,42 +204,38 @@ export default async function AccountPage({ searchParams }: PageProps) {
         <div>
           <h2 className="text-sm font-semibold text-ink mb-3">I miei ordini recenti</h2>
           <ul className="space-y-2">
-            {recentOrders.map((o) => (
-              <li
-                key={o.id}
-                className="flex items-center justify-between rounded-xl border border-border bg-paper p-3 transition hover:border-bamboo/40 hover:bg-bamboo/5"
-              >
-                <Link
-                  href={`/account/orders/${o.order_number}`}
-                  className="flex-1 min-w-0"
-                >
-                  <p className="text-sm font-medium text-ink truncate">
-                    {o.order_type === "delivery" ? "🛵" : "🏪"} {o.order_number}
-                  </p>
-                  <p className="text-xs text-warm-gray">
-                    {new Date(o.created_at).toLocaleDateString("it-IT", {
-                      day: "2-digit",
-                      month: "short",
-                    })}{" "}
-                    · {statusLabel(
-                      getEffectiveStatus({
-                        status: o.status,
-                        order_type: o.order_type,
-                        slot_start: o.slot_start,
-                        created_at: o.created_at,
-                      }),
-                      o.order_type,
-                    )}
-                  </p>
-                </Link>
-                <div className="flex items-center gap-2 ml-3 shrink-0">
-                  <span className="text-sm font-semibold text-ink tabular-nums">
-                    €{(o.total_cents / 100).toFixed(2).replace(".", ",")}
-                  </span>
-                  <ReorderButton orderNumber={o.order_number} />
-                </div>
-              </li>
-            ))}
+            {recentOrders.map((o) => {
+              const its = Array.isArray(o.items)
+                ? (o.items as Array<{ name?: string; qty?: number }>).map((it) => ({
+                    name: it.name ?? "Piatto",
+                    qty: it.qty ?? 1,
+                  }))
+                : [];
+              const dateText = new Date(o.created_at).toLocaleDateString("it-IT", {
+                day: "2-digit",
+                month: "short",
+              });
+              const statusText = statusLabel(
+                getEffectiveStatus({
+                  status: o.status,
+                  order_type: o.order_type,
+                  slot_start: o.slot_start,
+                  created_at: o.created_at,
+                }),
+                o.order_type,
+              );
+              return (
+                <RecentOrderRow
+                  key={o.id}
+                  orderNumber={o.order_number}
+                  orderType={o.order_type}
+                  dateText={dateText}
+                  statusText={statusText}
+                  totalCents={o.total_cents}
+                  items={its}
+                />
+              );
+            })}
           </ul>
         </div>
       )}

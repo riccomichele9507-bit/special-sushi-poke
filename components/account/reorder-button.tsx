@@ -1,14 +1,13 @@
 "use client";
 
 import { useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { Repeat } from "lucide-react";
 import { toast } from "sonner";
 import { reorderFromOrder } from "@/app/actions/reorder";
 import { useCartStore } from "@/store/cart-store";
+import { useCartUI } from "@/lib/cart-ui-store";
 
 export function ReorderButton({ orderNumber }: { orderNumber: string }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   // Accesso diretto allo store (non hook reattivo: ci serve solo per scrivere)
@@ -41,9 +40,10 @@ export function ReorderButton({ orderNumber }: { orderNumber: string }) {
         );
       }
       toast.success("Carrello pronto!", {
-        description: "Vai al checkout per confermare.",
+        description: "Controlla e vai al checkout.",
       });
-      router.push("/menu");
+      // Apri il carrello (drawer), NON il menu
+      useCartUI.getState().open();
     });
   }
 
