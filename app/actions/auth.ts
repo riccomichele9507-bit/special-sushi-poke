@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { safeRedirect } from "@/lib/auth/safe-redirect";
 
 // ============================================================
 // Schemi zod
@@ -22,12 +23,12 @@ const passwordSchema = z
   .min(8, "Almeno 8 caratteri")
   .max(72, "Massimo 72 caratteri");
 
+// Cellulare OBBLIGATORIO in iscrizione (solo mobile, prefisso 3xx)
 const phoneSchema = z
   .string()
   .trim()
-  .regex(/^(\+39\s?)?(3\d{2}|0\d{1,3})\s?\d{6,8}$/, "Numero italiano non valido")
-  .optional()
-  .or(z.literal(""));
+  .min(8, "Inserisci il numero di cellulare")
+  .regex(/^(\+39\s?)?3\d{2}\s?\d{6,7}$/, "Numero di cellulare italiano non valido");
 
 const loginSchema = z.object({
   email: emailSchema,
@@ -51,7 +52,7 @@ const passwordResetRequestSchema = z.object({ email: emailSchema });
 // Types ritorno (per il form client)
 // ============================================================
 export type ActionResult =
-  | { ok: true; redirectTo?: string }
+  | { ok: true; redirectTo?: string; needsConfirmation?: boolean }
   | { ok: false; error: string };
 
 // ============================================================
@@ -119,7 +120,7 @@ export async function signup(formData: FormData): Promise<ActionResult> {
     process.env.NEXT_PUBLIC_SITE_URL ??
     "https://specialsushipokebari.com";
 
-  const { error } = await supabase.auth.signUp({
+  const { data: signUpData, error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
@@ -159,7 +160,30 @@ export async function signup(formData: FormData): Promise<ActionResult> {
     // non blocchiamo il signup per questo
   }
 
-  // Cookie temporaneo per applicare il consent dopo conferma email
+  // returnTo opzionale (es. se l'iscrizione parte dal checkout)
+  const returnToRaw = (formData.get("returnTo") as string) || "";
+  const redirectTo = returnToRaw ? safeRedirect(returnToRaw, "/account") : "/account";
+
+  // Se "Confirm email" è disattivato su Supabase, signUp restituisce già una
+  // sessione → l'utente è dentro subito, niente conferma. Applichiamo subito
+  // il consenso marketing e mandiamo al profilo (poi parte l'email di benvenuto).
+  if (signUpData.session) {
+    if (parsed.data.marketingConsent) {
+      try {
+        const admin = createAdminClient();
+        await admin
+          .from("customers")
+          .update({ marketing_consent: true })
+          .eq("email", parsed.data.email);
+      } catch (e) {
+        console.error("signup: consent update failed", e);
+      }
+    }
+    revalidatePath("/", "layout");
+    return { ok: true, redirectTo };
+  }
+
+  // Altrimenti (conferma email ancora attiva): cookie consent + schermata "controlla email"
   if (parsed.data.marketingConsent) {
     const cookieStore = await cookies();
     cookieStore.set("ssp_pending_consent", "yes", {
@@ -171,7 +195,7 @@ export async function signup(formData: FormData): Promise<ActionResult> {
     });
   }
 
-  return { ok: true };
+  return { ok: true, needsConfirmation: true };
 }
 
 // ============================================================

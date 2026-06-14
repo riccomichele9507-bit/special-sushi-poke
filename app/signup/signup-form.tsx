@@ -19,8 +19,15 @@ export function SignupForm({ returnTo }: { returnTo?: string }) {
     startTransition(async () => {
       const result = await signup(formData);
       if (result.ok) {
-        setSuccess(true);
-        toast.success("Ti abbiamo inviato un'email di conferma");
+        if (result.needsConfirmation) {
+          // Conferma email ancora attiva su Supabase → schermata "controlla email"
+          setSuccess(true);
+          toast.success("Ti abbiamo inviato un'email di conferma");
+        } else {
+          // Accesso immediato (nessuna conferma richiesta) → al profilo
+          toast.success("Registrazione completata! Benvenuto/a 🍣");
+          window.location.href = result.redirectTo ?? "/account";
+        }
       } else {
         setError(result.error);
       }
@@ -60,6 +67,7 @@ export function SignupForm({ returnTo }: { returnTo?: string }) {
       </div>
 
       <form action={action} className="space-y-4" noValidate>
+      {returnTo && <input type="hidden" name="returnTo" value={returnTo} />}
       <div className="space-y-2">
         <Label htmlFor="name">Nome e cognome</Label>
         <Input
@@ -89,20 +97,19 @@ export function SignupForm({ returnTo }: { returnTo?: string }) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="phone">
-          Telefono <span className="text-warm-gray text-xs">(opzionale)</span>
-        </Label>
+        <Label htmlFor="phone">Cellulare</Label>
         <Input
           id="phone"
           name="phone"
           type="tel"
+          required
           autoComplete="tel"
           inputMode="tel"
           placeholder="333 1234567"
           disabled={isPending}
         />
         <p className="text-xs text-warm-gray">
-          Utile per chiamarti se il rider ha bisogno.
+          Ci serve per avvisarti sull&apos;ordine e per il rider.
         </p>
       </div>
 
