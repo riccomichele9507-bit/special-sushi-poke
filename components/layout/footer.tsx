@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MapPin, Phone, Mail, ExternalLink } from "lucide-react";
+import { MapPin, Mail, ExternalLink } from "lucide-react";
 import { Container } from "@/components/shared/container";
 import { InstagramIcon, FacebookIcon } from "@/components/shared/social-icons";
 import { restaurant } from "@/data/restaurant";
@@ -73,15 +73,6 @@ export function Footer() {
                     <ExternalLink className="h-2.5 w-2.5" />
                   </a>
                 </div>
-              </li>
-              <li>
-                <a
-                  href={`tel:${restaurant.phone.replace(/\s/g, "")}`}
-                  className="inline-flex items-center gap-2.5 transition hover:text-gold"
-                >
-                  <Phone className="h-3.5 w-3.5 text-gold" strokeWidth={1.75} />
-                  {restaurant.phoneDisplay}
-                </a>
               </li>
               <li>
                 <a

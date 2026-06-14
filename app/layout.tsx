@@ -65,7 +65,7 @@ const restaurantJsonLd = {
     latitude: restaurant.coords.lat,
     longitude: restaurant.coords.lng,
   },
-  telephone: restaurant.phone,
+  telephone: restaurant.whatsapp,
   url: siteUrl,
   servesCuisine: restaurant.cuisine,
   priceRange: restaurant.priceRange,
