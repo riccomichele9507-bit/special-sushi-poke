@@ -32,45 +32,21 @@ interface MinimalOrder {
  */
 export function getEffectiveStatus(
   order: MinimalOrder,
-  now: Date = new Date(),
+  _now: Date = new Date(),
 ): EffectiveStatus {
   const dbStatus = order.status;
 
-  // Stati finali/manuali: sempre rispettati
-  if (
-    dbStatus === "delivered" ||
-    dbStatus === "cancelled" ||
-    dbStatus === "refunded" ||
-    dbStatus === "in_delivery"
-  ) {
-    return dbStatus;
+  // Modello SEMPLIFICATO a 2 stati visibili: "Ordine ricevuto" → "Affidato al
+  // rider / Pronto al ritiro". Nessuno stato intermedio o auto-calcolato.
+  if (dbStatus === "cancelled" || dbStatus === "refunded") return dbStatus;
+
+  if (order.order_type === "pickup") {
+    if (dbStatus === "ready" || dbStatus === "delivered") return "ready";
+    return "received"; // received/confirmed/preparing
   }
-
-  // Per pickup, "ready" = pronto da ritirare
-  if (dbStatus === "ready") return "ready";
-
-  // Stati intermedi → calcolo da tempo
-  const slotStartMs = new Date(order.slot_start).getTime();
-  const minutesToSlotStart = (slotStartMs - now.getTime()) / 60_000;
-
-  if (dbStatus === "received") {
-    // Appena ricevuto, in attesa pagamento o conferma
-    return "received";
-  }
-
-  if (dbStatus === "confirmed") {
-    // Confermato: a 30min dallo slot promuovi a preparing, a 10min a ready
-    if (minutesToSlotStart < 10) return "ready";
-    if (minutesToSlotStart < 30) return "preparing";
-    return "confirmed";
-  }
-
-  if (dbStatus === "preparing") {
-    if (minutesToSlotStart < 10) return "ready";
-    return "preparing";
-  }
-
-  return dbStatus;
+  // delivery
+  if (dbStatus === "in_delivery" || dbStatus === "delivered") return "in_delivery";
+  return "received";
 }
 
 /**
@@ -82,17 +58,13 @@ export function statusLabel(
 ): string {
   switch (status) {
     case "received":
-      return "Ordine ricevuto";
     case "confirmed":
-      return "Pagamento confermato";
     case "preparing":
-      return "In preparazione";
+      return "Ordine ricevuto";
     case "ready":
-      return orderType === "pickup"
-        ? "Pronto al ritiro!"
-        : "Pronto, in attesa del rider";
+      return "Pronto al ritiro 🏪";
     case "in_delivery":
-      return "In consegna";
+      return "Affidato al rider, in arrivo 🛵";
     case "delivered":
       return orderType === "pickup" ? "Ritirato" : "Consegnato";
     case "cancelled":
@@ -108,23 +80,13 @@ export function statusLabel(
 export function timelineSteps(
   orderType: OrderType,
 ): { key: EffectiveStatus; label: string }[] {
-  const base: { key: EffectiveStatus; label: string }[] = [
-    { key: "received", label: "Ricevuto" },
-    { key: "confirmed", label: "Confermato" },
-    { key: "preparing", label: "In preparazione" },
-    {
-      key: "ready",
-      label: orderType === "pickup" ? "Pronto al ritiro" : "Pronto",
-    },
+  // Solo 2 step: ricevuto → affidato al rider / pronto al ritiro.
+  return [
+    { key: "received", label: "Ordine ricevuto" },
+    orderType === "pickup"
+      ? { key: "ready", label: "Pronto al ritiro" }
+      : { key: "in_delivery", label: "Affidato al rider" },
   ];
-  if (orderType === "delivery") {
-    base.push({ key: "in_delivery", label: "In consegna" });
-  }
-  base.push({
-    key: "delivered",
-    label: orderType === "pickup" ? "Ritirato" : "Consegnato",
-  });
-  return base;
 }
 
 /**

@@ -2,13 +2,9 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Bike, ShoppingBag, CheckCircle2, ChefHat } from "lucide-react";
+import { Bike, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
-import {
-  markOrderOutForFulfillment,
-  markOrderDelivered,
-  markOrderPreparing,
-} from "@/app/actions/admin/order-status";
+import { markOrderOutForFulfillment } from "@/app/actions/admin/order-status";
 
 interface Props {
   orderId: string;
@@ -25,42 +21,18 @@ export function QuickActionButton({ orderId, status, orderType }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
-  if (["delivered", "cancelled", "refunded"].includes(status)) {
+  // Azionabile solo da ricevuto/confermato → affidato al rider / pronto al ritiro.
+  if (!["received", "confirmed", "preparing"].includes(status)) {
     return <span className="text-xs text-warm-gray">—</span>;
   }
 
-  let label = "";
-  let Icon: typeof Bike = Bike;
-  let action: () => Promise<{ ok: boolean; error?: string }> = async () => ({
-    ok: false,
-  });
-  let successMsg = "";
-
-  if (["received", "confirmed"].includes(status)) {
-    label = orderType === "delivery" ? "Affidato rider" : "Pronto ritiro";
-    Icon = orderType === "delivery" ? Bike : ShoppingBag;
-    action = () => markOrderOutForFulfillment(orderId);
-    successMsg =
-      orderType === "delivery"
-        ? "Cliente avvisato: in consegna"
-        : "Cliente avvisato: pronto al ritiro";
-  } else if (status === "preparing") {
-    label = orderType === "delivery" ? "Affidato rider" : "Pronto ritiro";
-    Icon = orderType === "delivery" ? Bike : ShoppingBag;
-    action = () => markOrderOutForFulfillment(orderId);
-    successMsg =
-      orderType === "delivery"
-        ? "Cliente avvisato: in consegna"
-        : "Cliente avvisato: pronto al ritiro";
-  } else if (["in_delivery", "ready"].includes(status)) {
-    label = orderType === "delivery" ? "Consegnato" : "Ritirato";
-    Icon = CheckCircle2;
-    action = () => markOrderDelivered(orderId);
-    successMsg =
-      orderType === "delivery" ? "Ordine consegnato!" : "Ordine ritirato!";
-  } else {
-    return <span className="text-xs text-warm-gray">—</span>;
-  }
+  const label = orderType === "delivery" ? "Affidato rider" : "Pronto ritiro";
+  const Icon = orderType === "delivery" ? Bike : ShoppingBag;
+  const action = () => markOrderOutForFulfillment(orderId);
+  const successMsg =
+    orderType === "delivery"
+      ? "Cliente avvisato: affidato al rider"
+      : "Cliente avvisato: pronto al ritiro";
 
   return (
     <button

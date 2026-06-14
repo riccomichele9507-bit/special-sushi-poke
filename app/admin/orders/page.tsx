@@ -19,7 +19,6 @@ export default async function AdminOrdersPage({
     .select(
       "id, order_number, created_at, slot_start, slot_end, order_type, status, customer_name, customer_phone, total_cents, payment_method, fiscal_receipt_issued, is_test",
     )
-    .eq("is_test", false)
     .order("created_at", { ascending: false })
     .limit(100);
   if (params.status) query = query.eq("status", params.status as OrderStatus);
@@ -30,11 +29,9 @@ export default async function AdminOrdersPage({
     { id: "", label: "Tutti" },
     { id: "received", label: "Ricevuti" },
     { id: "confirmed", label: "Confermati" },
-    { id: "preparing", label: "In preparazione" },
-    { id: "ready", label: "Pronti" },
-    { id: "in_delivery", label: "In consegna" },
-    { id: "delivered", label: "Consegnati" },
-    { id: "cancelled", label: "Cancellati" },
+    { id: "in_delivery", label: "Affidati al rider" },
+    { id: "ready", label: "Pronti al ritiro" },
+    { id: "cancelled", label: "Annullati" },
   ];
 
   return (
@@ -42,7 +39,9 @@ export default async function AdminOrdersPage({
       <div>
         <h1 className="text-3xl font-serif-jp text-ink">Ordini</h1>
         <p className="text-sm text-warm-gray mt-1">
-          Ultimi 100 ordini reali (test esclusi). {orders?.length ?? 0} mostrati.
+          Ultimi 100 ordini ({orders?.length ?? 0} mostrati). Gli ordini di prova
+          hanno il badge{" "}
+          <span className="rounded bg-amber-100 px-1 text-[10px] font-bold text-amber-900">TEST</span>.
         </p>
       </div>
 
@@ -90,6 +89,11 @@ export default async function AdminOrdersPage({
                   >
                     {o.order_number} →
                   </Link>
+                  {o.is_test && (
+                    <span className="ml-1 rounded bg-amber-100 px-1 text-[9px] font-bold text-amber-900">
+                      TEST
+                    </span>
+                  )}
                 </td>
                 <td className="px-3 py-2 text-warm-gray">
                   {new Date(o.created_at).toLocaleString("it-IT", {

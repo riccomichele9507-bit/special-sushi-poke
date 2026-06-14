@@ -36,6 +36,25 @@ export default async function AdminCustomersPage({
       .order("created_at", { ascending: false })
       .limit(200);
     customers = data ?? [];
+    // Data ultimo ordine per ciascun cliente
+    const ids = customers.map((c) => c.id);
+    if (ids.length) {
+      const { data: ords } = await supabase
+        .from("orders")
+        .select("customer_id, created_at")
+        .in("customer_id", ids)
+        .order("created_at", { ascending: false });
+      const last = new Map<string, string>();
+      for (const o of ords ?? []) {
+        if (o.customer_id && !last.has(o.customer_id)) {
+          last.set(o.customer_id, o.created_at);
+        }
+      }
+      customers = customers.map((c) => ({
+        ...c,
+        last_order_at: last.get(c.id) ?? null,
+      }));
+    }
   }
 
   return (
@@ -64,7 +83,7 @@ export default async function AdminCustomersPage({
               <th className="px-3 py-2">Nome</th>
               <th className="px-3 py-2">Telefono</th>
               <th className="px-3 py-2">Marketing</th>
-              {isDormant && <th className="px-3 py-2">Ultimo ordine</th>}
+              <th className="px-3 py-2">Ultimo ordine</th>
               {isDormant && <th className="px-3 py-2 text-right">Ordini totali</th>}
             </tr>
           </thead>
@@ -75,19 +94,21 @@ export default async function AdminCustomersPage({
                 <td className="px-3 py-2">{c.name ?? "—"}</td>
                 <td className="px-3 py-2 text-warm-gray">{c.phone ?? "—"}</td>
                 <td className="px-3 py-2">{c.marketing_consent ? "✅" : "❌"}</td>
-                {isDormant && (
-                  <td className="px-3 py-2 text-xs text-warm-gray">
-                    {c.last_order_at
-                      ? new Date(c.last_order_at).toLocaleDateString("it-IT")
-                      : "Mai"}
-                  </td>
-                )}
+                <td className="px-3 py-2 text-xs text-warm-gray">
+                  {c.last_order_at
+                    ? new Date(c.last_order_at).toLocaleDateString("it-IT", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                      })
+                    : "Mai"}
+                </td>
                 {isDormant && <td className="px-3 py-2 text-right">{c.total_orders ?? 0}</td>}
               </tr>
             ))}
             {customers.length === 0 && (
               <tr>
-                <td colSpan={isDormant ? 6 : 4} className="px-3 py-8 text-center text-warm-gray">
+                <td colSpan={isDormant ? 6 : 5} className="px-3 py-8 text-center text-warm-gray">
                   {isDormant ? "Nessun cliente dormiente. Tutti fedeli!" : "Nessun cliente registrato."}
                 </td>
               </tr>
