@@ -45,14 +45,16 @@ export default async function LoginPage({
         {/* Branding: logo + furgoncino + frase d'impatto */}
         <div className="space-y-4">
           <div className="flex justify-center">
-            <Image
-              src="/logo-mark.png"
-              alt="Special Sushi Poke"
-              width={56}
-              height={56}
-              priority
-              className="h-14 w-14 object-contain"
-            />
+            <Link href="/" aria-label="Torna alla home">
+              <Image
+                src="/logo-mark.png"
+                alt="Special Sushi Poke"
+                width={56}
+                height={56}
+                priority
+                className="h-14 w-14 object-contain"
+              />
+            </Link>
           </div>
           <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl ring-1 ring-border shadow-[0_8px_28px_-10px_rgba(28,28,28,0.25)]">
             <Image
@@ -102,6 +104,11 @@ export default async function LoginPage({
               className="text-warm-gray hover:text-ink underline"
             >
               Password dimenticata?
+            </Link>
+          </p>
+          <p className="pt-2">
+            <Link href="/" className="text-warm-gray hover:text-ink underline">
+              ← Torna alla home senza accedere
             </Link>
           </p>
         </div>

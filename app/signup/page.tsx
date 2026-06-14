@@ -63,18 +63,25 @@ export default async function SignupPage({
 
         <SignupForm returnTo={safeReturnTo} />
 
-        <div className="text-center text-sm text-warm-gray">
-          Hai già un account?{" "}
-          <Link
-            href={
-              safeReturnTo
-                ? `/login?returnTo=${encodeURIComponent(safeReturnTo)}`
-                : "/login"
-            }
-            className="text-bamboo font-semibold hover:underline"
-          >
-            Accedi
-          </Link>
+        <div className="text-center text-sm text-warm-gray space-y-2">
+          <p>
+            Hai già un account?{" "}
+            <Link
+              href={
+                safeReturnTo
+                  ? `/login?returnTo=${encodeURIComponent(safeReturnTo)}`
+                  : "/login"
+              }
+              className="text-bamboo font-semibold hover:underline"
+            >
+              Accedi
+            </Link>
+          </p>
+          <p>
+            <Link href="/" className="text-warm-gray hover:text-ink underline">
+              ← Torna alla home senza registrarti
+            </Link>
+          </p>
         </div>
       </div>
     </div>

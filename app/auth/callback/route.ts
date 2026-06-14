@@ -30,10 +30,14 @@ export async function GET(request: NextRequest) {
           console.error("auth/callback: failed to apply pending consent", e);
         }
       }
-      // Email di benvenuto (dedup per indirizzo → parte una sola volta). Copre
-      // anche le iscrizioni con Google. Saltata nel flusso reset password.
+      // Email di benvenuto SOLO ai nuovi iscritti (account creato da poco), non
+      // a chi rientra. Doppia protezione: dedup per indirizzo dentro la funzione.
       const isPasswordReset = next.includes("reset-password");
-      if (!isPasswordReset && data.user?.email) {
+      const createdAtMs = data.user?.created_at
+        ? new Date(data.user.created_at).getTime()
+        : 0;
+      const isNewUser = createdAtMs > 0 && Date.now() - createdAtMs < 120_000;
+      if (!isPasswordReset && isNewUser && data.user?.email) {
         await sendWelcomeEmail({
           to: data.user.email,
           name: (data.user.user_metadata?.full_name as string) ?? "",
