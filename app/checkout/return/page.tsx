@@ -1,5 +1,41 @@
 import { redirect } from "next/navigation";
 import { getStripe, isStripeConfigured } from "@/lib/stripe/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { enqueuePrintJob } from "@/lib/print/queue";
+import { PostPaymentRedirect } from "./redirect-client";
+
+/**
+ * Fallback del webhook Stripe: conferma l'ordine appena il pagamento risulta
+ * completo, SENZA dipendere dal webhook (che in test può non essere configurato).
+ * Idempotente: agisce solo se l'ordine è ancora "received".
+ * Usa il service-role → non richiede sessione utente.
+ */
+async function confirmPaidOrder(orderNumber: string | undefined) {
+  if (!orderNumber) return;
+  const admin = createAdminClient();
+  const { data: order } = await admin
+    .from("orders")
+    .select("*")
+    .eq("order_number", orderNumber)
+    .maybeSingle();
+  if (!order || order.status !== "received") return; // già confermato dal webhook → skip
+
+  await admin
+    .from("orders")
+    .update({ status: "confirmed", status_updated_at: new Date().toISOString() })
+    .eq("id", order.id);
+  await admin.from("order_status_history").insert({
+    order_id: order.id,
+    status: "confirmed",
+    changed_by: "checkout-return",
+  });
+  const { data: full } = await admin
+    .from("orders")
+    .select("*")
+    .eq("id", order.id)
+    .single();
+  if (full) await enqueuePrintJob(full);
+}
 
 interface PageProps {
   searchParams: Promise<{ session_id?: string; order_number?: string }>;
@@ -17,12 +53,13 @@ export default async function CheckoutReturnPage({ searchParams }: PageProps) {
     redirect("/checkout");
   }
 
-  // Se Stripe non configurato (env vars mancanti in dev), manda comunque al tracking
+  // Se Stripe non configurato (env vars mancanti in dev), manda comunque al profilo
   if (!isStripeConfigured()) {
     if (order_number) {
-      redirect(`/account/orders/${order_number}?paid=true`);
+      await confirmPaidOrder(order_number);
+      return <PostPaymentRedirect target={`/account?paid=${order_number}`} />;
     }
-    redirect("/account");
+    return <PostPaymentRedirect target="/account" />;
   }
 
   try {
@@ -32,9 +69,11 @@ export default async function CheckoutReturnPage({ searchParams }: PageProps) {
       (session.metadata?.order_number as string | undefined) ?? order_number;
 
     if (session.status === "complete") {
-      // Pagamento andato → porta direttamente al profilo (punti + lista ordini)
-      // Il cliente vede subito i suoi premi accumulati.
-      redirect(`/account?paid=${finalOrderNumber}`);
+      // Conferma l'ordine subito (fallback webhook) → ordine + punti pronti.
+      await confirmPaidOrder(finalOrderNumber);
+      // Pagina 200 + redirect client (NON redirect server) → la sessione Supabase
+      // sopravvive al ritorno dal pagamento. Atterra sul profilo coi punti.
+      return <PostPaymentRedirect target={`/account?paid=${finalOrderNumber}`} />;
     }
     if (session.status === "open") {
       // Pagamento ancora aperto → riporta al checkout per riprovare

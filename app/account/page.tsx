@@ -80,11 +80,14 @@ export default async function AccountPage({ searchParams }: PageProps) {
         <div className="rounded-xl border border-bamboo/40 bg-bamboo/5 p-4 flex items-start gap-3">
           <CheckCircle2 className="h-6 w-6 text-bamboo shrink-0 mt-0.5" />
           <div>
-            <p className="font-semibold text-bamboo">Pagamento confermato!</p>
+            <p className="font-semibold text-bamboo">
+              Ordine #{paid} confermato! 🎉
+            </p>
             <p className="text-sm text-warm-gray mt-0.5">
-              Ordine{" "}
-              <span className="font-mono font-semibold text-ink">#{paid}</span>{" "}
-              ricevuto. I tuoi punti sono stati aggiornati qui sotto 👇
+              Hai ora <strong className="text-ink">{loyalty.balance} punti</strong>
+              {loyalty.balance >= POINTS_REDEMPTION_THRESHOLD
+                ? " — hai sbloccato uno sconto di €5 sul prossimo ordine! 🎁"
+                : ` · ti mancano ${loyalty.pointsToNextReward} punti al prossimo sconto da €5.`}
             </p>
             <Link
               href={`/account/orders/${paid}`}
