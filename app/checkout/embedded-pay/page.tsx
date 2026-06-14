@@ -23,31 +23,35 @@ export default async function EmbeddedPayPage({ searchParams }: PageProps) {
     redirect("/checkout");
   }
 
-  // Auth check
+  // Auth opzionale (ospite consentito)
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) {
-    redirect("/login?returnTo=/checkout");
-  }
 
-  // Verifica ownership
   const admin = createAdminClient();
   const { data: order } = await admin
     .from("orders")
     .select("id, order_number, total_cents, status, customer_id")
     .eq("id", orderId)
-    .eq("customer_id", user.id)
     .maybeSingle();
 
-  if (!order) {
-    redirect("/account");
+  // Autorizzazione: il registrato deve possedere l'ordine; l'ospite può pagare
+  // solo ordini-ospite (customer_id null) e possiede l'id uuid (non indovinabile).
+  const owns = order
+    ? user
+      ? order.customer_id === user.id
+      : order.customer_id === null
+    : false;
+  if (!order || !owns) {
+    redirect(user ? "/account" : "/menu");
   }
 
-  // Se già confermato, manda al tracking
+  // Se già confermato, manda al tracking giusto
   if (order.status !== "received") {
-    redirect(`/account/orders/${order.order_number}`);
+    redirect(
+      user ? `/account/orders/${order.order_number}` : `/checkout/grazie?id=${order.id}`,
+    );
   }
 
   // Crea sessione Stripe embedded e ottieni il client_secret

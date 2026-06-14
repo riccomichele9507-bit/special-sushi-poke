@@ -57,17 +57,24 @@ export type CreateOrderResult =
 export async function createOrder(
   input: CreateOrderInput,
 ): Promise<CreateOrderResult> {
-  // 1. Auth
+  // 1. Auth — opzionale: ordine consentito anche da OSPITE (customer_id null).
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  // Per gli ospiti servono nome, email e telefono (per contattarli sull'ordine).
   if (!user) {
-    return {
-      ok: false,
-      errorCode: "unauthenticated",
-      errorMessage: "Devi accedere per finalizzare l'ordine.",
-    };
+    if (
+      !input.email?.includes("@") ||
+      !input.name?.trim() ||
+      !input.phone?.trim()
+    ) {
+      return {
+        ok: false,
+        errorCode: "guest_missing_contact",
+        errorMessage: "Per ordinare come ospite servono nome, email e telefono.",
+      };
+    }
   }
 
   // 2. Validate basic input
@@ -180,8 +187,10 @@ export async function createOrder(
     codeDiscountCents = dv.discountCents;
     appliedManualCode = dv.code;
   }
-  // 2) Sconto fedeltà automatico: se il saldo punti ≥ 100, applica -€5 e consuma i punti.
-  const loyalty = await computeLoyaltyRedemption(user.id);
+  // 2) Sconto fedeltà automatico (solo clienti registrati): se saldo ≥ 100 → -€5.
+  const loyalty = user
+    ? await computeLoyaltyRedemption(user.id)
+    : { discountCents: 0, code: null };
   // Somma i due sconti, mai oltre il subtotale.
   const discountCents = Math.max(
     0,
@@ -248,7 +257,7 @@ export async function createOrder(
     .from("orders")
     .insert({
       order_number: orderNumber,
-      customer_id: user.id,
+      customer_id: user?.id ?? null,
       customer_name: input.name,
       customer_phone: input.phone,
       customer_email: input.email,
@@ -350,7 +359,7 @@ export async function createOrder(
       notes: input.addressNotes ?? null,
     } as unknown as Json;
   }
-  if (Object.keys(customerUpdate).length > 0) {
+  if (user && Object.keys(customerUpdate).length > 0) {
     await admin.from("customers").update(customerUpdate).eq("id", user.id);
   }
 

@@ -43,6 +43,8 @@ interface CheckoutFormProps {
     lng: number;
     notes?: string;
   } | null;
+  /** True se l'utente NON è loggato (checkout come ospite). */
+  isGuest?: boolean;
 }
 
 export function CheckoutForm({
@@ -50,6 +52,7 @@ export function CheckoutForm({
   defaultPhone = "",
   defaultEmail = "",
   defaultAddress = null,
+  isGuest = false,
 }: CheckoutFormProps = {}) {
   const router = useRouter();
   const clear = useCartStore((s) => s.clear);
@@ -187,9 +190,11 @@ export function CheckoutForm({
           ? `Consegna tra le ${selectedSlot.startHHmm} e le ${selectedSlot.endHHmm}.`
           : `Pronto al ritiro tra le ${selectedSlot.startHHmm} e le ${selectedSlot.endHHmm}.`,
     });
-    // Navigation full-page: bypassa eventuali bug client-state che bloccavano
-    // router.push (rilevato bug: rimaneva sul checkout dopo conferma)
-    window.location.href = `/account/orders/${result.orderNumber}`;
+    // Ospite → pagina di ringraziamento pubblica (per id ordine, non sequenziale).
+    // Registrato → tracking ordine nel profilo.
+    window.location.href = isGuest
+      ? `/checkout/grazie?id=${result.orderId}`
+      : `/account/orders/${result.orderNumber}`;
   }
 
   const cartEmpty = hydrated && count === 0;

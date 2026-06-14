@@ -33,21 +33,22 @@ export async function createCheckoutSession(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) {
-    return { ok: false, errorMessage: "Devi essere loggato." };
-  }
 
-  // Fetch ordine + verifica ownership
+  // Fetch ordine (ospite consentito: ownership = utente proprietario, oppure
+  // ordine-ospite con customer_id null per chi possiede l'id uuid).
   const admin = createAdminClient();
   const { data: order } = await admin
     .from("orders")
     .select("*")
     .eq("id", orderId)
-    .eq("customer_id", user.id)
     .maybeSingle();
 
   if (!order) {
     return { ok: false, errorMessage: "Ordine non trovato." };
+  }
+  const owns = user ? order.customer_id === user.id : order.customer_id === null;
+  if (!owns) {
+    return { ok: false, errorMessage: "Ordine non accessibile." };
   }
   if (order.status !== "received") {
     return {
@@ -89,7 +90,7 @@ export async function createCheckoutSession(
       metadata: {
         order_id: order.id,
         order_number: order.order_number,
-        customer_id: user.id,
+        customer_id: order.customer_id ?? "guest",
       },
       // Embedded mode usa return_url invece di success/cancel
       return_url: `${siteUrl}/checkout/return?session_id={CHECKOUT_SESSION_ID}&order_number=${order.order_number}`,

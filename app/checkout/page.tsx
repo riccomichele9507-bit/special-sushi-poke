@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { CheckoutForm } from "@/components/checkout/checkout-form";
 import { OrderSummarySide } from "@/components/checkout/order-summary-side";
@@ -24,63 +23,60 @@ export default async function CheckoutPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) {
-    redirect("/login?returnTo=/checkout");
-  }
+  // OSPITE consentito: niente redirect al login. Precompila solo se loggato.
+  let customerName = "";
+  let customerPhone = "";
+  const customerEmail = user?.email ?? "";
+  let loyaltyDiscountCents = 0;
+  let defaultAddress:
+    | { address: string; lat: number; lng: number; notes?: string }
+    | null = null;
 
-  // Precompila nome/telefono/email + ultimo indirizzo salvato (address_default)
-  const { data: customer } = await supabase
-    .from("customers")
-    .select("name, phone, address_default")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  // Sconto fedeltà disponibile (≥100 punti → −€5), mostrato nel riepilogo.
-  const loyalty = await getLoyaltyStatus(user.id);
-  const loyaltyDiscountCents =
-    loyalty.balance >= POINTS_REDEMPTION_THRESHOLD ? POINTS_REDEMPTION_VALUE_CENTS : 0;
-
-  const addr = customer?.address_default as
-    | { address?: string; lat?: number; lng?: number; notes?: string | null }
-    | null;
-  let defaultAddress =
-    addr && typeof addr.lat === "number" && typeof addr.lng === "number" && addr.address
-      ? {
-          address: addr.address,
-          lat: addr.lat,
-          lng: addr.lng,
-          notes: addr.notes ?? "",
-        }
-      : null;
-
-  // Fallback: se non c'è ancora un address_default salvato (cliente che ha
-  // ordinato prima di questa feature, o che clicca "riordina"), recupera
-  // l'indirizzo dall'ULTIMO ordine di consegna. Così l'indirizzo c'è sempre.
-  if (!defaultAddress) {
-    const admin = createAdminClient();
-    const { data: lastOrder } = await admin
-      .from("orders")
-      .select("address_line, address_notes, geo")
-      .eq("customer_id", user.id)
-      .eq("order_type", "delivery")
-      .not("geo", "is", null)
-      .order("created_at", { ascending: false })
-      .limit(1)
+  if (user) {
+    const { data: customer } = await supabase
+      .from("customers")
+      .select("name, phone, address_default")
+      .eq("id", user.id)
       .maybeSingle();
+    customerName = customer?.name ?? "";
+    customerPhone = customer?.phone ?? "";
 
-    const geo = lastOrder?.geo as { lat?: number; lng?: number } | null;
-    if (
-      lastOrder?.address_line &&
-      geo &&
-      typeof geo.lat === "number" &&
-      typeof geo.lng === "number"
-    ) {
-      defaultAddress = {
-        address: lastOrder.address_line,
-        lat: geo.lat,
-        lng: geo.lng,
-        notes: lastOrder.address_notes ?? "",
-      };
+    const loyalty = await getLoyaltyStatus(user.id);
+    loyaltyDiscountCents =
+      loyalty.balance >= POINTS_REDEMPTION_THRESHOLD ? POINTS_REDEMPTION_VALUE_CENTS : 0;
+
+    const addr = customer?.address_default as
+      | { address?: string; lat?: number; lng?: number; notes?: string | null }
+      | null;
+    if (addr && typeof addr.lat === "number" && typeof addr.lng === "number" && addr.address) {
+      defaultAddress = { address: addr.address, lat: addr.lat, lng: addr.lng, notes: addr.notes ?? "" };
+    }
+    // Fallback dall'ultimo ordine di consegna (riordino / cliente storico).
+    if (!defaultAddress) {
+      const admin = createAdminClient();
+      const { data: lastOrder } = await admin
+        .from("orders")
+        .select("address_line, address_notes, geo")
+        .eq("customer_id", user.id)
+        .eq("order_type", "delivery")
+        .not("geo", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const geo = lastOrder?.geo as { lat?: number; lng?: number } | null;
+      if (
+        lastOrder?.address_line &&
+        geo &&
+        typeof geo.lat === "number" &&
+        typeof geo.lng === "number"
+      ) {
+        defaultAddress = {
+          address: lastOrder.address_line,
+          lat: geo.lat,
+          lng: geo.lng,
+          notes: lastOrder.address_notes ?? "",
+        };
+      }
     }
   }
 
@@ -103,12 +99,28 @@ export default async function CheckoutPage() {
         </h1>
       </header>
 
+      {!user && (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gold/30 bg-gold/10 px-4 py-3">
+          <p className="text-sm text-ink">
+            🎁 <strong>Hai un account?</strong> Accedi per accumulare punti e
+            avere l&apos;indirizzo già pronto.
+          </p>
+          <Link
+            href="/login?returnTo=/checkout"
+            className="shrink-0 rounded-full bg-bamboo px-4 py-1.5 text-xs font-semibold text-paper hover:bg-bamboo-deep"
+          >
+            Accedi
+          </Link>
+        </div>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-[7fr_5fr]">
         <CheckoutForm
-          defaultName={customer?.name ?? ""}
-          defaultPhone={customer?.phone ?? ""}
-          defaultEmail={user.email ?? ""}
+          defaultName={customerName}
+          defaultPhone={customerPhone}
+          defaultEmail={customerEmail}
           defaultAddress={defaultAddress}
+          isGuest={!user}
         />
         <div className="hidden lg:block">
           <OrderSummarySide loyaltyDiscountCents={loyaltyDiscountCents} />
