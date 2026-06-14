@@ -2,7 +2,7 @@
 
 import { assertAdmin } from "./helpers";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendDormantPromoEmail } from "@/lib/email/send";
+import { sendDormantPromoEmail, sendCampaignRecapEmail } from "@/lib/email/send";
 
 const PROMO_CODE = "BENTORNATO10";
 const PROMO_PERCENT = 10;
@@ -41,6 +41,18 @@ export async function sendDormantCampaign(): Promise<CampaignResult> {
       });
       if (r.sent) sent++;
     }
+
+    // Riepilogo al titolare: prova che la promo è partita + a quanti (1 sola email).
+    if (sent > 0) {
+      await sendCampaignRecapEmail({
+        campaign: campaignKey,
+        sent,
+        eligible: eligible.length,
+        promoCode: PROMO_CODE,
+        promoPercent: PROMO_PERCENT,
+      });
+    }
+
     return { ok: true, sent, eligible: eligible.length };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Errore" };

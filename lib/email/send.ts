@@ -323,6 +323,44 @@ export async function sendOrderConfirmationEmail(order: Order): Promise<SendResu
   }
 }
 
+/**
+ * Riepilogo campagna al TITOLARE (gmail ristorante): prova che la promo è partita
+ * + a quanti clienti + anteprima dell'offerta inviata. Una sola email per campagna.
+ */
+export async function sendCampaignRecapEmail(args: {
+  campaign: string;
+  sent: number;
+  eligible: number;
+  promoCode: string;
+  promoPercent: number;
+}): Promise<SendResult> {
+  const resend = getResend();
+  if (!resend) return { sent: false, reason: "resend_not_configured" };
+  const to = getReplyTo(); // casella del ristorante
+  const subject = `📣 Promo inviata a ${args.sent} clienti — Special Sushi Poke`;
+  const body = `
+    <h1 style="margin:0 0 10px;font-size:22px;font-weight:800;">Campagna promo inviata ✅</h1>
+    <p style="font-size:16px;line-height:1.55;color:#5a5048;">La promo di riattivazione clienti è partita. Riepilogo per te (titolare):</p>
+    <div style="background:#f3eee5;border-radius:14px;padding:16px;margin:8px 0 14px;">
+      <p style="margin:0;font-size:15px;">✉️ Ricevuta da <strong>${args.sent}</strong> clienti (su ${args.eligible} idonei con consenso).</p>
+    </div>
+    <p style="font-size:13px;color:#8a8074;margin:0 0 6px;text-transform:uppercase;letter-spacing:.12em;">Anteprima di ciò che hanno ricevuto:</p>
+    <div style="border:2px dashed #b8965a;border-radius:16px;padding:16px;text-align:center;">
+      <div style="font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#8a8074;">Codice sconto</div>
+      <div style="font-size:26px;font-weight:800;letter-spacing:.08em;color:#5a7a64;margin:4px 0;">${escapeHtml(args.promoCode)}</div>
+      <div style="font-size:13px;color:#5a5048;">−${args.promoPercent}% sul prossimo ordine</div>
+    </div>
+  `;
+  const html = brandShell({ title: subject, bodyHtml: body });
+  try {
+    const r = await resend.emails.send({ from: getFromEmail(), to, subject, html });
+    if (r.error) return { sent: false, reason: r.error.message };
+    return { sent: true };
+  } catch (e) {
+    return { sent: false, reason: e instanceof Error ? e.message : "unknown" };
+  }
+}
+
 /** Email promo per cliente inattivo (dedup per campagna). */
 export async function sendDormantPromoEmail(args: {
   to: string;
