@@ -4,7 +4,7 @@
 // è visibile in tempo reale sulla pagina /account/orders/[orderNumber].
 
 import "server-only";
-import { getResend, getFromEmail } from "./client";
+import { getResend, getFromEmail, getReplyTo } from "./client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -75,6 +75,7 @@ export async function sendOrderOutForFulfillmentEmail(
   try {
     const result = await resend.emails.send({
       from: getFromEmail(),
+      replyTo: getReplyTo(),
       to: order.customer_email,
       subject,
       html,

@@ -21,8 +21,13 @@ export function getResend(): Resend | null {
 export function getFromEmail(): string {
   return (
     process.env.RESEND_FROM_EMAIL ??
-    "Special Sushi Poke <ordini@specialsushipoke.com>"
+    "Special Sushi Poke <onboarding@resend.dev>"
   );
+}
+
+/** Indirizzo a cui arrivano le RISPOSTE dei clienti (la gmail del ristorante). */
+export function getReplyTo(): string {
+  return process.env.RESEND_REPLY_TO ?? "specialsushipoke@gmail.com";
 }
 
 export function isResendConfigured(): boolean {
