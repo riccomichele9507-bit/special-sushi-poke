@@ -35,7 +35,7 @@ export function WhatsAppFab() {
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Contattaci su WhatsApp"
-      className={`group fixed bottom-24 right-5 z-50 inline-flex h-14 w-14 items-center justify-center rounded-full text-white shadow-[0_10px_30px_-8px_rgba(37,211,102,0.55)] ring-1 ring-white/15 transition-all duration-500 ${
+      className={`group fixed bottom-24 right-5 z-50 inline-flex h-11 w-11 items-center justify-center rounded-full text-white shadow-[0_10px_30px_-8px_rgba(37,211,102,0.55)] ring-1 ring-white/15 transition-all duration-500 ${
         visible
           ? "translate-y-0 opacity-100"
           : "translate-y-4 opacity-0 pointer-events-none"
@@ -50,13 +50,7 @@ export function WhatsAppFab() {
             "radial-gradient(circle at 30% 25%, rgba(255,255,255,0.35), transparent 55%)",
         }}
       />
-      <WhatsAppIcon className="relative h-7 w-7 transition-transform duration-200 group-hover:scale-110" />
-      <span
-        aria-hidden
-        className="absolute -top-1 -right-1 inline-flex h-3 w-3 items-center justify-center rounded-full bg-sushi-red ring-2 ring-paper"
-      >
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sushi-red opacity-75" />
-      </span>
+      <WhatsAppIcon className="relative h-5 w-5 transition-transform duration-200 group-hover:scale-110" />
     </a>
   );
 }
