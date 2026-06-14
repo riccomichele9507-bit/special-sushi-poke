@@ -120,7 +120,7 @@ function renderEmailHtml(args: {
     ? "Il tuo ordine è partito! 🛵"
     : "Il tuo ordine è pronto al ritiro! 🍱";
   const subline = args.isDelivery
-    ? `Il rider è in strada verso ${args.addressLine ?? "il tuo indirizzo"}.`
+    ? `Il rider è in strada verso ${args.addressLine ? escapeHtml(args.addressLine) : "il tuo indirizzo"}.`
     : "Puoi venire a ritirarlo al nostro locale in Via G. Petroni 12/H-i, Bari.";
 
   return `<!DOCTYPE html>
