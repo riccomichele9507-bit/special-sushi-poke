@@ -4,6 +4,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { useCartStore } from "@/store/cart-store";
+import { usePricing } from "@/lib/pricing-store";
 
 export function GoogleSignInButton({
   returnTo,
@@ -16,11 +18,15 @@ export function GoogleSignInButton({
 
   async function signInWithGoogle() {
     setLoading(true);
+    // Nuova sessione → carrello pulito (no residui di chi usava prima il browser)
+    useCartStore.getState().clear();
+    usePricing.getState().clearDiscount();
+    usePricing.getState().setTip(0);
     try {
       const supabase = createClient();
       const siteUrl =
         process.env.NEXT_PUBLIC_SITE_URL ?? window.location.origin;
-      const next = returnTo ?? "/account";
+      const next = returnTo ?? "/menu";
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {

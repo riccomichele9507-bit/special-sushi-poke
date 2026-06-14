@@ -11,7 +11,7 @@ import { sendWelcomeEmail } from "@/lib/email/send";
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = safeRedirect(searchParams.get("next"), "/account");
+  const next = safeRedirect(searchParams.get("next"), "/menu");
 
   if (code) {
     const supabase = await createClient();
