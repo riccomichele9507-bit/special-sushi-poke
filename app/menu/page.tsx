@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { MenuTabClient } from "./client";
+import { AutoApplyDiscount } from "@/components/cart/auto-apply-discount";
 
 export const metadata: Metadata = {
   title: "Menu",
@@ -7,5 +8,10 @@ export const metadata: Metadata = {
 };
 
 export default function MenuPage() {
-  return <MenuTabClient />;
+  return (
+    <>
+      <AutoApplyDiscount />
+      <MenuTabClient />
+    </>
+  );
 }
