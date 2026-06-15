@@ -178,7 +178,7 @@ export default function LocalePage() {
             <Clock className="mt-0.5 h-4 w-4 shrink-0 text-bamboo" strokeWidth={1.75} />
             <div className="font-sans text-sm">
               <p className="text-ink">
-                <span className="text-warm-gray">Mar — Ven · </span>
+                <span className="text-warm-gray">Lun — Ven · </span>
                 {restaurant.hours.weekdays}
               </p>
               <p className="text-ink">

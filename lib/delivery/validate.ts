@@ -188,12 +188,12 @@ export async function validateDelivery(
     if (!freeDelivery) minCartCents = settings.min_cart_cents_above_free;
   }
 
-  // CHECK #4: trova service slot disponibile (oggi o nei prossimi 7 giorni)
+  // CHECK #4: servizi disponibili (oggi + prossimi giorni) in ordine cronologico
   const today = dateInRome(now);
   const allClosures = await loadClosures(sb, today, MAX_LOOKAHEAD_DAYS);
 
-  const serviceCtx = findNextAvailableService(now, settings, allClosures);
-  if (!serviceCtx) {
+  const services = findAvailableServices(now, settings, allClosures);
+  if (services.length === 0) {
     return {
       ok: false,
       code: "outside_service_hours",
@@ -202,24 +202,70 @@ export async function validateDelivery(
     };
   }
 
-  // CHECK #5: calcola ETA (partendo da serviceCtx.startsAt, NON da now)
   const buckets = (settings.travel_buckets as Array<{
     max_km: number;
     min: number;
   }>) ?? [];
 
+  // CHECK #5/#6/#7: prova i servizi in ordine e ritorna il PRIMO con almeno uno
+  // slot consegnabile e libero. Questo elimina la "zona morta" di fine serata
+  // (l'orario accetta l'ordine ma nessuno slot ci sta entro l'ultima consegna):
+  // in quel caso rotoliamo automaticamente al servizio successivo (es. domani),
+  // invece di mostrare un errore. Stessa cosa se gli slot sono pieni.
+  for (const serviceCtx of services) {
+    const built = await buildSlotsForService(
+      sb,
+      serviceCtx,
+      settings,
+      buckets,
+      distanceKm,
+      input.orderType,
+    );
+    if (built.slots.length > 0) {
+      return {
+        ok: true,
+        distanceKm,
+        freeDelivery,
+        minCartCents,
+        etaMinutes: built.etaMinutes,
+        slots: built.slots,
+        defaultSlotIndex: 0,
+        service: serviceCtx.service,
+        isPreorder: serviceCtx.isPreorder,
+      };
+    }
+  }
+
+  return {
+    ok: false,
+    code: "all_slots_full",
+    message:
+      "Tutti gli slot disponibili sono al completo per i prossimi giorni. Riprova più tardi 🍣",
+  };
+}
+
+/**
+ * Genera gli slot consegnabili per UN servizio: finestra oraria (ETA → ultima
+ * consegna) + filtro capacità. Ritorna lista (eventualmente vuota) + ETA minuti.
+ */
+async function buildSlotsForService(
+  sb: ReturnType<typeof createAdminClient>,
+  serviceCtx: ServiceContext,
+  settings: DeliverySettingsRow,
+  buckets: Array<{ max_km: number; min: number }>,
+  distanceKm: number,
+  orderType: "delivery" | "pickup",
+): Promise<{ slots: SlotResult[]; etaMinutes: number }> {
   let eta;
-  if (input.orderType === "pickup") {
+  if (orderType === "pickup") {
     eta = computePickupEta(serviceCtx.startsAt, {
       prepMinutes: settings.prep_minutes,
       bufferMinutes: settings.buffer_minutes,
       baselinePickupMin: settings.baseline_pickup_min,
     });
   } else if (serviceCtx.isPreorder) {
-    // PREORDINE consegna: l'ordine è fatto ore prima → la cucina prepara
-    // all'apertura del servizio. Il primo slot = apertura + prep + buffer,
-    // senza il "baseline minimo da adesso" né il travel additivo (che
-    // spingerebbero lo slot troppo avanti). Es. cena 19:00 → primo slot 19:30–20:00.
+    // PREORDINE: la cucina prepara all'apertura del servizio. Primo slot =
+    // apertura + prep + buffer (senza baseline-da-adesso né travel additivo).
     const minutes = settings.prep_minutes + settings.buffer_minutes;
     eta = {
       minutes,
@@ -235,15 +281,11 @@ export async function validateDelivery(
     });
   }
 
-  // CHECK #6 + #7: costruisci la LISTA degli slot disponibili nel servizio.
-  // Ottimizzato: prima genera tutti i candidati validi per finestra oraria,
-  // poi UNA SOLA query per contare ordini per ogni slot_end (no N+1).
   const candidateSlots: SlotResult[] = [];
   let slot = computeSlot(eta.t1, settings.slot_duration_minutes);
   const MAX_CANDIDATES = 20;
-  // "00:00" come ultima consegna = MEZZANOTTE (servizio che sconfina oltre la
-  // giornata, tipico della cena del weekend). Gli HH:mm sono 0-padded, quindi
-  // il confronto come stringa è cronologico.
+  // "00:00" come ultima consegna = MEZZANOTTE (servizio che sconfina, tipico
+  // weekend). Gli HH:mm sono 0-padded → confronto stringa = cronologico.
   const lastDelivery = serviceCtx.lastDeliveryTime;
   const lastIsMidnight = lastDelivery === "00:00";
 
@@ -253,11 +295,8 @@ export async function validateDelivery(
     const slotEndOnDifferentDay = slotEndDateRome !== serviceCtx.dateRome;
 
     if (lastIsMidnight) {
-      // Slot ammessi fino alle 00:00 del giorno dopo (incluse). Stop appena
-      // si sconfina OLTRE la mezzanotte (es. 00:30).
       if (slotEndOnDifferentDay && slotEndHHmm !== "00:00") break;
     } else {
-      // Stop appena lo slot finisce in un altro giorno o oltre l'ultima consegna.
       if (slotEndOnDifferentDay) break;
       if (slotEndHHmm > lastDelivery) break;
     }
@@ -266,15 +305,9 @@ export async function validateDelivery(
     slot = shiftSlotForward(slot, settings.slot_duration_minutes);
   }
 
-  if (candidateSlots.length === 0) {
-    return {
-      ok: false,
-      code: "all_slots_full",
-      message: "Servizio chiuso. Riprova più tardi o per il prossimo servizio 🍣",
-    };
-  }
+  if (candidateSlots.length === 0) return { slots: [], etaMinutes: eta.minutes };
 
-  // Query unica: conta ordini attivi raggruppati per slot_end nei candidati
+  // Query unica capacità sui candidati
   const slotEndIsoList = candidateSlots.map((s) => s.end.toISOString());
   const { data: capacityRows } = await sb
     .from("orders")
@@ -283,38 +316,18 @@ export async function validateDelivery(
     .in("slot_end", slotEndIsoList)
     .not("status", "in", "(delivered,cancelled,refunded)");
 
-  // Conta in memoria
   const usedBySlot = new Map<string, number>();
   for (const row of capacityRows ?? []) {
     const key = row.slot_end;
     usedBySlot.set(key, (usedBySlot.get(key) ?? 0) + 1);
   }
 
-  const slots: SlotResult[] = candidateSlots.filter((s) => {
+  const slots = candidateSlots.filter((s) => {
     const used = usedBySlot.get(s.end.toISOString()) ?? 0;
     return used < settings.max_orders_per_slot;
   });
 
-  if (slots.length === 0) {
-    return {
-      ok: false,
-      code: "all_slots_full",
-      message:
-        "Tutti gli slot di questo servizio sono al completo. Riprova tra qualche ora 🍣",
-    };
-  }
-
-  return {
-    ok: true,
-    distanceKm,
-    freeDelivery,
-    minCartCents,
-    etaMinutes: eta.minutes,
-    slots,
-    defaultSlotIndex: 0,
-    service: serviceCtx.service,
-    isPreorder: serviceCtx.isPreorder,
-  };
+  return { slots, etaMinutes: eta.minutes };
 }
 
 async function loadClosures(
@@ -336,18 +349,22 @@ async function loadClosures(
   return (data as ClosureRow[]) ?? [];
 }
 
-function findNextAvailableService(
+// Ritorna TUTTI i servizi disponibili (oggi residuo + prossimi giorni) in
+// ordine cronologico. Il chiamante prova in sequenza finché ne trova uno con
+// slot liberi (gestione zona morta / slot pieni).
+function findAvailableServices(
   now: Date,
   settings: DeliverySettingsRow,
   closures: ClosureRow[],
-): ServiceContext | null {
+): ServiceContext[] {
+  const out: ServiceContext[] = [];
+
   for (let dayOffset = 0; dayOffset <= MAX_LOOKAHEAD_DAYS; dayOffset++) {
     const dayDate = addDaysRome(now, dayOffset);
     const dayDateStr = dateInRome(dayDate);
     const weekday = weekdayInRome(dayDate);
     const isWeekend = isWeekendRome(dayDate);
 
-    // Giorno chiuso (lunedì di default)
     if (settings.closed_weekdays.includes(weekday)) continue;
 
     const dayClosures = closures.filter(
@@ -363,76 +380,72 @@ function findNextAvailableService(
       ? settings.service_dinner_weekend_last_delivery_time
       : settings.service_dinner_last_delivery_time;
 
-    // Solo per "oggi" (dayOffset=0) controlliamo se siamo già dentro un servizio
     const isToday = dayOffset === 0;
     const nowHHmm = isToday ? timeOfDayRome(now) : "00:00";
 
     // Lunch
     if (!lunchClosed) {
-      const lunchEnd = settings.service_lunch_last_order_time;
-      if (isToday) {
-        if (
-          isTimeBefore(nowHHmm, lunchEnd) ||
-          nowHHmm === settings.service_lunch_start_time
-        ) {
-          // Dentro al lunch o prima del lunch oggi
-          const startsAt = isTimeBefore(nowHHmm, settings.service_lunch_start_time)
-            ? romeAtTimeOfDay(dayDate, settings.service_lunch_start_time, 0)
-            : now;
-          return {
-            service: "lunch",
-            startsAt,
-            lastOrderTime: settings.service_lunch_last_order_time,
-            lastDeliveryTime: settings.service_lunch_last_delivery_time,
-            isPreorder: startsAt.getTime() > now.getTime(),
-            dateRome: dayDateStr,
-          };
-        }
-      } else {
-        return {
+      if (!isToday) {
+        out.push({
           service: "lunch",
           startsAt: romeAtTimeOfDay(dayDate, settings.service_lunch_start_time, 0),
           lastOrderTime: settings.service_lunch_last_order_time,
           lastDeliveryTime: settings.service_lunch_last_delivery_time,
           isPreorder: true,
           dateRome: dayDateStr,
-        };
+        });
+      } else if (
+        isTimeBefore(nowHHmm, settings.service_lunch_last_order_time) ||
+        nowHHmm === settings.service_lunch_start_time
+      ) {
+        const startsAt = isTimeBefore(nowHHmm, settings.service_lunch_start_time)
+          ? romeAtTimeOfDay(dayDate, settings.service_lunch_start_time, 0)
+          : now;
+        out.push({
+          service: "lunch",
+          startsAt,
+          lastOrderTime: settings.service_lunch_last_order_time,
+          lastDeliveryTime: settings.service_lunch_last_delivery_time,
+          isPreorder: startsAt.getTime() > now.getTime(),
+          dateRome: dayDateStr,
+        });
       }
     }
 
     // Dinner
     if (!dinnerClosed) {
-      if (isToday) {
-        if (
-          isTimeBefore(nowHHmm, dinnerLastOrder) ||
-          nowHHmm === settings.service_dinner_start_time
-        ) {
-          const startsAt = isTimeBefore(nowHHmm, settings.service_dinner_start_time)
-            ? romeAtTimeOfDay(dayDate, settings.service_dinner_start_time, 0)
-            : now;
-          return {
-            service: "dinner",
-            startsAt,
-            lastOrderTime: dinnerLastOrder,
-            lastDeliveryTime: dinnerLastDelivery,
-            isPreorder: startsAt.getTime() > now.getTime(),
-            dateRome: dayDateStr,
-          };
-        }
-      } else {
-        return {
+      if (!isToday) {
+        out.push({
           service: "dinner",
           startsAt: romeAtTimeOfDay(dayDate, settings.service_dinner_start_time, 0),
           lastOrderTime: dinnerLastOrder,
           lastDeliveryTime: dinnerLastDelivery,
           isPreorder: true,
           dateRome: dayDateStr,
-        };
+        });
+      } else if (
+        isTimeBefore(nowHHmm, dinnerLastOrder) ||
+        nowHHmm === settings.service_dinner_start_time
+      ) {
+        const startsAt = isTimeBefore(nowHHmm, settings.service_dinner_start_time)
+          ? romeAtTimeOfDay(dayDate, settings.service_dinner_start_time, 0)
+          : now;
+        out.push({
+          service: "dinner",
+          startsAt,
+          lastOrderTime: dinnerLastOrder,
+          lastDeliveryTime: dinnerLastDelivery,
+          isPreorder: startsAt.getTime() > now.getTime(),
+          dateRome: dayDateStr,
+        });
       }
     }
+
+    // Bastano pochi servizi: il primo con slot liberi vince.
+    if (out.length >= 6) break;
   }
 
-  return null;
+  return out;
 }
 
 function addDaysRome(d: Date, days: number): Date {
