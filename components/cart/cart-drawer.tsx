@@ -20,7 +20,8 @@ import {
   useCartItemsWithDish,
   useCartTotal,
 } from "@/store/cart-store";
-import { usePricing, discountCentsFor, discountShortLabel } from "@/lib/pricing-store";
+import { usePricing } from "@/lib/pricing-store";
+import { AUTO_PROMO, computeAutoPromoCents } from "@/lib/promo/auto-promo";
 import { Price } from "@/components/shared/price";
 import { CartItemRow } from "./cart-item-row";
 import { CartUpsell } from "./cart-upsell";
@@ -35,10 +36,9 @@ export function CartDrawer() {
   const items = useCartItemsWithDish();
   const count = useCartCount();
   const subtotal = useCartTotal();
-  const discount = usePricing((s) => s.discount);
   const tipCents = usePricing((s) => s.tipCents);
 
-  const discountCents = discountCentsFor(discount, subtotal);
+  const discountCents = computeAutoPromoCents(subtotal);
   const total = Math.max(0, subtotal - discountCents) + tipCents;
 
   function handleCheckout() {
@@ -139,10 +139,10 @@ export function CartDrawer() {
                       <span>Subtotale</span>
                       <Price cents={subtotal} size="sm" className="!text-ink" />
                     </div>
-                    {discountCents > 0 && discount && (
+                    {discountCents > 0 && (
                       <div className="flex items-center justify-between">
-                        <span className="text-bamboo-deep">
-                          Sconto <span className="font-mono">{discount.code}</span> ({discountShortLabel(discount)})
+                        <span className="text-bamboo-deep font-medium">
+                          Promo {AUTO_PROMO.percent}% su tutto
                         </span>
                         <span className="font-heading font-semibold text-bamboo-deep tabular-nums">
                           −<Price cents={discountCents} size="sm" className="!text-bamboo-deep" />

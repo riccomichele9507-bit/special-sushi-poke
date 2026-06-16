@@ -20,7 +20,6 @@ export function GoogleSignInButton({
     setLoading(true);
     // Nuova sessione → carrello pulito (no residui di chi usava prima il browser)
     useCartStore.getState().clear();
-    usePricing.getState().clearDiscount();
     usePricing.getState().setTip(0);
     try {
       const supabase = createClient();

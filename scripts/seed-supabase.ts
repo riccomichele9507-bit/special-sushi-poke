@@ -18,7 +18,6 @@ loadEnv({ path: resolve(__dirname, "../.env.local") });
 import { menu } from "../data/menu";
 import { categories, categoryKanji, categoryColors } from "../data/categories";
 import { restaurant } from "../data/restaurant";
-import { dailySpecial } from "../data/specials";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -114,28 +113,12 @@ async function seedDishes() {
   console.log(`  OK dishes (${rows.length})`);
 }
 
-async function seedDailySpecial() {
-  const s = dailySpecial;
-  const { error } = await supabase.from("daily_special").upsert({
-    id: 1,
-    dish_id: s.dishId,
-    label: s.label,
-    badge_label: s.badgeLabel,
-    discount_percent: s.discountPercent,
-    end_time_local: s.endTimeLocal,
-    is_active: true,
-  });
-  if (error) throw new Error(`daily_special: ${error.message}`);
-  console.log(`  OK daily_special (dishId=${s.dishId})`);
-}
-
 async function main() {
   console.log("Seeding Supabase 'Special Sushi' (lbdwvgcnwvkisrjqremx)...\n");
-  // Ordine importante per i FK: categories prima di dishes, dishes prima di daily_special
+  // Ordine importante per i FK: categories prima di dishes
   await seedRestaurantSettings();
   await seedCategories();
   await seedDishes();
-  await seedDailySpecial();
   console.log("\nSeed completo.");
 }
 

@@ -39,9 +39,9 @@ export interface PokeBuilderConfig {
 }
 
 export const pokeBuilderConfig: PokeBuilderConfig = {
-  // ⚠️ TODO TITOLARE: confermare prezzo base (centesimi). 1050 = €10,50 placeholder.
-  basePriceCents: 1050,
-  pricePending: true,
+  // Prezzo base confermato dal titolare: €10,00 + aggiunte.
+  basePriceCents: 1000,
+  pricePending: false,
 
   title: "Crea la tua poke",
   subtitle: "Scegli base, proteine, condimenti, topping e salse a tuo gusto.",

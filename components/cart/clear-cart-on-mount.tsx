@@ -12,7 +12,6 @@ import { usePricing } from "@/lib/pricing-store";
 export function ClearCartOnMount() {
   useEffect(() => {
     useCartStore.getState().clear();
-    usePricing.getState().clearDiscount();
     usePricing.getState().setTip(0);
   }, []);
   return null;

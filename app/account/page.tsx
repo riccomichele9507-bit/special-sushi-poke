@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { Star, Sparkles, ChevronRight, CheckCircle2, Heart } from "lucide-react";
+import { CheckCircle2, Heart } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logout } from "@/app/actions/auth";
@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { AccountForm } from "./account-form";
 import { RecentOrderRow } from "@/components/account/recent-order-row";
 import { ClearCartOnMount } from "@/components/cart/clear-cart-on-mount";
-import { getLoyaltyStatus, POINTS_REDEMPTION_THRESHOLD } from "@/lib/loyalty/points";
 import { getEffectiveStatus, statusLabel } from "@/lib/orders/status";
 
 interface PageProps {
@@ -31,8 +30,6 @@ export default async function AccountPage({ searchParams }: PageProps) {
     .select("*")
     .eq("id", user.id)
     .maybeSingle();
-
-  const loyalty = await getLoyaltyStatus(user.id);
 
   const admin = createAdminClient();
   const { data: recentOrders } = await admin
@@ -68,13 +65,6 @@ export default async function AccountPage({ searchParams }: PageProps) {
     })
     .filter((d): d is NonNullable<typeof d> => d !== null);
 
-  const progressPct = Math.min(
-    100,
-    ((loyalty.balance % POINTS_REDEMPTION_THRESHOLD) /
-      POINTS_REDEMPTION_THRESHOLD) *
-      100,
-  );
-
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 space-y-8">
       {paid && <ClearCartOnMount />}
@@ -86,10 +76,7 @@ export default async function AccountPage({ searchParams }: PageProps) {
               Ordine #{paid} confermato! 🎉
             </p>
             <p className="text-sm text-warm-gray mt-0.5">
-              Hai ora <strong className="text-ink">{loyalty.balance} punti</strong>
-              {loyalty.balance >= POINTS_REDEMPTION_THRESHOLD
-                ? " — hai sbloccato uno sconto di €5 sul prossimo ordine! 🎁"
-                : ` · ti mancano ${loyalty.pointsToNextReward} punti al prossimo sconto da €5.`}
+              Lo trovi qui sotto tra i tuoi ordini recenti.
             </p>
             <Link
               href={`/account/orders/${paid}`}
@@ -117,47 +104,8 @@ export default async function AccountPage({ searchParams }: PageProps) {
       )}
 
       <div className="space-y-2">
-        <h1 className="text-3xl font-serif-jp text-ink">I miei Premi</h1>
+        <h1 className="text-3xl font-serif-jp text-ink">Il mio profilo</h1>
         <p className="text-sm text-warm-gray">{user.email}</p>
-      </div>
-
-      {/* Loyalty card */}
-      <div className="rounded-2xl border border-gold/30 bg-gradient-to-br from-gold/10 to-bamboo/5 p-5">
-        <div className="flex items-center justify-between mb-3">
-          <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-bamboo-deep">
-            <Star className="h-3 w-3 fill-gold text-gold" />
-            Programma fedeltà
-          </p>
-          <p className="text-xs text-warm-gray">
-            {loyalty.ordersCount} ordini · €{(loyalty.totalSpentCents / 100).toFixed(0)} spesi
-          </p>
-        </div>
-        <p className="text-3xl font-bold text-ink">
-          {loyalty.balance} <span className="text-base font-normal text-warm-gray">punti</span>
-        </p>
-        {loyalty.balance >= POINTS_REDEMPTION_THRESHOLD ? (
-          <p className="mt-2 flex items-center gap-1.5 text-sm font-medium text-bamboo">
-            <Sparkles className="h-4 w-4" />
-            Hai sbloccato uno sconto di €{loyalty.euroNextReward}! Sarà applicato al prossimo ordine.
-          </p>
-        ) : (
-          <>
-            <div className="mt-3 h-2 w-full rounded-full bg-paper-warm overflow-hidden">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-bamboo to-gold transition-all"
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
-            <p className="mt-2 text-xs text-warm-gray">
-              Ti mancano <strong>{loyalty.pointsToNextReward} punti</strong> per uno sconto di €
-              {loyalty.euroNextReward}.
-            </p>
-          </>
-        )}
-        <p className="mt-3 text-[11px] text-warm-gray/70">
-          1€ speso = 1 punto. 100 punti = €5 di sconto, applicato in automatico al
-          prossimo ordine. Mancia esclusa.
-        </p>
       </div>
 
       {/* Preferiti del cliente */}

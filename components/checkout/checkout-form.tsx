@@ -27,7 +27,6 @@ import { DeliveryQuoteBox } from "./delivery-quote-box";
 import type { DeliveryQuoteResult, SlotOption } from "@/app/actions/delivery-quote";
 import { createOrder } from "@/app/actions/orders";
 import { usePricing } from "@/lib/pricing-store";
-import { DiscountCodeInput } from "@/components/cart/discount-code-input";
 import { TipSelector } from "@/components/cart/tip-selector";
 
 const INPUT_CLASSES =
@@ -65,7 +64,11 @@ export function CheckoutForm({
   // Stato slot/coords sincronizzato col DeliveryQuoteBox.
   // Pre-inizializzato con l'ultimo indirizzo salvato del cliente (se presente),
   // così lo slot di consegna viene calcolato subito senza ridigitare l'indirizzo.
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
+  const [coords, setCoords] = useState<{
+    lat: number;
+    lng: number;
+    placeId?: string;
+  } | null>(
     defaultAddress ? { lat: defaultAddress.lat, lng: defaultAddress.lng } : null,
   );
   const [formattedAddress, setFormattedAddress] = useState<string>(
@@ -106,7 +109,11 @@ export function CheckoutForm({
 
   function handleAddressSelect(selection: AddressSelection | null) {
     if (selection) {
-      setCoords({ lat: selection.lat, lng: selection.lng });
+      setCoords({
+        lat: selection.lat,
+        lng: selection.lng,
+        placeId: selection.placeId,
+      });
       setFormattedAddress(selection.address);
       setValue("geo", { lat: selection.lat, lng: selection.lng }, { shouldValidate: true });
     } else {
@@ -132,7 +139,6 @@ export function CheckoutForm({
   const selectedSlot = quote?.slots?.find((s) => s.endIso === selectedSlotEndIso);
 
   const cartItems = useCartStore((s) => s.items);
-  const discount = usePricing((s) => s.discount);
   const tipCents = usePricing((s) => s.tipCents);
   const [marketingConsent, setMarketingConsent] = useState(true);
 
@@ -169,7 +175,6 @@ export function CheckoutForm({
           ? coords
           : undefined,
       items: cartItems,
-      discountCode: discount?.code,
       tipCents,
       marketingConsent,
     });
@@ -364,8 +369,7 @@ export function CheckoutForm({
       )}
 
       <div className="space-y-3 pt-2">
-        <p className={LABEL_CLASSES}>Codice sconto e mancia</p>
-        <DiscountCodeInput />
+        <p className={LABEL_CLASSES}>Mancia per lo staff</p>
         <TipSelector />
       </div>
 

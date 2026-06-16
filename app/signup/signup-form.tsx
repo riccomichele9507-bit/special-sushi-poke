@@ -28,7 +28,6 @@ export function SignupForm({ returnTo }: { returnTo?: string }) {
         } else {
           // Nuova sessione → carrello pulito (no residui del browser precedente)
           useCartStore.getState().clear();
-          usePricing.getState().clearDiscount();
           usePricing.getState().setTip(0);
           // Accesso immediato (nessuna conferma) → al menu
           toast.success("Registrazione completata! Benvenuto/a 🍣");

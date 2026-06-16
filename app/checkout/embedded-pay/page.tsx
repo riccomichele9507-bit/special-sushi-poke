@@ -12,6 +12,9 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
+const eur = (cents: number) =>
+  `€${(cents / 100).toFixed(2).replace(".", ",")}`;
+
 interface PageProps {
   searchParams: Promise<{ orderId?: string }>;
 }
@@ -32,7 +35,9 @@ export default async function EmbeddedPayPage({ searchParams }: PageProps) {
   const admin = createAdminClient();
   const { data: order } = await admin
     .from("orders")
-    .select("id, order_number, total_cents, status, customer_id")
+    .select(
+      "id, order_number, total_cents, subtotal_cents, discount_cents, tip_cents, status, customer_id",
+    )
     .eq("id", orderId)
     .maybeSingle();
 
@@ -97,20 +102,38 @@ export default async function EmbeddedPayPage({ searchParams }: PageProps) {
         />
       </div>
 
-      <header className="mb-5 text-center">
+      <header className="mb-4 text-center">
         <p className="text-[10px] uppercase tracking-[0.32em] text-bamboo font-sans">
           Pagamento sicuro
         </p>
         <h1 className="mt-1 font-heading text-2xl font-bold text-ink">
           Ordine #{order.order_number}
         </h1>
-        <p className="mt-1 text-sm text-warm-gray">
-          Totale:{" "}
-          <span className="font-semibold text-ink tabular-nums">
-            €{(order.total_cents / 100).toFixed(2).replace(".", ",")}
-          </span>
-        </p>
       </header>
+
+      {/* Riepilogo prezzi: prezzo intero − sconto = totale */}
+      <div className="mx-auto mb-5 max-w-xs rounded-xl bg-paper-warm/50 px-4 py-3 text-sm ring-1 ring-border">
+        <div className="flex justify-between text-warm-gray">
+          <span>Subtotale</span>
+          <span className="tabular-nums text-ink">{eur(order.subtotal_cents)}</span>
+        </div>
+        {order.discount_cents > 0 && (
+          <div className="mt-1 flex justify-between text-bamboo-deep">
+            <span>Promo 20% su tutto</span>
+            <span className="tabular-nums font-semibold">−{eur(order.discount_cents)}</span>
+          </div>
+        )}
+        {order.tip_cents > 0 && (
+          <div className="mt-1 flex justify-between text-warm-gray">
+            <span>Mancia staff</span>
+            <span className="tabular-nums text-ink">{eur(order.tip_cents)}</span>
+          </div>
+        )}
+        <div className="mt-2 flex justify-between border-t border-border pt-2 text-base font-semibold text-ink">
+          <span>Totale</span>
+          <span className="tabular-nums text-bamboo">{eur(order.total_cents)}</span>
+        </div>
+      </div>
 
       <EmbeddedCheckoutClient clientSecret={result.clientSecret} />
 

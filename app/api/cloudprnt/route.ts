@@ -15,6 +15,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+// Tipo del payload di stampa (comandi ESC/POS binari con QR). UNICO punto da
+// cambiare se al test fisico la stampante preferisce un altro tipo
+// (es. "application/octet-stream"). Il payload è salvato base64 in print_jobs.
+const PRINT_MEDIA_TYPE = "application/vnd.star.starprnt";
+
 // ============================================================
 // AUTH — Basic Auth preferred, ?token=... fallback
 // ============================================================
@@ -112,7 +117,7 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     jobReady: true,
-    mediaTypes: ["text/plain"],
+    mediaTypes: [PRINT_MEDIA_TYPE],
     jobToken,
     deleteMethod: "DELETE",
   });
@@ -174,10 +179,13 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return new NextResponse(job.payload, {
+  // payload è base64 dei byte ESC/POS → decodifica e servi binario.
+  const body = Buffer.from(job.payload, "base64");
+  return new NextResponse(body, {
     status: 200,
     headers: {
-      "Content-Type": "text/plain; charset=utf-8",
+      "Content-Type": PRINT_MEDIA_TYPE,
+      "Content-Length": String(body.length),
       "Cache-Control": "no-store",
     },
   });

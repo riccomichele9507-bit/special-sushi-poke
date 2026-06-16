@@ -92,7 +92,8 @@ interface ServiceContext {
   /** Quando "parte" il calcolo ETA (now se siamo già nel servizio, else inizio servizio futuro) */
   startsAt: Date;
   lastOrderTime: string;
-  lastDeliveryTime: string;
+  /** Istante UTC reale dell'ultima consegna (gestisce orari oltre mezzanotte, es. 00:30). */
+  lastDeliveryInstant: Date;
   isPreorder: boolean;
   /** Data Roma YYYY-MM-DD a cui appartiene il servizio (per matching closures) */
   dateRome: string;
@@ -284,23 +285,13 @@ async function buildSlotsForService(
   const candidateSlots: SlotResult[] = [];
   let slot = computeSlot(eta.t1, settings.slot_duration_minutes);
   const MAX_CANDIDATES = 20;
-  // "00:00" come ultima consegna = MEZZANOTTE (servizio che sconfina, tipico
-  // weekend). Gli HH:mm sono 0-padded → confronto stringa = cronologico.
-  const lastDelivery = serviceCtx.lastDeliveryTime;
-  const lastIsMidnight = lastDelivery === "00:00";
+  // Confronto su istante reale: gestisce qualsiasi ultima consegna, anche oltre
+  // mezzanotte (es. 00:30 = giorno dopo). Slot ammesso se finisce entro l'ultima
+  // consegna inclusa.
+  const lastDeliveryMs = serviceCtx.lastDeliveryInstant.getTime();
 
   for (let i = 0; i < MAX_CANDIDATES; i++) {
-    const slotEndHHmm = timeOfDayRome(slot.end);
-    const slotEndDateRome = dateInRome(slot.end);
-    const slotEndOnDifferentDay = slotEndDateRome !== serviceCtx.dateRome;
-
-    if (lastIsMidnight) {
-      if (slotEndOnDifferentDay && slotEndHHmm !== "00:00") break;
-    } else {
-      if (slotEndOnDifferentDay) break;
-      if (slotEndHHmm > lastDelivery) break;
-    }
-
+    if (slot.end.getTime() > lastDeliveryMs) break;
     candidateSlots.push(slot);
     slot = shiftSlotForward(slot, settings.slot_duration_minutes);
   }
@@ -390,7 +381,11 @@ function findAvailableServices(
           service: "lunch",
           startsAt: romeAtTimeOfDay(dayDate, settings.service_lunch_start_time, 0),
           lastOrderTime: settings.service_lunch_last_order_time,
-          lastDeliveryTime: settings.service_lunch_last_delivery_time,
+          lastDeliveryInstant: deliveryInstant(
+            dayDate,
+            settings.service_lunch_start_time,
+            settings.service_lunch_last_delivery_time,
+          ),
           isPreorder: true,
           dateRome: dayDateStr,
         });
@@ -405,7 +400,11 @@ function findAvailableServices(
           service: "lunch",
           startsAt,
           lastOrderTime: settings.service_lunch_last_order_time,
-          lastDeliveryTime: settings.service_lunch_last_delivery_time,
+          lastDeliveryInstant: deliveryInstant(
+            dayDate,
+            settings.service_lunch_start_time,
+            settings.service_lunch_last_delivery_time,
+          ),
           isPreorder: startsAt.getTime() > now.getTime(),
           dateRome: dayDateStr,
         });
@@ -419,7 +418,11 @@ function findAvailableServices(
           service: "dinner",
           startsAt: romeAtTimeOfDay(dayDate, settings.service_dinner_start_time, 0),
           lastOrderTime: dinnerLastOrder,
-          lastDeliveryTime: dinnerLastDelivery,
+          lastDeliveryInstant: deliveryInstant(
+            dayDate,
+            settings.service_dinner_start_time,
+            dinnerLastDelivery,
+          ),
           isPreorder: true,
           dateRome: dayDateStr,
         });
@@ -434,7 +437,11 @@ function findAvailableServices(
           service: "dinner",
           startsAt,
           lastOrderTime: dinnerLastOrder,
-          lastDeliveryTime: dinnerLastDelivery,
+          lastDeliveryInstant: deliveryInstant(
+            dayDate,
+            settings.service_dinner_start_time,
+            dinnerLastDelivery,
+          ),
           isPreorder: startsAt.getTime() > now.getTime(),
           dateRome: dayDateStr,
         });
@@ -451,4 +458,18 @@ function findAvailableServices(
 function addDaysRome(d: Date, days: number): Date {
   // Aggiungere giorni in UTC è safe rispetto al DST
   return new Date(d.getTime() + days * 86400_000);
+}
+
+/**
+ * Istante UTC reale dell'ultima consegna di un servizio. Se l'orario è
+ * precedente all'apertura del servizio (es. "00:30" < "19:00") appartiene al
+ * GIORNO DOPO. Gestisce così, senza hack, gli orari oltre mezzanotte.
+ */
+function deliveryInstant(
+  dayDate: Date,
+  serviceStartTime: string,
+  lastDeliveryTime: string,
+): Date {
+  const nextDay = isTimeBefore(lastDeliveryTime, serviceStartTime);
+  return romeAtTimeOfDay(dayDate, lastDeliveryTime, nextDay ? 1 : 0);
 }

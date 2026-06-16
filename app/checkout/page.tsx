@@ -5,11 +5,6 @@ import { CheckoutForm } from "@/components/checkout/checkout-form";
 import { OrderSummarySide } from "@/components/checkout/order-summary-side";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import {
-  getLoyaltyStatus,
-  POINTS_REDEMPTION_THRESHOLD,
-  POINTS_REDEMPTION_VALUE_CENTS,
-} from "@/lib/loyalty/points";
 
 export const metadata: Metadata = {
   title: "Checkout",
@@ -27,7 +22,6 @@ export default async function CheckoutPage() {
   let customerName = "";
   let customerPhone = "";
   const customerEmail = user?.email ?? "";
-  let loyaltyDiscountCents = 0;
   let defaultAddress:
     | { address: string; lat: number; lng: number; notes?: string }
     | null = null;
@@ -40,10 +34,6 @@ export default async function CheckoutPage() {
       .maybeSingle();
     customerName = customer?.name ?? "";
     customerPhone = customer?.phone ?? "";
-
-    const loyalty = await getLoyaltyStatus(user.id);
-    loyaltyDiscountCents =
-      loyalty.balance >= POINTS_REDEMPTION_THRESHOLD ? POINTS_REDEMPTION_VALUE_CENTS : 0;
 
     const addr = customer?.address_default as
       | { address?: string; lat?: number; lng?: number; notes?: string | null }
@@ -102,8 +92,8 @@ export default async function CheckoutPage() {
       {!user && (
         <div className="mb-5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gold/30 bg-gold/10 px-4 py-3">
           <p className="text-sm text-ink">
-            🎁 <strong>Hai un account?</strong> Accedi per accumulare punti e
-            avere l&apos;indirizzo già pronto.
+            🎁 <strong>Hai un account?</strong> Accedi per avere
+            l&apos;indirizzo già pronto e riordinare in un tap.
           </p>
           <Link
             href="/login?returnTo=/checkout"
@@ -123,7 +113,7 @@ export default async function CheckoutPage() {
           isGuest={!user}
         />
         <div className="hidden lg:block">
-          <OrderSummarySide loyaltyDiscountCents={loyaltyDiscountCents} />
+          <OrderSummarySide />
         </div>
       </div>
     </div>

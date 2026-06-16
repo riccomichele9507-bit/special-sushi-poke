@@ -4,11 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validateDelivery } from "@/lib/delivery/validate";
 import { enqueuePrintJob } from "@/lib/print/queue";
-import { computeLoyaltyRedemption } from "@/lib/loyalty/points";
-import {
-  validateDiscountCodeDb,
-  incrementDiscountRedemption,
-} from "@/lib/discount/validate";
+import { AUTO_PROMO, computeAutoPromoCents } from "@/lib/promo/auto-promo";
 import { sendOrderConfirmationEmail } from "@/lib/email/send";
 import type { CartItem, CustomPokeConfig } from "@/types/cart";
 import type { Json } from "@/lib/supabase/database.types";
@@ -33,11 +29,9 @@ export interface CreateOrderInput {
   addressNotes?: string;
   driverNotes?: string;
   paymentMethod: "cash" | "card";
-  /** Codice sconto digitato dal cliente (validato server-side, opzionale). */
-  discountCode?: string;
   slotStartIso: string;
   slotEndIso: string;
-  geo?: { lat: number; lng: number };
+  geo?: { lat: number; lng: number; placeId?: string };
   items: CartItem[];
   tipCents?: number;
   /** Spuntato a checkout → aggiorna customers.marketing_consent se non già true */
@@ -192,33 +186,10 @@ export async function createOrder(
 
   const tipCents = Math.max(0, input.tipCents ?? 0);
 
-  // SCONTI (anti-tamper: ricalcolati SEMPRE lato server, mai dal client).
-  // 1) Codice sconto manuale (se presente): validato contro il DB (attivo, date, soglia).
-  let codeDiscountCents = 0;
-  let appliedManualCode: string | null = null;
-  if (input.discountCode?.trim()) {
-    const dv = await validateDiscountCodeDb(input.discountCode, subtotalCents);
-    if (!dv.ok) {
-      return {
-        ok: false,
-        errorCode: "invalid_discount",
-        errorMessage: dv.reason,
-      };
-    }
-    codeDiscountCents = dv.discountCents;
-    appliedManualCode = dv.code;
-  }
-  // 2) Sconto fedeltà automatico (solo clienti registrati): se saldo ≥ 100 → -€5.
-  const loyalty = user
-    ? await computeLoyaltyRedemption(user.id)
-    : { discountCents: 0, code: null };
-  // Somma i due sconti, mai oltre il subtotale.
-  const discountCents = Math.max(
-    0,
-    Math.min(subtotalCents, codeDiscountCents + loyalty.discountCents),
-  );
-  const discountCode =
-    [appliedManualCode, loyalty.code].filter(Boolean).join("+") || null;
+  // SCONTO (anti-tamper: ricalcolato SEMPRE lato server, mai dal client).
+  // Unica promo del locale: 20% automatico sul carrello ≥ €50.
+  const discountCents = computeAutoPromoCents(subtotalCents);
+  const discountCode = discountCents > 0 ? AUTO_PROMO.code : null;
   const totalCents = subtotalCents + tipCents - discountCents;
 
   // 4. Re-valida slot (race protection)
@@ -363,11 +334,6 @@ export async function createOrder(
       errorMessage:
         "Lo slot si è appena riempito mentre stavi confermando. Scegli un altro orario.",
     };
-  }
-
-  // 6c. Incrementa contatore usi del codice sconto manuale (best-effort).
-  if (appliedManualCode) {
-    await incrementDiscountRedemption(appliedManualCode);
   }
 
   // 7. Order status history (record iniziale)

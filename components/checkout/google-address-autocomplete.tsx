@@ -10,6 +10,8 @@ export interface AddressSelection {
   address: string; // formatted_address
   lat: number;
   lng: number;
+  /** Google Place ID, per navigazione precisa dallo scontrino (QR). */
+  placeId?: string;
 }
 
 interface Prediction {
@@ -138,6 +140,7 @@ export function GoogleAddressAutocomplete({
         address: data.formattedAddress,
         lat: data.lat,
         lng: data.lng,
+        placeId: p.placeId,
       });
       setConfirmed(true);
       // Nuovo session token per la prossima ricerca

@@ -23,7 +23,6 @@ export function LoginForm({ returnTo }: { returnTo?: string }) {
       if (result.ok) {
         // Nuova sessione → carrello pulito (evita residui di chi usava prima il browser)
         useCartStore.getState().clear();
-        usePricing.getState().clearDiscount();
         usePricing.getState().setTip(0);
         toast.success("Accesso effettuato");
         // Priorità: returnTo esplicito → redirectTo dell'action (es. /admin) → /menu

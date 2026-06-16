@@ -113,15 +113,6 @@ export default async function AdminHomePage() {
             </p>
           </Link>
           <Link
-            href="/admin/special"
-            className="rounded-lg border border-bamboo/20 bg-paper p-4 hover:bg-bamboo/5 transition-colors"
-          >
-            <p className="font-semibold text-ink">Cambia l&apos;offerta del giorno</p>
-            <p className="text-sm text-warm-gray">
-              Scegli un piatto, %sconto e orario fine.
-            </p>
-          </Link>
-          <Link
             href="/admin/closures"
             className="rounded-lg border border-bamboo/20 bg-paper p-4 hover:bg-bamboo/5 transition-colors"
           >

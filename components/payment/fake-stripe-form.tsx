@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useCartStore, useCartTotal, useCartHydrated } from "@/store/cart-store";
-import { usePricing, discountCentsFor } from "@/lib/pricing-store";
+import { usePricing } from "@/lib/pricing-store";
+import { computeAutoPromoCents } from "@/lib/promo/auto-promo";
 import { Price } from "@/components/shared/price";
 
 const INPUT_CLASSES =
@@ -35,9 +36,8 @@ export function FakeStripeForm() {
   const clear = useCartStore((s) => s.clear);
   const subtotal = useCartTotal();
   const hydrated = useCartHydrated();
-  const discount = usePricing((s) => s.discount);
   const tipCents = usePricing((s) => s.tipCents);
-  const discountCents = discountCentsFor(discount, subtotal);
+  const discountCents = computeAutoPromoCents(subtotal);
   const total = Math.max(0, subtotal - discountCents) + tipCents;
 
   const [cardNumber, setCardNumber] = useState("");
