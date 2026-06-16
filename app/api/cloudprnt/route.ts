@@ -15,10 +15,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-// Tipo del payload di stampa (comandi ESC/POS binari con QR). UNICO punto da
-// cambiare se al test fisico la stampante preferisce un altro tipo
-// (es. "application/octet-stream"). Il payload è salvato base64 in print_jobs.
-const PRINT_MEDIA_TYPE = "application/vnd.star.starprnt";
+// Tipo del payload di stampa: StarLine nativo (node-thermal-printer type STAR),
+// la modalità di default della TSP143IV — NIENTE ESC/POS emulation. UNICO punto
+// da cambiare se al test fisico la stampante preferisce un altro tipo
+// (es. "application/vnd.star.starprnt"). Payload salvato base64 in print_jobs.
+const PRINT_MEDIA_TYPE = "application/vnd.star.line";
 
 // ============================================================
 // AUTH — Basic Auth preferred, ?token=... fallback

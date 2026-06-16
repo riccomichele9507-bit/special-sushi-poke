@@ -2,7 +2,11 @@
 // 48 caratteri per linea. Nessuna dipendenza esterna.
 
 import type { Database } from "@/lib/supabase/database.types";
-import { EscPosBuilder } from "./escpos";
+import {
+  printer as ThermalPrinter,
+  types as PrinterTypes,
+  characterSet as CharacterSet,
+} from "node-thermal-printer";
 
 type OrderRow = Database["public"]["Tables"]["orders"]["Row"];
 
@@ -205,96 +209,128 @@ function mapsNavUrl(order: OrderRow): string | null {
 }
 
 /**
- * Comanda di cucina in ESC/POS (Buffer) stile Glovo: header grande, totali con
+ * Comanda di cucina (Buffer StarLine) stile Glovo: header grande, totali con
  * sconto, stato pagamento, blocco consegna e QR di navigazione (solo delivery).
- * La stampante genera il QR nativamente dalla stringa URL.
+ * Usa node-thermal-printer in modalità STAR (StarLine nativo, default della
+ * TSP143IV): la stampante disegna il QR nativamente dalla stringa URL. NIENTE
+ * ESC/POS emulation (eviterebbe il "Print Job Routing" e rischi di QR spezzato).
  */
 export function generateReceiptPayload(order: OrderRow): Buffer {
   const items = (order.items as unknown as OrderItemSnapshot[]) ?? [];
   const isDelivery = order.order_type === "delivery";
-  const b = new EscPosBuilder();
+
+  const p = new ThermalPrinter({
+    type: PrinterTypes.STAR,
+    interface: "tcp://0.0.0.0", // non usato: generiamo il buffer, invio via CloudPRNT
+    characterSet: CharacterSet.PC858_EURO, // accentate IT + simbolo €
+    removeSpecialCharacters: false,
+  });
 
   // Header
-  b.align(1);
-  b.size(2, 2).bold(true).line(isDelivery ? "DELIVERY" : "RITIRO");
-  b.size(1, 1).bold(false).line("SPECIAL SUSHI POKE");
-  b.feed(1);
-  b.size(1, 2).bold(true).line(order.customer_name);
-  b.size(1, 1).bold(false);
-  b.align(0).line(rule("="));
+  p.alignCenter();
+  p.setTextDoubleHeight();
+  p.bold(true);
+  p.println(isDelivery ? "DELIVERY" : "RITIRO");
+  p.bold(false);
+  p.setTextNormal();
+  p.println("SPECIAL SUSHI POKE");
+  p.newLine();
+  p.setTextDoubleHeight();
+  p.bold(true);
+  p.println(order.customer_name);
+  p.bold(false);
+  p.setTextNormal();
+  p.println(rule("="));
 
   // Meta ordine
-  b.line(`Ordine #${order.order_number}`);
-  b.line(`Data:  ${formatRomeDate(order.created_at)}`);
-  b.line(
+  p.alignLeft();
+  p.println(`Ordine #${order.order_number}`);
+  p.println(`Data:  ${formatRomeDate(order.created_at)}`);
+  p.println(
     `${isDelivery ? "Consegna" : "Pronto"}: ${formatRomeTime(order.slot_start)}-${formatRomeTime(order.slot_end)}`,
   );
-  b.line(rule("="));
+  p.println(rule("="));
 
   // Piatti
   for (const it of items) {
-    b.line(pad(`${it.qty}x ${it.name}`, eur(it.lineTotalCents)));
-    if (it.variant) b.line(`   ${it.variant}`);
+    p.println(pad(`${it.qty}x ${it.name}`, eur(it.lineTotalCents)));
+    if (it.variant) p.println(`   ${it.variant}`);
     if (it.extras && it.extras.length > 0) {
-      b.line(`   + ${it.extras.join(", ")}`);
+      p.println(`   + ${it.extras.join(", ")}`);
     }
   }
-  b.line(rule("-"));
+  p.println(rule("-"));
 
   // Totali: prezzo intero - sconto = totale
-  b.line(pad("Subtotale", eur(order.subtotal_cents)));
+  p.println(pad("Subtotale", eur(order.subtotal_cents)));
   if (order.discount_cents > 0) {
     const label = order.discount_code
       ? `Sconto (${order.discount_code})`
       : "Sconto";
-    b.line(pad(label, `-${eur(order.discount_cents)}`));
+    p.println(pad(label, `-${eur(order.discount_cents)}`));
   }
-  if (order.tip_cents > 0) b.line(pad("Mancia", eur(order.tip_cents)));
-  b.line(rule("="));
-  b.size(1, 2).bold(true).line(pad("TOTALE", eur(order.total_cents)));
-  b.size(1, 1).bold(false).line(rule("="));
+  if (order.tip_cents > 0) p.println(pad("Mancia", eur(order.tip_cents)));
+  p.println(rule("="));
+  p.setTextDoubleHeight();
+  p.bold(true);
+  p.println(pad("TOTALE", eur(order.total_cents)));
+  p.bold(false);
+  p.setTextNormal();
+  p.println(rule("="));
 
   // Stato pagamento
-  b.align(1).bold(true);
+  p.alignCenter();
+  p.bold(true);
   if (order.payment_method === "card") {
-    b.line("*** GIA' PAGATO ONLINE ***").bold(false).line("Carta - Stripe");
+    p.println("*** GIA' PAGATO ONLINE ***");
+    p.bold(false);
+    p.println("Carta - Stripe");
   } else {
-    b.line(isDelivery ? "*** DA INCASSARE ***" : "*** DA INCASSARE AL BANCO ***")
-      .bold(false)
-      .line(`Contanti o carta - ${eur(order.total_cents)}`);
+    p.println(
+      isDelivery ? "*** DA INCASSARE ***" : "*** DA INCASSARE AL BANCO ***",
+    );
+    p.bold(false);
+    p.println(`Contanti o carta - ${eur(order.total_cents)}`);
   }
-  b.align(0).line(rule("="));
+  p.println(rule("="));
 
   // Blocco cliente / consegna
-  b.bold(true).line(isDelivery ? "CONSEGNA" : "RITIRO AL BANCO").bold(false);
-  if (isDelivery) {
-    if (order.address_line) b.line(`  ${order.address_line}`);
-    if (order.address_notes) b.line(`  Note: ${order.address_notes}`);
-  }
-  b.line(`  Tel: ${order.customer_phone}`);
+  p.alignLeft();
+  p.bold(true);
+  p.println(isDelivery ? "CONSEGNA" : "RITIRO AL BANCO");
+  p.bold(false);
+  if (isDelivery && order.address_line) p.println(`  ${order.address_line}`);
+  if (isDelivery && order.address_notes) p.println(`  Note: ${order.address_notes}`);
+  p.println(`  Tel: ${order.customer_phone}`);
   if (isDelivery && order.road_distance_m != null) {
-    b.line(`  Distanza: ${(order.road_distance_m / 1000).toFixed(1)} km`);
+    p.println(`  Distanza: ${(order.road_distance_m / 1000).toFixed(1)} km`);
   }
   if (isDelivery && order.driver_notes) {
-    b.line("  Note rider:");
-    b.line(`  "${order.driver_notes}"`);
+    p.println("  Note rider:");
+    p.println(`  "${order.driver_notes}"`);
   }
-  b.line(rule("="));
+  p.println(rule("="));
 
-  // QR navigazione (solo delivery con coordinate)
+  // QR navigazione (solo delivery con coordinate). La stampante disegna il QR.
   const navUrl = isDelivery ? mapsNavUrl(order) : null;
   if (navUrl) {
-    b.feed(1).align(1).qr(navUrl, 8);
-    b.feed(1).bold(true).line(">> Scansiona per navigare <<").bold(false);
-    b.align(0).line(rule("="));
+    p.newLine();
+    p.alignCenter();
+    p.printQR(navUrl, { cellSize: 6, correction: "M", model: 2 });
+    p.newLine();
+    p.bold(true);
+    p.println(">> Scansiona per navigare <<");
+    p.bold(false);
+    p.println(rule("="));
   }
 
   // Footer
-  b.align(1).line("Questo non e' un documento fiscale");
+  p.alignCenter();
+  p.println("Questo non e' un documento fiscale");
   if (!order.fiscal_receipt_issued) {
-    b.line("Emettere Documento Commerciale (Nexi)");
+    p.println("Emettere Documento Commerciale (Nexi)");
   }
-  b.align(0).cut();
+  p.cut();
 
-  return b.build();
+  return p.getBuffer();
 }

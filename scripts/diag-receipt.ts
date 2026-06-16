@@ -43,7 +43,7 @@ function check(name: string, cond: boolean) {
 }
 
 console.log("=== ASSERZIONI ===");
-check("init ESC @", buf[0] === 0x1b && buf[1] === 0x40);
+check("buffer StarLine generato", Buffer.isBuffer(buf) && buf.length > 0);
 check("QR contiene URL Google Maps (place_id)", latin.includes(expectedUrl));
 check("header DELIVERY", latin.includes("DELIVERY"));
 check("nome cliente", latin.includes("Mario Rossi"));
@@ -52,8 +52,7 @@ check("TOTALE presente", latin.includes("TOTALE"));
 check("blocco CONSEGNA", latin.includes("CONSEGNA"));
 check("gia' pagato online", latin.includes("GIA' PAGATO ONLINE"));
 check("scansiona per navigare", latin.includes("Scansiona per navigare"));
-check("taglio carta (GS V)", buf.includes(Buffer.from([0x1d, 0x56])));
-check("byte totali > 200", buf.length > 200);
+check("payload non vuoto (> 200 byte)", buf.length > 200);
 
 // anteprima testuale (solo ASCII stampabile + newline)
 console.log("\n=== ANTEPRIMA SCONTRINO (testo, senza comandi/QR binario) ===");
