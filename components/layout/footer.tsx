@@ -118,6 +118,9 @@ export function Footer() {
               <Link href="/privacy" className="hover:text-gold transition">
                 Privacy
               </Link>
+              <Link href="/allergeni" className="hover:text-gold transition">
+                Allergeni
+              </Link>
               <Link href="/terms" className="hover:text-gold transition">
                 Termini di servizio
               </Link>
