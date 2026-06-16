@@ -7,6 +7,7 @@ import {
   Users,
   AlertCircle,
 } from "lucide-react";
+import { PauseToggleButton } from "@/components/admin/pause-toggle-button";
 
 /** Veloce: solo gli stat indispensabili in 2 query parallele */
 async function getQuickStats() {
@@ -14,7 +15,7 @@ async function getQuickStats() {
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 
-  const [ordersToday, dishesSoldOut] = await Promise.all([
+  const [ordersToday, dishesSoldOut, restaurant] = await Promise.all([
     supabase
       .from("orders")
       .select("id", { count: "exact", head: true })
@@ -24,11 +25,17 @@ async function getQuickStats() {
       .from("dishes")
       .select("id", { count: "exact", head: true })
       .eq("is_active", false),
+    supabase
+      .from("restaurant_settings")
+      .select("manual_pause")
+      .eq("id", 1)
+      .maybeSingle(),
   ]);
 
   return {
     ordersToday: ordersToday.count ?? 0,
     dishesSoldOut: dishesSoldOut.count ?? 0,
+    manualPause: restaurant.data?.manual_pause ?? false,
   };
 }
 
@@ -121,15 +128,7 @@ export default async function AdminHomePage() {
               Aggiungi un periodo: il sito blocca gli ordini in quei giorni.
             </p>
           </Link>
-          <Link
-            href="/admin/delivery"
-            className="rounded-lg border border-bamboo/20 bg-paper p-4 hover:bg-bamboo/5 transition-colors"
-          >
-            <p className="font-semibold text-ink">Pausa ordini ORA</p>
-            <p className="text-sm text-warm-gray">
-              Toggle rapido in Consegne & orari → Pausa manuale.
-            </p>
-          </Link>
+          <PauseToggleButton paused={k.manualPause} />
         </div>
       </div>
     </div>
