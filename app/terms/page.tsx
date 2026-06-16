@@ -72,11 +72,12 @@ export default function TermsPage() {
         completamente esente da tracce di allergeni.
       </p>
 
-      <h2>5. Programma fedeltà</h2>
+      <h2>5. Promozioni</h2>
       <p>
-        Per ogni euro speso accumuli 1 punto. Al raggiungimento di 100 punti puoi
-        riscattare uno sconto di €10 sul prossimo ordine. I punti non hanno valore
-        monetario, non sono convertibili e scadono dopo 12 mesi di inattività.
+        Eventuali promozioni (es. sconto automatico sugli ordini dal sito a
+        partire da una certa soglia di spesa) sono valide solo per gli ordini
+        effettuati tramite questa applicazione e possono essere modificate o
+        sospese da Special Sushi Poke in qualsiasi momento, senza preavviso.
       </p>
 
       <h2>6. Account utente</h2>

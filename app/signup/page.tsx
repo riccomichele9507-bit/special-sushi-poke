@@ -59,10 +59,10 @@ export default async function SignupPage({
           </div>
           <div className="text-center space-y-1">
             <h1 className="font-heading text-2xl font-bold text-ink">
-              Iscriviti e sblocca i premi 🎁
+              Iscriviti in 30 secondi 🍣
             </h1>
             <p className="text-sm text-warm-gray">
-              Accumula punti a ogni ordine e ricevi la <strong className="text-bamboo-deep">consegna gratuita</strong> a Bari.
+              Salva l&apos;indirizzo, riordina in un tap e ricevi la <strong className="text-bamboo-deep">consegna gratuita</strong> a Bari.
             </p>
           </div>
         </div>

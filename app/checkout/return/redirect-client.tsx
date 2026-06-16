@@ -22,7 +22,7 @@ export function PostPaymentRedirect({ target }: { target: string }) {
         Pagamento confermato!
       </h1>
       <p className="mt-2 text-sm text-warm-gray">
-        Ti portiamo ai tuoi premi…
+        Ti portiamo al tuo ordine…
       </p>
       <a
         href={target}

@@ -74,10 +74,10 @@ export default async function LoginPage({
           </div>
           <div className="text-center space-y-1">
             <h1 className="font-heading text-2xl font-bold text-ink">
-              Più ordini, più premi 🎁
+              Bentornato 🍣
             </h1>
             <p className="text-sm text-warm-gray">
-              Entra nel club: premi fedeltà esclusivi e <strong className="text-bamboo-deep">consegna gratuita</strong> a Bari.
+              Ritrova indirizzo e ordini, e ordina in un tap. <strong className="text-bamboo-deep">Consegna gratuita</strong> a Bari.
             </p>
           </div>
         </div>

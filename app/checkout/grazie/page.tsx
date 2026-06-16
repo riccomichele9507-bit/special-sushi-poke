@@ -77,11 +77,11 @@ export default async function GraziePage({ searchParams }: PageProps) {
       <div className="mt-6 rounded-2xl border border-gold/30 bg-gradient-to-br from-gold/10 to-bamboo/5 p-5 text-center">
         <Star className="mx-auto h-6 w-6 fill-gold text-gold" />
         <h2 className="mt-2 font-heading text-lg font-bold text-ink">
-          Crea un account e guadagna premi
+          Crea un account
         </h2>
         <p className="mt-1 text-sm text-warm-gray">
-          Segui i tuoi ordini, salva l&apos;indirizzo e accumula punti: ogni euro
-          speso ti avvicina a uno sconto. La consegna a Bari è gratis.
+          Segui i tuoi ordini e salva l&apos;indirizzo per riordinare in un tap.
+          La consegna a Bari è gratis.
         </p>
         <Link
           href="/signup"

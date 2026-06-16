@@ -54,7 +54,7 @@ export function DeliveryLocationBar() {
             className="flex items-center gap-2 min-w-0 flex-1"
           >
             <p className="font-sans text-xs text-warm-gray">
-              <span className="text-bamboo font-medium">Accedi</span> · Ordina con i tuoi punti fedeltà
+              <span className="text-bamboo font-medium">Accedi</span> · Indirizzo salvato e riordino veloce
             </p>
           </Link>
         )}
