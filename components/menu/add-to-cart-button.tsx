@@ -1,12 +1,10 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useCartStore } from "@/store/cart-store";
-import { useUser } from "@/lib/auth/use-user";
 
 export function AddToCartButton({
   dishId,
@@ -20,20 +18,9 @@ export function AddToCartButton({
   variant?: "floating" | "inline" | "pill";
 }) {
   const add = useCartStore((s) => s.add);
-  const { user, loading: authLoading } = useUser();
-  const router = useRouter();
-  const pathname = usePathname();
 
+  // Guest checkout permesso: aggiunge al carrello senza obbligo di login.
   function handleAdd() {
-    if (!authLoading && !user) {
-      toast("Accedi per ordinare", {
-        description: "Crea un account o accedi in 10 secondi.",
-        duration: 2500,
-      });
-      const returnTo = encodeURIComponent(pathname);
-      router.push(`/login?returnTo=${returnTo}`);
-      return;
-    }
     add(dishId);
     toast.success("Aggiunto al carrello", {
       description: dishName,
