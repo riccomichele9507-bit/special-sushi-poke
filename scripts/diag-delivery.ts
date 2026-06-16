@@ -89,7 +89,7 @@ for (const [dn, dd] of dayList) {
 
 // ===== MATRICE 2: DISTANZE x CARRELLO =====
 console.log("\n=== MATRICE DISTANZE x CARRELLO ===");
-console.log("free<=6km, minimo EUR30 da 6 a 12km, niente oltre 12km\n");
+console.log("consegna SEMPRE gratis entro 12km; da 6 a 12km serve EUR30 minimo carrello; niente oltre 12km\n");
 function distDecision(km: number, cartCents: number): string {
   if (km > S.max_distance_km) return "FUORI ZONA";
   const free = km <= S.free_delivery_max_km;
@@ -97,7 +97,7 @@ function distDecision(km: number, cartCents: number): string {
     const miss = (S.min_cart_cents_above_free - cartCents) / 100;
     return `min EUR30 (mancano EUR${miss.toFixed(2)})`;
   }
-  return free ? "OK gratis" : "OK a pagamento";
+  return free ? "OK gratis" : "OK gratis (min EUR30)";
 }
 const kmList = [2, 5, 6, 6.5, 9, 12, 12.5, 14];
 const cartList: [string, number][] = [["EUR20", 2000], ["EUR30", 3000], ["EUR45", 4500]];
