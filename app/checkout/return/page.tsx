@@ -13,6 +13,7 @@ import { PostPaymentRedirect } from "./redirect-client";
  */
 async function confirmPaidOrder(
   orderNumber: string | undefined,
+  paymentIntentId?: string | null,
 ): Promise<{ id: string; isGuest: boolean } | null> {
   if (!orderNumber) return null;
   const admin = createAdminClient();
@@ -24,6 +25,17 @@ async function confirmPaidOrder(
   if (!order) return null;
 
   const info = { id: order.id, isGuest: order.customer_id === null };
+
+  // Robustezza: salva il riferimento del pagamento (payment intent) se manca,
+  // indipendentemente dal webhook. Così il pagamento è tracciato/rimborsabile
+  // anche se il webhook è lento o non configurato.
+  if (paymentIntentId && !order.stripe_payment_intent_id) {
+    await admin
+      .from("orders")
+      .update({ stripe_payment_intent_id: paymentIntentId })
+      .eq("id", order.id);
+  }
+
   if (order.status !== "received") return info; // già confermato dal webhook → solo info
 
   await admin
@@ -88,8 +100,13 @@ export default async function CheckoutReturnPage({ searchParams }: PageProps) {
       (session.metadata?.order_number as string | undefined) ?? order_number;
 
     if (session.status === "complete") {
-      // Conferma l'ordine subito (fallback webhook) → ordine + punti pronti.
-      const info = await confirmPaidOrder(finalOrderNumber);
+      // payment_intent della sessione (non espanso → è l'id stringa).
+      const paymentIntentId =
+        typeof session.payment_intent === "string"
+          ? session.payment_intent
+          : (session.payment_intent?.id ?? null);
+      // Conferma l'ordine subito (fallback del webhook) + salva il payment intent.
+      const info = await confirmPaidOrder(finalOrderNumber, paymentIntentId);
       // Pagina 200 + redirect client (NON redirect server) → la sessione Supabase
       // sopravvive al ritorno. Ospite → grazie pubblica; registrato → profilo coi punti.
       return <PostPaymentRedirect target={landingTarget(info, finalOrderNumber)} />;
