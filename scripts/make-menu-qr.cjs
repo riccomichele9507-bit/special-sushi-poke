@@ -8,8 +8,9 @@ const QRCode = require("qrcode");
 
 const ROOT = path.resolve(__dirname, "..");
 const LOGO = path.join(ROOT, "public", "logo-mark.png");
-const OUT = path.join(ROOT, "marketing", "qr-menu.png");
-const URL = "https://specialsushipokebari.com/menu";
+// Uso: node make-menu-qr.cjs [url] [nome-file-output]
+const URL = process.argv[2] || "https://specialsushipokebari.com/menu";
+const OUT = path.join(ROOT, "marketing", process.argv[3] || "qr-menu.png");
 
 const INK = "#1c1c1c";
 const RED = "#c8102e";
