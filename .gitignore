@@ -35,3 +35,8 @@ _contesto/deliverables/
 # Build artifacts & temp
 tsconfig.tsbuildinfo
 scripts/_generated_ids.txt
+
+# build artifacts menu pdf
+scripts/_thumbs/
+menu-preview.png
+menu_tmp.html
