@@ -16,7 +16,7 @@ OUT = ROOT / "menu.pdf"
 TMP = ROOT / "menu_tmp.html"
 THUMBS = ROOT / "scripts" / "_thumbs"
 THUMBS.mkdir(exist_ok=True)
-QR = "marketing/qr-sushi10.png"  # stesso QR del volantino (relativo a menu_tmp.html)
+QR = "marketing/qr-menu.png"  # QR pulito: rimanda solo al menu online (no sconto)
 
 raw = open(DATA_FILE, encoding="utf-8").read()
 text = json.loads(raw)["result"]
