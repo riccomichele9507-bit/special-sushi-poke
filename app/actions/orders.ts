@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { validateDelivery } from "@/lib/delivery/validate";
+import { validateDelivery, type ValidationSuccess } from "@/lib/delivery/validate";
 import { enqueuePrintJob } from "@/lib/print/queue";
 import { AUTO_PROMO, computeAutoPromoCents } from "@/lib/promo/auto-promo";
 import { sendOrderConfirmationEmail } from "@/lib/email/send";
@@ -31,7 +31,7 @@ export interface CreateOrderInput {
   paymentMethod: "cash" | "card";
   slotStartIso: string;
   slotEndIso: string;
-  geo?: { lat: number; lng: number; placeId?: string };
+  geo?: { lat: number; lng: number };
   items: CartItem[];
   tipCents?: number;
   /** Spuntato a checkout → aggiorna customers.marketing_consent se non già true */
@@ -44,93 +44,168 @@ export type CreateOrderResult =
   | { ok: true; orderId: string; orderNumber: string }
   | { ok: false; errorCode: string; errorMessage: string };
 
+type AdminClient = ReturnType<typeof createAdminClient>;
+type Fail = { ok: false; errorCode: string; errorMessage: string };
+
+function fail(errorCode: string, errorMessage: string): Fail {
+  return { ok: false, errorCode, errorMessage };
+}
+
 /**
- * Crea un nuovo ordine. ANTI-TAMPER:
- * - Verifica auth (cliente loggato)
- * - Riesegue la catena validateDelivery (slot ancora libero, distanza, ecc.)
- * - Ricalcola TOTALI dal DB ignorando il client
- * - Insert orders + order_status_history + print_jobs
+ * Crea un nuovo ordine. Orchestratore: ogni passo è una funzione a singola
+ * responsabilità (vedi sotto). ANTI-TAMPER — i totali, lo sconto, la distanza,
+ * lo slot e la capacità sono SEMPRE ricalcolati lato server dal DB, mai dal client.
+ * Ordine consentito anche da OSPITE (customer_id null).
  */
 export async function createOrder(
   input: CreateOrderInput,
 ): Promise<CreateOrderResult> {
-  // 1. Auth — opzionale: ordine consentito anche da OSPITE (customer_id null).
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  // Per gli ospiti servono nome, email e telefono (per contattarli sull'ordine).
+
+  // 1. Validazione input (+ contatti ospite)
+  const inputError = validateOrderInput(user, input);
+  if (inputError) return inputError;
+
+  const admin = createAdminClient();
+
+  // 2. Idempotenza: se questo tentativo è già stato registrato → stesso ordine
+  const duplicate = await findOrderByIdempotency(admin, input.idempotencyKey);
+  if (duplicate) return duplicate;
+
+  // 3. Ricalcola items + subtotale dal DB (anti-tamper)
+  const items = await recomputeItems(admin, input.items);
+  if ("ok" in items) return items;
+  const { snapshots, subtotalCents } = items;
+
+  // 4. Totali: unica promo automatica + mancia (anti-tamper)
+  const tipCents = Math.max(0, input.tipCents ?? 0);
+  const { discountCents, discountCode, totalCents } = computeTotals(
+    subtotalCents,
+    tipCents,
+  );
+
+  // 5. Ri-valida consegna + slot ancora libero
+  const slot = await revalidateSlot(input, subtotalCents);
+  if ("ok" in slot) return slot;
+  const { validation } = slot;
+
+  // 6. Numero ordine progressivo atomico (Postgres SEQUENCE)
+  const orderNumber = await nextOrderNumber(admin);
+  if (typeof orderNumber !== "string") return orderNumber;
+
+  // 7. Inserisci ordine (con gestione conflitto idempotenza)
+  const inserted = await insertOrder(admin, {
+    orderNumber,
+    user,
+    input,
+    snapshots,
+    subtotalCents,
+    discountCents,
+    discountCode,
+    tipCents,
+    totalCents,
+    validation,
+    isTest: computeIsTest(),
+  });
+  if ("ok" in inserted) return inserted;
+  const orderId = inserted.row.id;
+
+  // 8. Re-check capacità post-insert (rollback se lo slot si è riempito)
+  const capacityError = await enforceCapacityOrRollback(
+    admin,
+    orderId,
+    input.slotEndIso,
+  );
+  if (capacityError) return capacityError;
+
+  // 9. Storico stato iniziale + profilo cliente (indirizzo/consenso)
+  await recordInitialStatus(admin, orderId);
+  await updateCustomerProfile(admin, user, input);
+
+  // 10. Contanti: conferma subito + stampa + email (carta → attende Stripe)
+  if (input.paymentMethod === "cash") {
+    await finalizeCashOrder(admin, orderId);
+  }
+
+  return {
+    ok: true,
+    orderId,
+    orderNumber: inserted.row.order_number,
+  };
+}
+
+// ============================================================
+// Helper a singola responsabilità
+// ============================================================
+
+/** Validazione input base + contatti obbligatori per gli ospiti. */
+function validateOrderInput(
+  user: { id: string } | null,
+  input: CreateOrderInput,
+): Fail | null {
   if (!user) {
     if (
       !input.email?.includes("@") ||
       !input.name?.trim() ||
       !input.phone?.trim()
     ) {
-      return {
-        ok: false,
-        errorCode: "guest_missing_contact",
-        errorMessage: "Per ordinare come ospite servono nome, email e telefono.",
-      };
+      return fail(
+        "guest_missing_contact",
+        "Per ordinare come ospite servono nome, email e telefono.",
+      );
     }
   }
-
-  // 2. Validate basic input
   if (!input.items || input.items.length === 0) {
-    return {
-      ok: false,
-      errorCode: "empty_cart",
-      errorMessage: "Il carrello è vuoto.",
-    };
+    return fail("empty_cart", "Il carrello è vuoto.");
   }
   if (input.orderType === "delivery") {
     if (!input.geo) {
-      return {
-        ok: false,
-        errorCode: "no_coords",
-        errorMessage: "Indirizzo non confermato. Riprova dall'autocomplete.",
-      };
+      return fail(
+        "no_coords",
+        "Indirizzo non confermato. Riprova dall'autocomplete.",
+      );
     }
     if (!input.addressLine || input.addressLine.trim().length < 5) {
-      return {
-        ok: false,
-        errorCode: "no_address",
-        errorMessage: "Inserisci un indirizzo valido.",
-      };
+      return fail("no_address", "Inserisci un indirizzo valido.");
     }
   }
+  return null;
+}
 
-  // IDEMPOTENZA (anti-doppione): se questo tentativo di checkout è già stato
-  // registrato (doppio-tap / retry di rete), ritorna lo STESSO ordine invece di
-  // crearne uno nuovo.
-  const admin = createAdminClient();
-  if (input.idempotencyKey) {
-    const { data: existing } = await admin
-      .from("orders")
-      .select("id, order_number")
-      .eq("idempotency_key", input.idempotencyKey)
-      .maybeSingle();
-    if (existing) {
-      return {
-        ok: true,
-        orderId: existing.id,
-        orderNumber: existing.order_number,
-      };
-    }
-  }
+/** Doppio-tap / retry: se la chiave idempotenza esiste, ritorna lo stesso ordine. */
+async function findOrderByIdempotency(
+  admin: AdminClient,
+  key: string | undefined,
+): Promise<CreateOrderResult | null> {
+  if (!key) return null;
+  const { data: existing } = await admin
+    .from("orders")
+    .select("id, order_number")
+    .eq("idempotency_key", key)
+    .maybeSingle();
+  return existing
+    ? { ok: true, orderId: existing.id, orderNumber: existing.order_number }
+    : null;
+}
 
-  // 3. Ricalcola items + totali da DB (anti-tamper)
-
-  // Separa custom poke dagli altri dishId
-  const dishIds = input.items
-    .filter((i) => !i.custom)
-    .map((i) => i.dishId);
-
+/** Ricalcola gli snapshot e il subtotale dal DB (prezzi reali, anti-tamper). */
+async function recomputeItems(
+  admin: AdminClient,
+  items: CartItem[],
+): Promise<{ snapshots: OrderItemSnapshot[]; subtotalCents: number } | Fail> {
+  const dishIds = items.filter((i) => !i.custom).map((i) => i.dishId);
   const { data: dishRows } = await admin
     .from("dishes")
     .select("id, name, price, is_active")
     .in("id", dishIds.length ? dishIds : ["__none__"]);
 
-  const dishMap = new Map<string, { name: string; price: number; is_active: boolean }>();
+  const dishMap = new Map<
+    string,
+    { name: string; price: number; is_active: boolean }
+  >();
   for (const d of dishRows ?? []) {
     dishMap.set(d.id, { name: d.name, price: d.price, is_active: d.is_active });
   }
@@ -138,7 +213,7 @@ export async function createOrder(
   const snapshots: OrderItemSnapshot[] = [];
   let subtotalCents = 0;
 
-  for (const item of input.items) {
+  for (const item of items) {
     if (item.custom) {
       // Custom poke: prezzo derivato dalla config (basePrice + extras)
       const unitPrice = item.custom.basePriceCents + item.custom.extrasCents;
@@ -159,18 +234,13 @@ export async function createOrder(
 
     const dish = dishMap.get(item.dishId);
     if (!dish) {
-      return {
-        ok: false,
-        errorCode: "dish_missing",
-        errorMessage: `Piatto non più disponibile: ${item.dishId}. Aggiorna il carrello.`,
-      };
+      return fail(
+        "dish_missing",
+        `Piatto non più disponibile: ${item.dishId}. Aggiorna il carrello.`,
+      );
     }
     if (!dish.is_active) {
-      return {
-        ok: false,
-        errorCode: "dish_inactive",
-        errorMessage: `"${dish.name}" è esaurito. Rimuovilo dal carrello.`,
-      };
+      return fail("dish_inactive", `"${dish.name}" è esaurito. Rimuovilo dal carrello.`);
     }
     const unitPrice = dish.price;
     const lineTotal = unitPrice * item.quantity;
@@ -184,72 +254,92 @@ export async function createOrder(
     subtotalCents += lineTotal;
   }
 
-  const tipCents = Math.max(0, input.tipCents ?? 0);
+  return { snapshots, subtotalCents };
+}
 
-  // SCONTO (anti-tamper: ricalcolato SEMPRE lato server, mai dal client).
-  // Unica promo del locale: 20% automatico sul carrello ≥ €50.
+/** Sconto (unica promo automatica) + totale. */
+function computeTotals(
+  subtotalCents: number,
+  tipCents: number,
+): { discountCents: number; discountCode: string | null; totalCents: number } {
   const discountCents = computeAutoPromoCents(subtotalCents);
   const discountCode = discountCents > 0 ? AUTO_PROMO.code : null;
   const totalCents = subtotalCents + tipCents - discountCents;
+  return { discountCents, discountCode, totalCents };
+}
 
-  // 4. Re-valida slot (race protection)
-  const slotEnd = new Date(input.slotEndIso);
-  const slotStart = new Date(input.slotStartIso);
+/** Ri-valida la consegna e che lo slot scelto sia ancora disponibile. */
+async function revalidateSlot(
+  input: CreateOrderInput,
+  subtotalCents: number,
+): Promise<{ validation: ValidationSuccess } | Fail> {
   const validation = await validateDelivery({
     orderType: input.orderType,
     cartTotalCents: subtotalCents,
     customerCoords: input.geo,
   });
-  if (!validation.ok) {
-    return {
-      ok: false,
-      errorCode: validation.code,
-      errorMessage: validation.message,
-    };
-  }
-  // Verifica che lo slot scelto sia ancora disponibile
+  if (!validation.ok) return fail(validation.code, validation.message);
+
   const slotStillAvailable = validation.slots.some(
     (s) => s.end.toISOString() === input.slotEndIso,
   );
   if (!slotStillAvailable) {
-    return {
-      ok: false,
-      errorCode: "slot_unavailable",
-      errorMessage:
-        "L'orario che avevi scelto non è più disponibile. Aggiorna gli orari e riprova.",
-    };
-  }
-
-  // 5. Genera order_number progressivo atomico via Postgres SEQUENCE
-  // Format: "0001", "0002", "0003"... lpad 4 zero, espandibile auto (es. "12345").
-  // Atomic: niente race condition tra ordini simultanei.
-  let orderNumber: string;
-  {
-    const { data: seqValue, error: seqError } = await admin.rpc(
-      "get_next_order_number",
+    return fail(
+      "slot_unavailable",
+      "L'orario che avevi scelto non è più disponibile. Aggiorna gli orari e riprova.",
     );
-    if (seqError || !seqValue) {
-      console.error("get_next_order_number failed:", seqError);
-      return {
-        ok: false,
-        errorCode: "system",
-        errorMessage: "Impossibile generare il numero d'ordine. Riprova.",
-      };
-    }
-    orderNumber = String(seqValue);
   }
+  return { validation };
+}
 
-  // 6. Insert order
-  // is_test logic: ordine "test" solo in development locale o se Stripe è in test mode.
-  // In produzione (NODE_ENV=production su Vercel), tutti gli ordini sono REALI.
-  const isTest =
+/** Numero ordine progressivo atomico via Postgres SEQUENCE. */
+async function nextOrderNumber(admin: AdminClient): Promise<string | Fail> {
+  const { data: seqValue, error: seqError } = await admin.rpc(
+    "get_next_order_number",
+  );
+  if (seqError || !seqValue) {
+    console.error("get_next_order_number failed:", seqError);
+    return fail("system", "Impossibile generare il numero d'ordine. Riprova.");
+  }
+  return String(seqValue);
+}
+
+/** Ordine "test" solo in dev locale o con Stripe in test mode. In produzione: reale. */
+function computeIsTest(): boolean {
+  return (
     process.env.NODE_ENV !== "production" ||
-    (process.env.STRIPE_SECRET_KEY?.startsWith("sk_test_") ?? false);
+    (process.env.STRIPE_SECRET_KEY?.startsWith("sk_test_") ?? false)
+  );
+}
+
+interface InsertOrderParams {
+  orderNumber: string;
+  user: { id: string } | null;
+  input: CreateOrderInput;
+  snapshots: OrderItemSnapshot[];
+  subtotalCents: number;
+  discountCents: number;
+  discountCode: string | null;
+  tipCents: number;
+  totalCents: number;
+  validation: ValidationSuccess;
+  isTest: boolean;
+}
+
+/**
+ * Inserisce l'ordine. Ritorna la riga inserita, OPPURE un CreateOrderResult
+ * terminale (successo per conflitto idempotenza concorrente, o errore di sistema).
+ */
+async function insertOrder(
+  admin: AdminClient,
+  p: InsertOrderParams,
+): Promise<{ row: { id: string; order_number: string } } | CreateOrderResult> {
+  const { input, validation } = p;
   const { data: inserted, error: insertError } = await admin
     .from("orders")
     .insert({
-      order_number: orderNumber,
-      customer_id: user?.id ?? null,
+      order_number: p.orderNumber,
+      customer_id: p.user?.id ?? null,
       customer_name: input.name,
       customer_phone: input.phone,
       customer_email: input.email,
@@ -263,18 +353,18 @@ export async function createOrder(
           ? Math.round(validation.distanceKm * 1000)
           : null,
       eta_minutes: validation.etaMinutes,
-      slot_start: slotStart.toISOString(),
-      slot_end: slotEnd.toISOString(),
-      deliver_by: slotEnd.toISOString(),
-      items: snapshots as unknown as Json,
-      subtotal_cents: subtotalCents,
-      discount_cents: discountCents,
-      discount_code: discountCode,
-      tip_cents: tipCents,
-      total_cents: totalCents,
+      slot_start: new Date(input.slotStartIso).toISOString(),
+      slot_end: new Date(input.slotEndIso).toISOString(),
+      deliver_by: new Date(input.slotEndIso).toISOString(),
+      items: p.snapshots as unknown as Json,
+      subtotal_cents: p.subtotalCents,
+      discount_cents: p.discountCents,
+      discount_code: p.discountCode,
+      tip_cents: p.tipCents,
+      total_cents: p.totalCents,
       payment_method: input.paymentMethod,
       status: "received",
-      is_test: isTest,
+      is_test: p.isTest,
       idempotency_key: input.idempotencyKey ?? null,
     })
     .select("id, order_number")
@@ -298,26 +388,32 @@ export async function createOrder(
       }
     }
     console.error("createOrder insert failed", insertError);
-    return {
-      ok: false,
-      errorCode: "system",
-      errorMessage:
-        "Impossibile salvare l'ordine. Riprova tra un minuto o chiamaci.",
-    };
+    return fail(
+      "system",
+      "Impossibile salvare l'ordine. Riprova tra un minuto o chiamaci.",
+    );
   }
 
-  // 6b. Post-insert capacity re-check (best-effort senza SQL FOR UPDATE).
-  // Se nel mentre altri N ordini sono entrati nello stesso slot e abbiamo superato
-  // max_orders_per_slot, fai rollback dell'ordine appena creato e ritorna errore.
-  // Nota: window di race ridotta da ~secondi a ~millisecondi (non zero ma molto contenuta).
+  return { row: inserted };
+}
+
+/**
+ * Re-check capacità post-insert (best-effort senza SQL FOR UPDATE): se lo slot si
+ * è riempito nel frattempo, fa rollback dell'ordine appena creato.
+ */
+async function enforceCapacityOrRollback(
+  admin: AdminClient,
+  orderId: string,
+  slotEndIso: string,
+): Promise<Fail | null> {
+  const slotEnd = new Date(slotEndIso).toISOString();
   const { count: usedAfterInsert } = await admin
     .from("orders")
     .select("id", { count: "exact", head: true })
     .eq("is_test", false)
-    .eq("slot_end", slotEnd.toISOString())
+    .eq("slot_end", slotEnd)
     .not("status", "in", "(delivered,cancelled,refunded)");
 
-  // Re-leggi max_orders_per_slot (in case di update concorrente)
   const { data: settingsNow } = await admin
     .from("delivery_settings")
     .select("max_orders_per_slot")
@@ -326,26 +422,37 @@ export async function createOrder(
   const maxOrdersPerSlot = settingsNow?.max_orders_per_slot ?? 8;
 
   if ((usedAfterInsert ?? 0) > maxOrdersPerSlot) {
-    // Overflow: rollback insert
-    await admin.from("orders").delete().eq("id", inserted.id);
-    return {
-      ok: false,
-      errorCode: "slot_unavailable",
-      errorMessage:
-        "Lo slot si è appena riempito mentre stavi confermando. Scegli un altro orario.",
-    };
+    await admin.from("orders").delete().eq("id", orderId);
+    return fail(
+      "slot_unavailable",
+      "Lo slot si è appena riempito mentre stavi confermando. Scegli un altro orario.",
+    );
   }
+  return null;
+}
 
-  // 7. Order status history (record iniziale)
+/** Record iniziale "received" nello storico stato. */
+async function recordInitialStatus(
+  admin: AdminClient,
+  orderId: string,
+): Promise<void> {
   await admin.from("order_status_history").insert({
-    order_id: inserted.id,
+    order_id: orderId,
     status: "received",
     changed_by: "system",
   });
+}
 
-  // 7b. Aggiorna profilo cliente: marketing_consent (se spuntato), name/phone,
-  // e SALVA l'indirizzo di consegna come address_default → riapparirà
-  // precompilato al prossimo checkout / riordino.
+/**
+ * Aggiorna il profilo cliente: marketing_consent, name/phone e salva l'indirizzo
+ * di consegna come address_default (riapparirà precompilato al prossimo checkout).
+ */
+async function updateCustomerProfile(
+  admin: AdminClient,
+  user: { id: string } | null,
+  input: CreateOrderInput,
+): Promise<void> {
+  if (!user) return;
   const customerUpdate: {
     marketing_consent?: boolean;
     name?: string;
@@ -363,38 +470,35 @@ export async function createOrder(
       notes: input.addressNotes ?? null,
     } as unknown as Json;
   }
-  if (user && Object.keys(customerUpdate).length > 0) {
+  if (Object.keys(customerUpdate).length > 0) {
     await admin.from("customers").update(customerUpdate).eq("id", user.id);
   }
+}
 
-  // 8. Print job — solo per cash on delivery. Per card aspettiamo Stripe webhook.
-  if (input.paymentMethod === "cash") {
-    // Promuovi a "confirmed" subito (no pagamento da attendere)
-    await admin
-      .from("orders")
-      .update({ status: "confirmed", status_updated_at: new Date().toISOString() })
-      .eq("id", inserted.id);
-    await admin.from("order_status_history").insert({
-      order_id: inserted.id,
-      status: "confirmed",
-      changed_by: "system",
-    });
-    // Recupera ordine completo aggiornato per il receipt
-    const { data: full } = await admin
-      .from("orders")
-      .select("*")
-      .eq("id", inserted.id)
-      .single();
-    if (full) {
-      await enqueuePrintJob(full);
-      // Email "ordine ricevuto" (best-effort, non blocca l'ordine)
-      await sendOrderConfirmationEmail(full);
-    }
+/**
+ * Ordine contanti: promuove a "confirmed" subito (niente pagamento da attendere),
+ * accoda la comanda di stampa e invia l'email di conferma (best-effort).
+ */
+async function finalizeCashOrder(
+  admin: AdminClient,
+  orderId: string,
+): Promise<void> {
+  await admin
+    .from("orders")
+    .update({ status: "confirmed", status_updated_at: new Date().toISOString() })
+    .eq("id", orderId);
+  await admin.from("order_status_history").insert({
+    order_id: orderId,
+    status: "confirmed",
+    changed_by: "system",
+  });
+  const { data: full } = await admin
+    .from("orders")
+    .select("*")
+    .eq("id", orderId)
+    .single();
+  if (full) {
+    await enqueuePrintJob(full);
+    await sendOrderConfirmationEmail(full);
   }
-
-  return {
-    ok: true,
-    orderId: inserted.id,
-    orderNumber: inserted.order_number,
-  };
 }
