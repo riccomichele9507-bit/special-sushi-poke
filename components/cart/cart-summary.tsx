@@ -5,7 +5,7 @@ import { useCartTotal } from "@/store/cart-store";
 import { usePricing } from "@/lib/pricing-store";
 import { Price } from "@/components/shared/price";
 import {
-  AUTO_PROMO,
+  promoConfig,
   computeAutoPromoCents,
   centsToPromo,
 } from "@/lib/promo/auto-promo";
@@ -18,8 +18,9 @@ export function CartSummary({
   const subtotal = useCartTotal();
   const tipCents = usePricing((s) => s.tipCents);
 
-  const promoCents = computeAutoPromoCents(subtotal);
-  const missingCents = centsToPromo(subtotal);
+  const promo = promoConfig();
+  const promoCents = computeAutoPromoCents(subtotal, promo);
+  const missingCents = centsToPromo(subtotal, promo);
   const total = Math.max(0, subtotal - promoCents) + tipCents;
 
   return (
@@ -32,7 +33,7 @@ export function CartSummary({
       {promoCents > 0 && (
         <div className="flex items-center justify-between text-sm">
           <span className="text-bamboo-deep font-medium">
-            Promo {AUTO_PROMO.percent}% su tutto
+            Promo {promo.percent}% su tutto
           </span>
           <span className="font-heading font-semibold text-bamboo-deep tabular-nums">
             −<Price cents={promoCents} size="sm" className="!text-bamboo-deep" />
@@ -44,7 +45,7 @@ export function CartSummary({
         <p className="flex items-center gap-1 rounded-lg bg-gold/10 px-2.5 py-1.5 text-[11px] text-bamboo-deep">
           🎁 Aggiungi{" "}
           <Price cents={missingCents} size="sm" className="!text-bamboo-deep font-semibold" />{" "}
-          e ottieni il {AUTO_PROMO.percent}% di sconto su tutto
+          e ottieni il {promo.percent}% di sconto su tutto
         </p>
       )}
 

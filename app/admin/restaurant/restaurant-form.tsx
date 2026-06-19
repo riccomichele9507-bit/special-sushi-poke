@@ -32,6 +32,9 @@ type RestaurantRow = {
   cuisine: string[] | null;
   price_range: string | null;
   manual_pause: boolean;
+  auto_promo_active: boolean;
+  auto_promo_percent: number;
+  auto_promo_min_cents: number;
 } | null;
 
 export function RestaurantForm({ data }: { data: RestaurantRow }) {
@@ -100,6 +103,38 @@ export function RestaurantForm({ data }: { data: RestaurantRow }) {
         <Row>
           <F label="Instagram URL" name="instagram" defaultValue={data?.instagram ?? ""} />
           <F label="Facebook URL" name="facebook" defaultValue={data?.facebook ?? ""} />
+        </Row>
+      </Section>
+
+      <Section title="Promo automatica">
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            name="auto_promo_active"
+            defaultChecked={data?.auto_promo_active ?? true}
+            className="h-5 w-5 rounded border-bamboo/50 text-bamboo focus:ring-bamboo"
+          />
+          <span className="text-sm">
+            <strong className="text-bamboo-deep">Promo attiva</strong> — sconto
+            automatico applicato al carrello sopra la soglia (nessun codice).
+          </span>
+        </label>
+        <Row>
+          <F
+            label="Sconto %"
+            name="auto_promo_percent"
+            type="number"
+            defaultValue={data?.auto_promo_percent ?? 20}
+            hint="es. 20"
+          />
+          <F
+            label="Minimo carrello (€)"
+            name="auto_promo_min_euro"
+            type="number"
+            step="any"
+            defaultValue={data ? (data.auto_promo_min_cents ?? 5000) / 100 : 50}
+            hint="da questo importo scatta lo sconto"
+          />
         </Row>
       </Section>
 

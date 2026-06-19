@@ -4,7 +4,12 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validateDelivery, type ValidationSuccess } from "@/lib/delivery/validate";
 import { enqueuePrintJob } from "@/lib/print/queue";
-import { AUTO_PROMO, computeAutoPromoCents } from "@/lib/promo/auto-promo";
+import {
+  PROMO_CODE,
+  computeAutoPromoCents,
+  type PromoConfig,
+} from "@/lib/promo/auto-promo";
+import { getPromoConfig } from "@/lib/promo/server";
 import { sendOrderConfirmationEmail } from "@/lib/email/send";
 import type { CartItem, CustomPokeConfig } from "@/types/cart";
 import type { Json } from "@/lib/supabase/database.types";
@@ -80,11 +85,13 @@ export async function createOrder(
   if ("ok" in items) return items;
   const { snapshots, subtotalCents } = items;
 
-  // 4. Totali: unica promo automatica + mancia (anti-tamper)
+  // 4. Totali: unica promo automatica (config dal DB) + mancia (anti-tamper)
   const tipCents = Math.max(0, input.tipCents ?? 0);
+  const promo = await getPromoConfig();
   const { discountCents, discountCode, totalCents } = computeTotals(
     subtotalCents,
     tipCents,
+    promo,
   );
 
   // 5. Ri-valida consegna + slot ancora libero
@@ -257,13 +264,14 @@ async function recomputeItems(
   return { snapshots, subtotalCents };
 }
 
-/** Sconto (unica promo automatica) + totale. */
+/** Sconto (unica promo automatica, config dal DB) + totale. */
 function computeTotals(
   subtotalCents: number,
   tipCents: number,
+  promo: PromoConfig,
 ): { discountCents: number; discountCode: string | null; totalCents: number } {
-  const discountCents = computeAutoPromoCents(subtotalCents);
-  const discountCode = discountCents > 0 ? AUTO_PROMO.code : null;
+  const discountCents = computeAutoPromoCents(subtotalCents, promo);
+  const discountCode = discountCents > 0 ? PROMO_CODE : null;
   const totalCents = subtotalCents + tipCents - discountCents;
   return { discountCents, discountCode, totalCents };
 }

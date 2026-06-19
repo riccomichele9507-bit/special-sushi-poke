@@ -4,7 +4,7 @@
 
 > Istruzioni di progetto auto-caricate in ogni sessione Claude Code aperta in questa cartella.
 > **Contesto vivo**: leggi `_contesto/BUILD-PROGRESS.md` per lo stato tecnico in corso, `_contesto/PROGRESS.md` per stato commerciale + pricing, `_contesto/REFERENCE.md` per path/comandi, `_contesto/BRANDING.md` per palette/font.
-> **Piano produzione**: `C:\Users\Notebook Lenovo\.claude\plans\analizza-tutta-la-cartella-delightful-eclipse.md` — è la verità di cosa stiamo costruendo (FASE B/C/D + cross-cutting).
+> **Piano produzione**: `C:\Users\Notebook Lenovo\.claude\plans\analizza-tutta-la-cartella-delightful-eclipse.md` — è la verità di cosa stiamo costruendo (FASE B/C/D + cross-cutting)
 
 ---
 

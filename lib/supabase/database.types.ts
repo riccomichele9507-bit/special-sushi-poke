@@ -705,6 +705,9 @@ export type Database = {
           instagram: string | null
           lat: number | null
           lng: number | null
+          auto_promo_active: boolean
+          auto_promo_min_cents: number
+          auto_promo_percent: number
           manual_pause: boolean
           map_embed_url: string | null
           name: string
@@ -734,6 +737,9 @@ export type Database = {
           instagram?: string | null
           lat?: number | null
           lng?: number | null
+          auto_promo_active?: boolean
+          auto_promo_min_cents?: number
+          auto_promo_percent?: number
           manual_pause?: boolean
           map_embed_url?: string | null
           name?: string
@@ -763,6 +769,9 @@ export type Database = {
           instagram?: string | null
           lat?: number | null
           lng?: number | null
+          auto_promo_active?: boolean
+          auto_promo_min_cents?: number
+          auto_promo_percent?: number
           manual_pause?: boolean
           map_embed_url?: string | null
           name?: string

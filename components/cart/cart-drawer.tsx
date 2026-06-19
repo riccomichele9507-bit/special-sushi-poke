@@ -21,7 +21,7 @@ import {
   useCartTotal,
 } from "@/store/cart-store";
 import { usePricing } from "@/lib/pricing-store";
-import { AUTO_PROMO, computeAutoPromoCents } from "@/lib/promo/auto-promo";
+import { promoConfig, computeAutoPromoCents } from "@/lib/promo/auto-promo";
 import { Price } from "@/components/shared/price";
 import { CartItemRow } from "./cart-item-row";
 import { CartUpsell } from "./cart-upsell";
@@ -38,7 +38,8 @@ export function CartDrawer() {
   const subtotal = useCartTotal();
   const tipCents = usePricing((s) => s.tipCents);
 
-  const discountCents = computeAutoPromoCents(subtotal);
+  const promo = promoConfig();
+  const discountCents = computeAutoPromoCents(subtotal, promo);
   const total = Math.max(0, subtotal - discountCents) + tipCents;
 
   function handleCheckout() {
@@ -142,7 +143,7 @@ export function CartDrawer() {
                     {discountCents > 0 && (
                       <div className="flex items-center justify-between">
                         <span className="text-bamboo-deep font-medium">
-                          Promo {AUTO_PROMO.percent}% su tutto
+                          Promo {promo.percent}% su tutto
                         </span>
                         <span className="font-heading font-semibold text-bamboo-deep tabular-nums">
                           −<Price cents={discountCents} size="sm" className="!text-bamboo-deep" />

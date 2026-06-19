@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { AUTO_PROMO } from "@/lib/promo/auto-promo";
+import { getPromoConfig } from "@/lib/promo/server";
 
 /**
  * Box promo del locale (sostituisce la vecchia "offerta del giorno").
- * Comunica la promo automatica 20% da €50. Stile premium coerente con l'app.
+ * Legge la promo configurabile dal DB (admin → Dati ristorante). Stile premium.
  */
-export function PromoBanner() {
-  if (!AUTO_PROMO.active) return null;
-  const minEuro = Math.round(AUTO_PROMO.minCents / 100);
+export async function PromoBanner() {
+  const promo = await getPromoConfig();
+  if (!promo.active) return null;
+  const minEuro = Math.round(promo.minCents / 100);
 
   return (
     <section className="px-4 pt-3">
@@ -39,7 +40,7 @@ export function PromoBanner() {
           </p>
 
           <p className="mt-2 font-heading text-4xl font-bold leading-none text-paper">
-            −{AUTO_PROMO.percent}%
+            −{promo.percent}%
             <span className="ml-2 align-middle text-lg font-semibold text-paper/90">
               su tutto il menu
             </span>

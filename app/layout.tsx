@@ -3,7 +3,9 @@ import { Inter, Noto_Serif_JP } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { restaurant } from "@/data/restaurant";
 import { getMenu } from "@/lib/data/queries";
+import { getPromoConfig } from "@/lib/promo/server";
 import { MenuRegistryProvider } from "@/components/menu-registry-provider";
+import { PromoConfigProvider } from "@/components/providers/promo-config-provider";
 import { CustomerLayoutShell } from "@/components/customer-layout-shell";
 import "./globals.css";
 
@@ -86,15 +88,19 @@ export default async function RootLayout({
     menu = staticMenu;
   }
 
+  const promo = await getPromoConfig();
+
   return (
     <html
       lang="it"
       className={`${inter.variable} ${notoSerifJP.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col font-sans bg-paper text-ink">
-        <MenuRegistryProvider initialMenu={menu}>
-          <CustomerLayoutShell>{children}</CustomerLayoutShell>
-        </MenuRegistryProvider>
+        <PromoConfigProvider config={promo}>
+          <MenuRegistryProvider initialMenu={menu}>
+            <CustomerLayoutShell>{children}</CustomerLayoutShell>
+          </MenuRegistryProvider>
+        </PromoConfigProvider>
         <Toaster
           position="top-center"
           theme="light"

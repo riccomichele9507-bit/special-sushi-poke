@@ -28,6 +28,9 @@ const restaurantSchema = z.object({
   cuisine: z.array(z.string()).default([]),
   price_range: z.string().trim().max(20).nullable(),
   manual_pause: z.boolean().default(false),
+  auto_promo_active: z.boolean().default(true),
+  auto_promo_percent: z.number().int().min(0).max(100).default(20),
+  auto_promo_min_cents: z.number().int().min(0).default(5000),
 });
 
 function nullableStr(fd: FormData, key: string) {
@@ -71,6 +74,13 @@ export async function updateRestaurant(
         cuisine,
         price_range: nullableStr(fd, "price_range"),
         manual_pause: fd.get("manual_pause") === "on",
+        auto_promo_active: fd.get("auto_promo_active") === "on",
+        auto_promo_percent: fd.get("auto_promo_percent")
+          ? parseInt(fd.get("auto_promo_percent") as string, 10)
+          : 20,
+        auto_promo_min_cents: fd.get("auto_promo_min_euro")
+          ? Math.round(parseFloat(fd.get("auto_promo_min_euro") as string) * 100)
+          : 5000,
       });
       const { error } = await sb
         .from("restaurant_settings")
