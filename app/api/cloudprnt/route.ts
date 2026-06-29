@@ -209,7 +209,12 @@ export async function DELETE(request: NextRequest) {
   const now = new Date().toISOString();
 
   const supabase = createAdminClient();
-  const isOk = code === "200" || code === null;
+  // Star invia il code come "200 OK", "510 Incompatible Media Type", ecc.
+  // Estrai il prefisso numerico e accetta 2xx come successo. Uguaglianza esatta
+  // su "200" falliva perché il valore reale è "200 OK" → ristampe + falso failed.
+  // (code === null = firmware vecchi senza code → trattato come OK.)
+  const codeNum = code === null ? 200 : Number.parseInt(code, 10);
+  const isOk = Number.isFinite(codeNum) && codeNum >= 200 && codeNum < 300;
 
   // Trova il job specifico (per jobToken o fallback al più vecchio in_progress)
   let jobQuery = supabase
