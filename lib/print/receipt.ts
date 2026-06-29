@@ -7,6 +7,9 @@ import {
   types as PrinterTypes,
   characterSet as CharacterSet,
 } from "node-thermal-printer";
+import { createCanvas, GlobalFonts, type SKRSContext2D } from "@napi-rs/canvas";
+import QRCode from "qrcode";
+import { MONO_REGULAR_B64, MONO_BOLD_B64 } from "./font-data";
 
 type OrderRow = Database["public"]["Tables"]["orders"]["Row"];
 
@@ -358,4 +361,293 @@ export function generateReceiptPayload(order: OrderRow): Buffer {
   p.cut();
 
   return p.getBuffer();
+}
+
+// ============================================================
+// COMANDA PNG (image/png) — formato definitivo per Star TSP143IV
+// La TSP100IV/143IV via CloudPRNT NON decodifica vnd.star.line né il markup:
+// rendiamo l'intera comanda come immagine PNG (supportata nativamente), che
+// permette QR di navigazione + grassetto + simbolo € reale, in un'unica striscia.
+// Font JetBrains Mono incorporati (font-data.ts) → rendering identico su Vercel.
+// ============================================================
+
+const PNG_FONT_REG = "ReceiptMono";
+const PNG_FONT_BOLD = "ReceiptMonoBold";
+let pngFontsRegistered = false;
+
+function ensurePngFonts(): void {
+  if (pngFontsRegistered) return;
+  GlobalFonts.register(Buffer.from(MONO_REGULAR_B64, "base64"), PNG_FONT_REG);
+  GlobalFonts.register(Buffer.from(MONO_BOLD_B64, "base64"), PNG_FONT_BOLD);
+  pngFontsRegistered = true;
+}
+
+const PNG_W = 576; // 80mm @ 203dpi
+const PNG_PAD = 22;
+const PNG_INNER = PNG_W - PNG_PAD * 2;
+
+type PngOp =
+  | { k: "txt"; s: string; size: number; bold: boolean; align: "l" | "c" | "r" }
+  | { k: "row"; l: string; r: string; size: number; bold: boolean }
+  | { k: "hr"; heavy: boolean }
+  | { k: "gap"; h: number }
+  | { k: "qr"; matrix: boolean[][]; box: number };
+
+function pngLineHeight(size: number): number {
+  return Math.round(size * 1.34);
+}
+
+/** Spezza una stringa su più righe entro maxWidth px (word-wrap + hard-split). */
+function wrapByWidth(
+  ctx: SKRSContext2D,
+  font: string,
+  text: string,
+  maxWidth: number,
+): string[] {
+  ctx.font = font;
+  const out: string[] = [];
+  const hardSplit = (word: string): string => {
+    let chunk = "";
+    for (const ch of word) {
+      if (chunk && ctx.measureText(chunk + ch).width > maxWidth) {
+        out.push(chunk);
+        chunk = ch;
+      } else {
+        chunk += ch;
+      }
+    }
+    return chunk;
+  };
+  for (const rawLine of String(text).split("\n")) {
+    const words = rawLine.split(/\s+/).filter(Boolean);
+    if (words.length === 0) {
+      out.push("");
+      continue;
+    }
+    let cur = "";
+    for (const w of words) {
+      const test = cur ? `${cur} ${w}` : w;
+      if (ctx.measureText(test).width <= maxWidth) {
+        cur = test;
+      } else if (!cur) {
+        cur = hardSplit(w);
+      } else {
+        out.push(cur);
+        cur = ctx.measureText(w).width > maxWidth ? hardSplit(w) : w;
+      }
+    }
+    if (cur) out.push(cur);
+  }
+  return out;
+}
+
+/**
+ * Comanda di cucina come PNG (Buffer) per CloudPRNT `image/png`.
+ * Layout: banner DELIVERY/RITIRO, dati ordine, cliente, indirizzo (delivery),
+ * piatti con varianti/extra (a capo automatico), totali con sconto, stato
+ * pagamento, QR di navigazione (solo delivery con coordinate), footer fiscale.
+ */
+export function generateReceiptPng(order: OrderRow): Buffer {
+  ensurePngFonts();
+  const items = (order.items as unknown as OrderItemSnapshot[]) ?? [];
+  const isDelivery = order.order_type === "delivery";
+
+  const measure = createCanvas(10, 10).getContext("2d");
+  const fontStr = (size: number, bold: boolean) =>
+    `${size}px ${bold ? PNG_FONT_BOLD : PNG_FONT_REG}`;
+  const widthOf = (s: string, size: number, bold: boolean) => {
+    measure.font = fontStr(size, bold);
+    return measure.measureText(s).width;
+  };
+
+  const ops: PngOp[] = [];
+  const txt = (
+    s: string,
+    size: number,
+    bold = false,
+    align: "l" | "c" | "r" = "l",
+  ) => ops.push({ k: "txt", s, size, bold, align });
+  const wrapTxt = (s: string, size: number, bold = false) => {
+    for (const line of wrapByWidth(measure, fontStr(size, bold), s, PNG_INNER)) {
+      txt(line, size, bold, "l");
+    }
+  };
+  const gap = (h: number) => ops.push({ k: "gap", h });
+  const hr = (heavy = false) => ops.push({ k: "hr", heavy });
+  const row = (l: string, r: string, size: number, bold = false) => {
+    const avail = PNG_INNER - widthOf(r, size, bold) - widthOf("  ", size, bold);
+    let left = l;
+    if (widthOf(left, size, bold) > avail) {
+      while (left.length > 1 && widthOf(`${left}…`, size, bold) > avail) {
+        left = left.slice(0, -1);
+      }
+      left = `${left}…`;
+    }
+    ops.push({ k: "row", l: left, r, size, bold });
+  };
+
+  // ---- contenuto ----
+  txt(isDelivery ? "DELIVERY" : "RITIRO", 36, true, "c");
+  txt(
+    isDelivery ? "CONSEGNA A DOMICILIO" : "CLIENTE VIENE A RITIRARE",
+    18,
+    true,
+    "c",
+  );
+  hr(true);
+  txt("SPECIAL SUSHI POKE", 23, true, "c");
+  txt("Via G. Petroni 12/H-i, Bari", 17, false, "c");
+  hr(true);
+  gap(4);
+  txt(`Ordine:  ${order.order_number}`, 22, false, "l");
+  txt(`Data:    ${formatRomeDate(order.created_at)}`, 19, false, "l");
+  txt(
+    `${isDelivery ? "CONSEGNARE" : "PRONTO PER"}: ${formatRomeTime(order.slot_start)} - ${formatRomeTime(order.slot_end)}`,
+    20,
+    true,
+    "l",
+  );
+  hr(false);
+  txt("CLIENTE", 17, true, "l");
+  wrapTxt(order.customer_name ?? "", 25, true);
+  txt(`Tel: ${order.customer_phone ?? ""}`, 20, false, "l");
+  if (isDelivery) {
+    gap(4);
+    txt("INDIRIZZO", 17, true, "l");
+    if (order.address_line) wrapTxt(order.address_line, 20, false);
+    if (order.address_notes) wrapTxt(`Note: ${order.address_notes}`, 19, false);
+    if (order.road_distance_m != null) {
+      txt(`Distanza: ${(order.road_distance_m / 1000).toFixed(1)} km`, 19, false, "l");
+    }
+    if (order.driver_notes) {
+      gap(2);
+      txt("NOTE RIDER", 17, true, "l");
+      wrapTxt(order.driver_notes, 19, false);
+    }
+  }
+  hr(false);
+  txt("PIATTI", 17, true, "l");
+  gap(2);
+  for (const it of items) {
+    row(`${it.qty}x ${it.name}`, eur(it.lineTotalCents), 22, false);
+    if (it.variant) wrapTxt(`   ${it.variant}`, 17, false);
+    if (it.extras && it.extras.length > 0) {
+      wrapTxt(`   + ${it.extras.join(", ")}`, 17, false);
+    }
+  }
+  hr(false);
+  row("Subtotale", eur(order.subtotal_cents), 21, false);
+  if (order.discount_cents > 0) {
+    const label = order.discount_code
+      ? `Sconto (${order.discount_code})`
+      : "Sconto";
+    row(label, `-${eur(order.discount_cents)}`, 21, false);
+  }
+  if (order.tip_cents > 0) row("Mancia", eur(order.tip_cents), 21, false);
+  hr(true);
+  row("TOTALE", eur(order.total_cents), 31, true);
+  hr(true);
+  gap(6);
+  if (order.payment_method === "card") {
+    txt("*** GIÀ PAGATO ONLINE ***", 20, true, "c");
+    txt("Carta - Stripe", 17, false, "c");
+  } else {
+    txt(
+      isDelivery ? "*** DA INCASSARE ***" : "*** DA INCASSARE AL BANCO ***",
+      20,
+      true,
+      "c",
+    );
+    txt(
+      isDelivery ? "CONTANTI o CARTA (POS rider)" : "CONTANTI o CARTA",
+      17,
+      false,
+      "c",
+    );
+    txt(`Importo: ${eur(order.total_cents)}`, 18, true, "c");
+  }
+
+  // QR navigazione (solo delivery con coordinate)
+  const navUrl = isDelivery ? mapsNavUrl(order) : null;
+  if (navUrl) {
+    const qr = QRCode.create(navUrl, { errorCorrectionLevel: "M" });
+    const n = qr.modules.size;
+    const data = qr.modules.data;
+    const matrix: boolean[][] = [];
+    for (let r = 0; r < n; r++) {
+      const rowArr: boolean[] = [];
+      for (let c = 0; c < n; c++) rowArr.push(Boolean(data[r * n + c]));
+      matrix.push(rowArr);
+    }
+    const box = Math.max(3, Math.floor(232 / (n + 8))); // +8 = quiet zone 4/lato
+    gap(12);
+    ops.push({ k: "qr", matrix, box });
+    txt(">> Scansiona per navigare <<", 18, true, "c");
+  }
+  gap(10);
+  txt("Non è un documento fiscale", 16, false, "c");
+  if (!order.fiscal_receipt_issued) {
+    txt("Emettere Documento Commerciale (Nexi)", 16, false, "c");
+  }
+  gap(28); // margine per lo strappo/taglio
+
+  // ---- calcolo altezza ----
+  let height = PNG_PAD;
+  for (const op of ops) {
+    if (op.k === "txt" || op.k === "row") height += pngLineHeight(op.size);
+    else if (op.k === "hr") height += op.heavy ? 14 : 12;
+    else if (op.k === "gap") height += op.h;
+    else if (op.k === "qr") height += (op.matrix.length + 8) * op.box;
+  }
+  height += PNG_PAD;
+
+  // ---- rendering ----
+  const canvas = createCanvas(PNG_W, height);
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, PNG_W, height);
+  ctx.fillStyle = "#000000";
+  ctx.textBaseline = "top";
+
+  let y = PNG_PAD;
+  for (const op of ops) {
+    if (op.k === "txt") {
+      ctx.font = fontStr(op.size, op.bold);
+      const w = ctx.measureText(op.s).width;
+      const x =
+        op.align === "c"
+          ? Math.round((PNG_W - w) / 2)
+          : op.align === "r"
+            ? Math.round(PNG_W - PNG_PAD - w)
+            : PNG_PAD;
+      ctx.fillText(op.s, x, y);
+      y += pngLineHeight(op.size);
+    } else if (op.k === "row") {
+      ctx.font = fontStr(op.size, op.bold);
+      ctx.fillText(op.l, PNG_PAD, y);
+      const rw = ctx.measureText(op.r).width;
+      ctx.fillText(op.r, Math.round(PNG_W - PNG_PAD - rw), y);
+      y += pngLineHeight(op.size);
+    } else if (op.k === "hr") {
+      ctx.fillRect(PNG_PAD, y + 5, PNG_INNER, op.heavy ? 2 : 1);
+      y += op.heavy ? 14 : 12;
+    } else if (op.k === "gap") {
+      y += op.h;
+    } else if (op.k === "qr") {
+      const n = op.matrix.length;
+      const dim = (n + 8) * op.box;
+      const ox = Math.round((PNG_W - dim) / 2) + 4 * op.box;
+      const oy = y + 4 * op.box;
+      for (let r = 0; r < n; r++) {
+        for (let c = 0; c < n; c++) {
+          if (op.matrix[r][c]) {
+            ctx.fillRect(ox + c * op.box, oy + r * op.box, op.box, op.box);
+          }
+        }
+      }
+      y += dim;
+    }
+  }
+
+  return canvas.toBuffer("image/png");
 }

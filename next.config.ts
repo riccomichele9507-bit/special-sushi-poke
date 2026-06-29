@@ -3,9 +3,10 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   devIndicators: false,
-  // node-thermal-printer ha require dinamici (interfacce stampante opzionali):
-  // tenuto esterno al bundle server, lo usiamo solo per generare il buffer StarLine.
-  serverExternalPackages: ["node-thermal-printer"],
+  // node-thermal-printer ha require dinamici (interfacce stampante opzionali);
+  // @napi-rs/canvas è un modulo nativo (.node) usato per rendere la comanda PNG.
+  // Entrambi tenuti esterni al bundle server.
+  serverExternalPackages: ["node-thermal-printer", "@napi-rs/canvas"],
   images: {
     formats: ["image/avif", "image/webp"],
     qualities: [60, 75, 90],

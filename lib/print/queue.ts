@@ -3,7 +3,7 @@
 
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { generateReceiptPlainText } from "./receipt";
+import { generateReceiptPng } from "./receipt";
 import type { Database } from "@/lib/supabase/database.types";
 
 type OrderRow = Database["public"]["Tables"]["orders"]["Row"];
@@ -31,11 +31,8 @@ export async function enqueuePrintJob(order: OrderRow): Promise<boolean> {
     return true; // job attivo/completato in passato → skip duplicate
   }
 
-  // Payload comanda in TESTO ASCII (text/plain) salvato come base64.
-  const payload = Buffer.from(
-    generateReceiptPlainText(order),
-    "ascii",
-  ).toString("base64");
+  // Payload comanda come PNG (image/png) salvato come base64.
+  const payload = generateReceiptPng(order).toString("base64");
   const { error } = await supabase.from("print_jobs").insert({
     order_id: order.id,
     payload,
@@ -64,11 +61,8 @@ export async function reprintOrder(orderId: string): Promise<boolean> {
 
   if (!order) return false;
 
-  // Payload comanda in TESTO ASCII (text/plain) salvato come base64.
-  const payload = Buffer.from(
-    generateReceiptPlainText(order),
-    "ascii",
-  ).toString("base64");
+  // Payload comanda come PNG (image/png) salvato come base64.
+  const payload = generateReceiptPng(order).toString("base64");
   const { error } = await supabase.from("print_jobs").insert({
     order_id: order.id,
     payload,
