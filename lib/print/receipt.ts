@@ -222,16 +222,27 @@ export function generateReceiptPlainText(order: OrderRow): string {
   return sanitizeAscii(generateReceiptText(order));
 }
 
-/** URL Google Maps navigazione verso l'indirizzo di consegna (Modo 3 + fallback). */
+/**
+ * URL Google Maps navigazione verso l'indirizzo di consegna.
+ * destination = INDIRIZZO TESTUALE (es. "Viale Unità d'Italia 15, Bari") così
+ * Maps mostra il nome della via invece di un segnaposto a coordinate; il
+ * place_id àncora la posizione esatta. Fallback alle coordinate se manca
+ * l'indirizzo. (Google Maps URLs API, dir).
+ */
 function mapsNavUrl(order: OrderRow): string | null {
   const geo = order.geo as
     | { lat?: number; lng?: number; placeId?: string }
     | null;
-  if (!geo || typeof geo.lat !== "number" || typeof geo.lng !== "number") {
-    return null;
-  }
-  let url = `https://www.google.com/maps/dir/?api=1&destination=${geo.lat},${geo.lng}`;
-  if (geo.placeId) {
+  const hasCoords =
+    !!geo && typeof geo.lat === "number" && typeof geo.lng === "number";
+  const address = order.address_line?.trim();
+  if (!address && !hasCoords) return null;
+
+  const destination = address
+    ? encodeURIComponent(address)
+    : `${geo!.lat},${geo!.lng}`;
+  let url = `https://www.google.com/maps/dir/?api=1&destination=${destination}`;
+  if (geo?.placeId) {
     url += `&destination_place_id=${encodeURIComponent(geo.placeId)}`;
   }
   return url;
