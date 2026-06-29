@@ -67,13 +67,14 @@ essere registrata al cloud Star.
 | "Ultimo poll" fermo | rete/URL | controlla Wi-Fi/LAN; Server URL esatto |
 | Non stampa / 401 | token diverso | `CLOUDPRNT_TOKEN` su Vercel = quello in stampante (utente `printer`); dopo modifica Vercel → Redeploy |
 | Fermo solo in HTTPS | ora errata / CA | NTP server + HTTPS trust level (Fase 2.5) |
-| Caratteri strani / QR rotto | formato | restiamo in **StarLine**; in `app/api/cloudprnt/route.ts` la costante `PRINT_MEDIA_TYPE="application/vnd.star.line"` è l'unico punto da cambiare |
+| QR/comanda illeggibile | formato | la comanda è un **PNG monocromatico 1-bit** (`image/png`). La TSP143IV NON supporta `vnd.star.line` (→510) e il PNG 24-bit alto dà 511: per questo è 1-bit. Vedi `lib/print/receipt.ts` (`generateReceiptPng`) e `PRINT_MEDIA_TYPE="image/png"` in `app/api/cloudprnt/route.ts` |
 | "Fail" diagnosi Wi-Fi | rete | spegni/riaccendi e riprova |
 
 ## Note tecniche (per noi)
 - Endpoint: `app/api/cloudprnt/route.ts` (POST/GET/DELETE). Auth: Basic (`printer` + `CLOUDPRNT_TOKEN`) o `?token=`.
-- Payload **StarLine** da `node-thermal-printer` (`lib/print/receipt.ts`), salvato base64 in `print_jobs.payload`, servito come `application/vnd.star.line`.
-- QR comanda = link Google Maps da `order.geo` (solo delivery). La comanda **non** è documento fiscale (lo emette il SmartPOS Nexi).
+- Payload **PNG monocromatico 1-bit** generato con `@napi-rs/canvas` + encoder PNG custom (`lib/print/receipt.ts` → `generateReceiptPng`), salvato base64 in `print_jobs.payload`, servito come `image/png`. Font JetBrains Mono incorporati in `lib/print/font-data.ts`.
+- Formati accettati dalla TSP143IV via CloudPRNT: `text/plain`, `image/png` (1-bit mono o 24-bit), `vnd.star.starprnt`. NON `vnd.star.line` (→ 510) né markup diretto. Il codice di conferma DELETE arriva come `"200 OK"` (non `"200"`).
+- QR comanda = link Google Maps da `order.geo` (solo delivery), disegnato nel PNG. La comanda **non** è documento fiscale (lo emette il SmartPOS Nexi).
 
 ---
 

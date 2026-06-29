@@ -394,8 +394,11 @@ type PngOp =
   | { k: "gap"; h: number }
   | { k: "qr"; matrix: boolean[][]; box: number };
 
+// Ingrandimento globale dei caratteri (richiesta: testo leggermente più grande).
+const PNG_SIZE_SCALE = 1.12;
+
 function pngLineHeight(size: number): number {
-  return Math.round(size * 1.34);
+  return Math.round(size * PNG_SIZE_SCALE * 1.34);
 }
 
 // ---- Encoder PNG monocromatico 1-bit (formato accettato dalla TSP100IV) ----
@@ -515,8 +518,10 @@ export function generateReceiptPng(order: OrderRow): Buffer {
   const isDelivery = order.order_type === "delivery";
 
   const measure = createCanvas(10, 10).getContext("2d");
-  const fontStr = (size: number, bold: boolean) =>
-    `${size}px ${bold ? PNG_FONT_BOLD : PNG_FONT_REG}`;
+  // Tutto in GRASSETTO + ingrandito: in PNG 1-bit i tratti sottili a peso
+  // normale si assottigliano e appaiono "chiari"; il bold pieno resta nitido.
+  const fontStr = (size: number, _bold: boolean) =>
+    `${Math.round(size * PNG_SIZE_SCALE)}px ${PNG_FONT_BOLD}`;
   const widthOf = (s: string, size: number, bold: boolean) => {
     measure.font = fontStr(size, bold);
     return measure.measureText(s).width;
@@ -719,7 +724,8 @@ export function generateReceiptPng(order: OrderRow): Buffer {
   const isWhite = (x: number, y: number): boolean => {
     const i = (y * PNG_W + x) * 4;
     const lum = px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114;
-    return lum >= 128;
+    // soglia alzata: più pixel grigi (anti-alias) diventano neri → resa più scura
+    return lum >= 150;
   };
   return encodeMonoPng(PNG_W, height, isWhite);
 }
