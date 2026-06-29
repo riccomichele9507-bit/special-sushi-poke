@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
   // node-thermal-printer ha require dinamici (interfacce stampante opzionali);
   // @napi-rs/canvas è un modulo nativo (.node) usato per rendere la comanda PNG.
   // Entrambi tenuti esterni al bundle server.
-  serverExternalPackages: ["node-thermal-printer", "@napi-rs/canvas"],
+  serverExternalPackages: ["node-thermal-printer", "@napi-rs/canvas", "sharp"],
   images: {
     formats: ["image/avif", "image/webp"],
     qualities: [60, 75, 90],

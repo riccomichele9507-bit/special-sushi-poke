@@ -69,9 +69,11 @@ const cases: [string, OrderRow][] = [
   ["diag-png-pickup-cash.png", pickupCash()],
 ];
 
-for (const [file, order] of cases) {
-  const buf = generateReceiptPng(order);
-  const out = `marketing/${file}`;
-  writeFileSync(out, buf);
-  console.log(`OK ${out} (${Math.round(buf.length / 1024)}KB)`);
-}
+(async () => {
+  for (const [file, order] of cases) {
+    const buf = await generateReceiptPng(order);
+    const out = `marketing/${file}`;
+    writeFileSync(out, buf);
+    console.log(`OK ${out} (${Math.round(buf.length / 1024)}KB)`);
+  }
+})();

@@ -8,6 +8,7 @@ import {
   characterSet as CharacterSet,
 } from "node-thermal-printer";
 import { createCanvas, GlobalFonts, type SKRSContext2D } from "@napi-rs/canvas";
+import sharp from "sharp";
 import QRCode from "qrcode";
 import { MONO_REGULAR_B64, MONO_BOLD_B64 } from "./font-data";
 
@@ -447,7 +448,7 @@ function wrapByWidth(
  * piatti con varianti/extra (a capo automatico), totali con sconto, stato
  * pagamento, QR di navigazione (solo delivery con coordinate), footer fiscale.
  */
-export function generateReceiptPng(order: OrderRow): Buffer {
+export async function generateReceiptPng(order: OrderRow): Promise<Buffer> {
   ensurePngFonts();
   const items = (order.items as unknown as OrderItemSnapshot[]) ?? [];
   const isDelivery = order.order_type === "delivery";
@@ -649,5 +650,14 @@ export function generateReceiptPng(order: OrderRow): Buffer {
     }
   }
 
-  return canvas.toBuffer("image/png");
+  // @napi-rs/canvas produce PNG RGBA (con alfa) → la TSP100IV lo rifiuta con
+  // 511 Media Decoding Error. Normalizziamo con sharp: appiattiamo l'alfa su
+  // bianco, scala di grigi 8-bit, non interlacciato → PNG decodificabile dalla
+  // stampante termica.
+  const rgbaPng = canvas.toBuffer("image/png");
+  return sharp(rgbaPng)
+    .flatten({ background: "#ffffff" })
+    .greyscale()
+    .png({ progressive: false, compressionLevel: 9, palette: false })
+    .toBuffer();
 }
