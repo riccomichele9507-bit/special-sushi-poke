@@ -15,10 +15,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-// Tipo del payload di stampa per TSP143IV-UEWB firmware 3.3.
-// application/vnd.star.line → 510 su questo firmware; starprnt è il formato nativo.
-// node-thermal-printer STAR genera Star Line Mode (compatibile con starprnt su TSP100IV).
-const PRINT_MEDIA_TYPE = "application/vnd.star.starprnt";
+// Tipo del payload di stampa per TSP143IV-UEWB (TSP100IV) firmware 3.3.
+// La TSP100IV supporta SOLO: text/plain, image/png, application/vnd.star.starprnt,
+// vnd.star.starconfiguration, image/vnd.star.png, vnd.star.starprntcore, octet-stream.
+// `application/vnd.star.line` NON è supportato → 510 Incompatible Media Type.
+// Usiamo text/plain: comanda in testo ASCII (lib/print/receipt.ts → generateReceiptPlainText),
+// universale e a prova di code page. Il payload è il testo, salvato base64 in print_jobs.
+// (Il QR di navigazione richiederebbe image/png — enhancement separato.)
+const PRINT_MEDIA_TYPE = "text/plain";
 
 // ============================================================
 // AUTH — Basic Auth preferred, ?token=... fallback
@@ -179,7 +183,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // payload è base64 dei byte ESC/POS → decodifica e servi binario.
+  // payload è base64 del testo ASCII della comanda → decodifica e servi text/plain.
   const body = Buffer.from(job.payload, "base64");
   return new NextResponse(body, {
     status: 200,

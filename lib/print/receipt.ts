@@ -193,6 +193,31 @@ export function generateReceiptText(order: OrderRow): string {
   return lines.join("\n");
 }
 
+/**
+ * Sanitizza in ASCII puro (0x20-0x7E): rimuove i diacritici (à→a, è→e),
+ * converte € → "E" (1 char, preserva l'allineamento delle colonne) e scarta
+ * ogni altro carattere non-ASCII. I byte ASCII bassi stampano IDENTICI in
+ * qualsiasi code page Star (CP437/CP858/CP1252...), quindi la comanda è leggibile
+ * a prescindere dalla configurazione della stampante. Zero rischio "caratteri strani".
+ */
+function sanitizeAscii(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "") // combining diacritics
+    .replace(/€/g, "E")
+    .replace(/[^\x20-\x7E\n]/g, ""); // tutto il resto non-ASCII (tranne newline)
+}
+
+/**
+ * Comanda di cucina come TESTO ASCII per CloudPRNT `text/plain` — il formato
+ * nativo e universalmente supportato dalla TSP143IV (TSP100IV). Niente byte
+ * Star Line/StarPRNT (incompatibili su questo firmware → errore 510), niente
+ * QR (richiederebbe `image/png`). Riusa il layout di generateReceiptText().
+ */
+export function generateReceiptPlainText(order: OrderRow): string {
+  return sanitizeAscii(generateReceiptText(order));
+}
+
 /** URL Google Maps navigazione verso l'indirizzo di consegna (Modo 3 + fallback). */
 function mapsNavUrl(order: OrderRow): string | null {
   const geo = order.geo as
