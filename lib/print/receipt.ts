@@ -7,8 +7,8 @@ import {
   types as PrinterTypes,
   characterSet as CharacterSet,
 } from "node-thermal-printer";
+import zlib from "node:zlib";
 import { createCanvas, GlobalFonts, type SKRSContext2D } from "@napi-rs/canvas";
-import sharp from "sharp";
 import QRCode from "qrcode";
 import { MONO_REGULAR_B64, MONO_BOLD_B64 } from "./font-data";
 
@@ -398,6 +398,67 @@ function pngLineHeight(size: number): number {
   return Math.round(size * 1.34);
 }
 
+// ---- Encoder PNG monocromatico 1-bit (formato accettato dalla TSP100IV) ----
+function pngCrc32(buf: Buffer): number {
+  let c = ~0;
+  for (let i = 0; i < buf.length; i++) {
+    c ^= buf[i];
+    for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xedb88320 & -(c & 1));
+  }
+  return ~c >>> 0;
+}
+
+function pngChunk(type: string, data: Buffer): Buffer {
+  const len = Buffer.alloc(4);
+  len.writeUInt32BE(data.length, 0);
+  const typeBuf = Buffer.from(type, "ascii");
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(pngCrc32(Buffer.concat([typeBuf, data])), 0);
+  return Buffer.concat([len, typeBuf, data, crc]);
+}
+
+/**
+ * Codifica un PNG grayscale 1-bit (bit depth 1, color type 0, non interlacciato):
+ * il formato "Monochrome (1 bit per pixel)" che la TSP143IV decodifica, con
+ * altezze molto maggiori del 24bpp. bit=1 → bianco, bit=0 → nero.
+ */
+function encodeMonoPng(
+  width: number,
+  height: number,
+  isWhite: (x: number, y: number) => boolean,
+): Buffer {
+  const sig = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr.writeUInt8(1, 8); // bit depth
+  ihdr.writeUInt8(0, 9); // color type 0 = grayscale
+  ihdr.writeUInt8(0, 10); // compression
+  ihdr.writeUInt8(0, 11); // filter
+  ihdr.writeUInt8(0, 12); // interlace
+  const rowBytes = Math.ceil(width / 8);
+  const raw = Buffer.alloc((rowBytes + 1) * height);
+  let p = 0;
+  for (let y = 0; y < height; y++) {
+    raw[p++] = 0; // filtro: none
+    for (let bx = 0; bx < rowBytes; bx++) {
+      let byte = 0;
+      for (let bit = 0; bit < 8; bit++) {
+        const x = bx * 8 + bit;
+        if (x >= width || isWhite(x, y)) byte |= 0x80 >> bit;
+      }
+      raw[p++] = byte;
+    }
+  }
+  const idat = zlib.deflateSync(raw, { level: 9 });
+  return Buffer.concat([
+    sig,
+    pngChunk("IHDR", ihdr),
+    pngChunk("IDAT", idat),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
 /** Spezza una stringa su più righe entro maxWidth px (word-wrap + hard-split). */
 function wrapByWidth(
   ctx: SKRSContext2D,
@@ -448,7 +509,7 @@ function wrapByWidth(
  * piatti con varianti/extra (a capo automatico), totali con sconto, stato
  * pagamento, QR di navigazione (solo delivery con coordinate), footer fiscale.
  */
-export async function generateReceiptPng(order: OrderRow): Promise<Buffer> {
+export function generateReceiptPng(order: OrderRow): Buffer {
   ensurePngFonts();
   const items = (order.items as unknown as OrderItemSnapshot[]) ?? [];
   const isDelivery = order.order_type === "delivery";
@@ -650,14 +711,15 @@ export async function generateReceiptPng(order: OrderRow): Promise<Buffer> {
     }
   }
 
-  // @napi-rs/canvas produce PNG RGBA (con alfa) → la TSP100IV lo rifiuta con
-  // 511 Media Decoding Error. Normalizziamo con sharp: appiattiamo l'alfa su
-  // bianco, scala di grigi 8-bit, non interlacciato → PNG decodificabile dalla
-  // stampante termica.
-  const rgbaPng = canvas.toBuffer("image/png");
-  return sharp(rgbaPng)
-    .flatten({ background: "#ffffff" })
-    .greyscale()
-    .png({ progressive: false, compressionLevel: 9, palette: false })
-    .toBuffer();
+  // La TSP100IV accetta PNG monocromatico 1-bit o 24-bit; il 24-bit ha un limite
+  // di altezza basso (memoria) → comanda alta = 511. Codifichiamo 1-bit dai pixel
+  // del canvas con soglia di luminanza (anti-alias → bianco/nero netto).
+  const img = ctx.getImageData(0, 0, PNG_W, height);
+  const px = img.data;
+  const isWhite = (x: number, y: number): boolean => {
+    const i = (y * PNG_W + x) * 4;
+    const lum = px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114;
+    return lum >= 128;
+  };
+  return encodeMonoPng(PNG_W, height, isWhite);
 }

@@ -31,8 +31,8 @@ export async function enqueuePrintJob(order: OrderRow): Promise<boolean> {
     return true; // job attivo/completato in passato → skip duplicate
   }
 
-  // Payload comanda come PNG (image/png) salvato come base64.
-  const payload = (await generateReceiptPng(order)).toString("base64");
+  // Payload comanda come PNG monocromatico (image/png) salvato come base64.
+  const payload = generateReceiptPng(order).toString("base64");
   const { error } = await supabase.from("print_jobs").insert({
     order_id: order.id,
     payload,
@@ -61,8 +61,8 @@ export async function reprintOrder(orderId: string): Promise<boolean> {
 
   if (!order) return false;
 
-  // Payload comanda come PNG (image/png) salvato come base64.
-  const payload = (await generateReceiptPng(order)).toString("base64");
+  // Payload comanda come PNG monocromatico (image/png) salvato come base64.
+  const payload = generateReceiptPng(order).toString("base64");
   const { error } = await supabase.from("print_jobs").insert({
     order_id: order.id,
     payload,
