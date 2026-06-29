@@ -40,3 +40,6 @@ scripts/_generated_ids.txt
 scripts/_thumbs/
 menu-preview.png
 menu_tmp.html
+
+# handoff doc (contiene token, non committare)
+handoff.md

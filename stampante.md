@@ -22,6 +22,15 @@ Token da usare: **`acdd25f7-c4b5-4b9f-8c97-3aafd94f07db`** (o rigenerane uno).
 2. Lo stesso token va nella stampante (Fase 2.3, come Password).
 3. (Opzionale) stesso valore anche in `.env.local`.
 
+## ⛔ NON registrare al Cloud Star Micronics
+Durante il setup (e nel PDF Star, in basso a destra) compare il box
+**"Sign Up for Star Micronics Cloud Services"** (Digital Journal, Coupon Printing).
+**NON registrare la stampante a quel cloud.** È il cloud DI Star, per le loro
+stampe gestite — non c'entra col nostro CloudPRNT verso l'endpoint Vercel, e
+potrebbe **confondere il routing** delle stampe. **Salta quello step.**
+La stampante funziona perfettamente in CloudPRNT (verso il nostro server) **senza**
+essere registrata al cloud Star.
+
 ## FASE 1 — Setup base + Wi-Fi di casa (per la prova)
 1. **Carta**: apri il coperchio (leva), inserisci il rotolo nel verso giusto, tira un lembo, richiudi.
 2. **Accendi**: alimentatore + accensione, LED blu acceso. Dopo ~20 s (se non collegata) stampa il foglio **"WLAN Setup"** con un QR.
@@ -85,6 +94,6 @@ Porte retro: `LAN` · `USB-C (PC/Mac)` · `USB-A 1.5A (Android)` · `Cash Drawer
 
 **Reset comunicazione**: accendi → apri coperchio → tieni FEED finché Power LED lampeggia (rilascia) → tieni FEED finché Network LED lampeggia (rilascia) → tieni FEED per scegliere: Network=LAN, Bluetooth=BT, entrambi=tutto → chiudi coperchio → riavvio + stampa esito.
 
-**Star Micronics Cloud** (opzionale, gratis: Digital Journal, Coupon) — **non necessario** per noi (usiamo CloudPRNT verso il nostro server).
+**Star Micronics Cloud** (Digital Journal, Coupon) — ⛔ **NON registrare** (vedi avviso sopra): non serve e può confondere il routing. Noi usiamo CloudPRNT verso il nostro server.
 
 Copyright 2024 Star Micronics Co., Ltd.
