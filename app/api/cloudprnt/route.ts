@@ -15,11 +15,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-// Tipo del payload di stampa: StarLine nativo (node-thermal-printer type STAR),
-// la modalità di default della TSP143IV — NIENTE ESC/POS emulation. UNICO punto
-// da cambiare se al test fisico la stampante preferisce un altro tipo
-// (es. "application/vnd.star.starprnt"). Payload salvato base64 in print_jobs.
-const PRINT_MEDIA_TYPE = "application/vnd.star.line";
+// Tipo del payload di stampa per TSP143IV-UEWB firmware 3.3.
+// application/vnd.star.line → 510 su questo firmware; starprnt è il formato nativo.
+// node-thermal-printer STAR genera Star Line Mode (compatibile con starprnt su TSP100IV).
+const PRINT_MEDIA_TYPE = "application/vnd.star.starprnt";
 
 // ============================================================
 // AUTH — Basic Auth preferred, ?token=... fallback
