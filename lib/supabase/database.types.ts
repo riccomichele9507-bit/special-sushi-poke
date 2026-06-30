@@ -511,6 +511,7 @@ export type Database = {
           idempotency_key: string | null
           is_test: boolean
           items: Json
+          marketing_consent: boolean
           order_number: string
           order_type: Database["public"]["Enums"]["order_type"]
           payment_method: Database["public"]["Enums"]["payment_method"]
@@ -546,6 +547,7 @@ export type Database = {
           idempotency_key?: string | null
           is_test?: boolean
           items: Json
+          marketing_consent?: boolean
           order_number: string
           order_type: Database["public"]["Enums"]["order_type"]
           payment_method: Database["public"]["Enums"]["payment_method"]
@@ -581,6 +583,7 @@ export type Database = {
           idempotency_key?: string | null
           is_test?: boolean
           items?: Json
+          marketing_consent?: boolean
           order_number?: string
           order_type?: Database["public"]["Enums"]["order_type"]
           payment_method?: Database["public"]["Enums"]["payment_method"]

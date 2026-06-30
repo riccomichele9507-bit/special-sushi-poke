@@ -374,6 +374,8 @@ async function insertOrder(
       status: "received",
       is_test: p.isTest,
       idempotency_key: input.idempotencyKey ?? null,
+      // GDPR opt-in: per i guest è l'unica registrazione del consenso marketing.
+      marketing_consent: input.marketingConsent ?? false,
     })
     .select("id, order_number")
     .single();

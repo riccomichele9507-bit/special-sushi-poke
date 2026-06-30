@@ -29,6 +29,28 @@ export async function sendDormantCampaign(): Promise<CampaignResult> {
     const campaignKey = new Date().toISOString().slice(0, 7); // YYYY-MM
     const eligible = (dormant ?? []).filter((c) => c.marketing_consent && c.email);
 
+    // Guest (non registrati) con consenso marketing: la loro email vive solo sugli
+    // ordini. Includiamo quelli inattivi da 30+ giorni, deduplicati per email ed
+    // esclusi quelli già presenti tra i clienti registrati.
+    const cutoffMs = Date.now() - DORMANT_DAYS * 86_400_000;
+    const { data: guestOrders } = await sb
+      .from("orders")
+      .select("customer_email, customer_name, created_at")
+      .is("customer_id", null)
+      .eq("marketing_consent", true)
+      .order("created_at", { ascending: false });
+
+    const seen = new Set(eligible.map((c) => c.email.toLowerCase()));
+    const guestEligible: { email: string; name: string | null }[] = [];
+    for (const o of guestOrders ?? []) {
+      const email = (o.customer_email ?? "").toLowerCase();
+      if (!email || seen.has(email)) continue; // dedup + esclude registrati/già visti
+      seen.add(email); // primo incontro = ordine più recente di questa email
+      if (new Date(o.created_at).getTime() <= cutoffMs) {
+        guestEligible.push({ email: o.customer_email, name: o.customer_name });
+      }
+    }
+
     let sent = 0;
     for (const c of eligible) {
       const r = await sendDormantPromoEmail({
@@ -41,19 +63,31 @@ export async function sendDormantCampaign(): Promise<CampaignResult> {
       });
       if (r.sent) sent++;
     }
+    for (const g of guestEligible) {
+      const r = await sendDormantPromoEmail({
+        to: g.email,
+        name: g.name,
+        customerId: null,
+        code: PROMO_CODE,
+        percent: PROMO_PERCENT,
+        campaignKey,
+      });
+      if (r.sent) sent++;
+    }
 
+    const totalEligible = eligible.length + guestEligible.length;
     // Riepilogo al titolare: prova che la promo è partita + a quanti (1 sola email).
     if (sent > 0) {
       await sendCampaignRecapEmail({
         campaign: campaignKey,
         sent,
-        eligible: eligible.length,
+        eligible: totalEligible,
         promoCode: PROMO_CODE,
         promoPercent: PROMO_PERCENT,
       });
     }
 
-    return { ok: true, sent, eligible: eligible.length };
+    return { ok: true, sent, eligible: totalEligible };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Errore" };
   }
