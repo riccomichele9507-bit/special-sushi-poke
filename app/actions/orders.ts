@@ -10,6 +10,10 @@ import {
   type PromoConfig,
 } from "@/lib/promo/auto-promo";
 import { getPromoConfig } from "@/lib/promo/server";
+import {
+  resolveCodeDiscount,
+  type CodeDiscount,
+} from "@/lib/promo/discount-code";
 import { sendOrderConfirmationEmail } from "@/lib/email/send";
 import type { CartItem, CustomPokeConfig } from "@/types/cart";
 import type { Json } from "@/lib/supabase/database.types";
@@ -41,6 +45,8 @@ export interface CreateOrderInput {
   tipCents?: number;
   /** Spuntato a checkout → aggiorna customers.marketing_consent se non già true */
   marketingConsent?: boolean;
+  /** Codice sconto inserito a checkout (validato/ricalcolato lato server). */
+  discountCode?: string;
   /** Chiave anti-doppione per tentativo di checkout (UUID generato dal client). */
   idempotencyKey?: string;
 }
@@ -85,13 +91,20 @@ export async function createOrder(
   if ("ok" in items) return items;
   const { snapshots, subtotalCents } = items;
 
-  // 4. Totali: unica promo automatica (config dal DB) + mancia (anti-tamper)
+  // 4. Totali: promo automatica (config dal DB) OPPURE codice sconto inserito,
+  //    si applica il maggiore (no stacking) + mancia (anti-tamper)
   const tipCents = Math.max(0, input.tipCents ?? 0);
   const promo = await getPromoConfig();
+  const codeDiscount = await resolveCodeDiscount(
+    admin,
+    input.discountCode,
+    subtotalCents,
+  );
   const { discountCents, discountCode, totalCents } = computeTotals(
     subtotalCents,
     tipCents,
     promo,
+    codeDiscount,
   );
 
   // 5. Ri-valida consegna + slot ancora libero
@@ -264,14 +277,23 @@ async function recomputeItems(
   return { snapshots, subtotalCents };
 }
 
-/** Sconto (unica promo automatica, config dal DB) + totale. */
+/**
+ * Sconto + totale. Confronta la promo automatica col codice sconto inserito e
+ * applica il MAGGIORE (no stacking). Marca discount_code col codice vincente.
+ */
 function computeTotals(
   subtotalCents: number,
   tipCents: number,
   promo: PromoConfig,
+  codeDiscount: CodeDiscount | null = null,
 ): { discountCents: number; discountCode: string | null; totalCents: number } {
-  const discountCents = computeAutoPromoCents(subtotalCents, promo);
-  const discountCode = discountCents > 0 ? PROMO_CODE : null;
+  const autoCents = computeAutoPromoCents(subtotalCents, promo);
+  let discountCents = autoCents;
+  let discountCode = autoCents > 0 ? PROMO_CODE : null;
+  if (codeDiscount && codeDiscount.cents > discountCents) {
+    discountCents = codeDiscount.cents;
+    discountCode = codeDiscount.code;
+  }
   const totalCents = subtotalCents + tipCents - discountCents;
   return { discountCents, discountCode, totalCents };
 }

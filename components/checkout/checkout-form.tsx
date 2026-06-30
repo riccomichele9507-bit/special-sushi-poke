@@ -26,6 +26,7 @@ import {
 import { DeliveryQuoteBox } from "./delivery-quote-box";
 import type { DeliveryQuoteResult, SlotOption } from "@/app/actions/delivery-quote";
 import { createOrder } from "@/app/actions/orders";
+import { quoteDiscountCode } from "@/app/actions/discount";
 import { usePricing } from "@/lib/pricing-store";
 import { TipSelector } from "@/components/cart/tip-selector";
 
@@ -142,6 +143,28 @@ export function CheckoutForm({
   const tipCents = usePricing((s) => s.tipCents);
   const [marketingConsent, setMarketingConsent] = useState(true);
 
+  // Codice sconto (feedback immediato; il server ricalcola comunque l'anti-tamper)
+  const [discountCode, setDiscountCode] = useState("");
+  const [checkingCode, setCheckingCode] = useState(false);
+  const [codeFeedback, setCodeFeedback] = useState<{
+    ok: boolean;
+    message: string;
+  } | null>(null);
+
+  async function applyDiscountCode() {
+    const code = discountCode.trim();
+    if (!code) return;
+    setCheckingCode(true);
+    const r = await quoteDiscountCode(code, cartCents);
+    setCheckingCode(false);
+    if (r.ok) {
+      const eur = `€${(r.discountCents / 100).toFixed(2).replace(".", ",")}`;
+      setCodeFeedback({ ok: true, message: `Codice applicato: −${eur} di sconto` });
+    } else {
+      setCodeFeedback({ ok: false, message: r.message });
+    }
+  }
+
   // Chiave anti-doppione: stabile per questo tentativo di checkout, così un
   // doppio-tap / retry crea UN solo ordine (il server fa dedup su questa chiave).
   const idempotencyKeyRef = useRef<string>("");
@@ -177,6 +200,7 @@ export function CheckoutForm({
       items: cartItems,
       tipCents,
       marketingConsent,
+      discountCode: discountCode.trim() || undefined,
     });
 
     if (!result.ok) {
@@ -371,6 +395,47 @@ export function CheckoutForm({
       <div className="space-y-3 pt-2">
         <p className={LABEL_CLASSES}>Mancia per lo staff</p>
         <TipSelector />
+      </div>
+
+      <div className="space-y-2 pt-2">
+        <Label htmlFor="discountCode" className={LABEL_CLASSES}>
+          Codice sconto
+          <span className="ml-1 normal-case tracking-normal text-warm-gray/60">
+            — opzionale
+          </span>
+        </Label>
+        <div className="flex gap-2">
+          <Input
+            id="discountCode"
+            value={discountCode}
+            onChange={(e) => {
+              setDiscountCode(e.target.value);
+              setCodeFeedback(null);
+            }}
+            placeholder="Es. BENTORNATO10"
+            autoCapitalize="characters"
+            autoComplete="off"
+            className={cn(INPUT_CLASSES, "flex-1 uppercase placeholder:normal-case")}
+          />
+          <button
+            type="button"
+            onClick={applyDiscountCode}
+            disabled={checkingCode || !discountCode.trim()}
+            className="h-12 shrink-0 rounded-xl border border-bamboo/50 px-5 text-sm font-semibold text-bamboo transition hover:bg-bamboo/10 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {checkingCode ? "…" : "Applica"}
+          </button>
+        </div>
+        {codeFeedback && (
+          <p
+            className={cn(
+              "text-xs",
+              codeFeedback.ok ? "text-bamboo" : "text-sushi-red",
+            )}
+          >
+            {codeFeedback.message}
+          </p>
+        )}
       </div>
 
       <div className="space-y-3 pt-2">
