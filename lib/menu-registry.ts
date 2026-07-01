@@ -42,3 +42,31 @@ export function getMenu(): Dish[] {
   if (registryArray) return registryArray;
   return staticMenu;
 }
+
+// Helper di lettura per i componenti (leggono dal DB via registry idratato,
+// con fallback statico). Sostituiscono gli omonimi di data/menu.ts, che
+// leggevano SOLO il file statico → il sito non rifletteva le modifiche admin.
+
+export function getDishesByCategory(category: string): Dish[] {
+  return getMenu().filter((d) => d.category === category);
+}
+
+export function searchDishes(query: string): Dish[] {
+  const all = getMenu();
+  const q = query.trim().toLowerCase();
+  if (!q) return all;
+  return all.filter(
+    (d) =>
+      d.name.toLowerCase().includes(q) ||
+      d.description.toLowerCase().includes(q) ||
+      d.ingredients.some((i) => i.toLowerCase().includes(q)),
+  );
+}
+
+export function getFeaturedDishes(): Dish[] {
+  return getMenu().filter((d) => d.isFeatured);
+}
+
+export function getMostOrderedDishes(): Dish[] {
+  return getMenu().filter((d) => d.isMostOrdered);
+}

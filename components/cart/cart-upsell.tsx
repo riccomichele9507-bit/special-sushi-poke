@@ -5,7 +5,7 @@ import { Plus } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { useCartStore, useCartItemsWithDish } from "@/store/cart-store";
-import { getDishById } from "@/data/menu";
+import { getDishById } from "@/lib/menu-registry";
 import { getCategoryKanji } from "@/data/categories";
 import { Price } from "@/components/shared/price";
 import type { Dish } from "@/types/dish";

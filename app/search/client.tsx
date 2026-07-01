@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { Search, X, TrendingUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { DishCard } from "@/components/menu/dish-card";
-import { searchDishes, getMostOrderedDishes } from "@/data/menu";
+import { searchDishes, getMostOrderedDishes } from "@/lib/menu-registry";
 
 const QUICK_SUGGESTIONS = ["Salmone", "Gamberi", "Vegano", "Spicy", "Tempura", "Mango"];
 

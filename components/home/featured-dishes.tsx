@@ -1,7 +1,7 @@
 import { Container } from "@/components/shared/container";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { DishCard } from "@/components/menu/dish-card";
-import { getFeaturedDishes } from "@/data/menu";
+import { getFeaturedDishes } from "@/lib/menu-registry";
 
 export function FeaturedDishes() {
   const featured = getFeaturedDishes();

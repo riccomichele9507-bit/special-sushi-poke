@@ -7,10 +7,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { CategoryTabs } from "@/components/menu/category-tabs";
 import { DishCard } from "@/components/menu/dish-card";
 import { categories } from "@/data/categories";
-import { menu, getDishesByCategory, searchDishes } from "@/data/menu";
+import { getMenu, getDishesByCategory, searchDishes } from "@/lib/menu-registry";
 
 export function MenuTabClient() {
   const [query, setQuery] = useState("");
+  const menu = getMenu();
   const activeCategories = useMemo(
     () => categories.filter((c) => c.available),
     [],

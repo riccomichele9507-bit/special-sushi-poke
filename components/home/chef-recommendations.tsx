@@ -4,7 +4,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { Star, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { getDishById } from "@/data/menu";
+import { getDishById } from "@/lib/menu-registry";
 import { useCartStore } from "@/store/cart-store";
 import { useDishDetail } from "@/lib/dish-detail-store";
 import { formatPrice } from "@/lib/format";

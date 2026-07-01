@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/drawer";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { getDishById } from "@/data/menu";
+import { getDishById } from "@/lib/menu-registry";
 import { categoryColors, getCategoryKanji, getCategoryById } from "@/data/categories";
 import {
   getDishSizeVariants,
