@@ -81,31 +81,21 @@ const restaurantJsonLd = {
   acceptsReservations: false,
   areaServed: restaurant.address.city,
   sameAs: [restaurant.social.instagram, restaurant.social.facebook],
-  // Orari (rispecchiano data/restaurant.ts → hours). Verificare che siano corretti.
+  // Aperto tutti i giorni, orario continuato 11:30–23:30.
   openingHoursSpecification: [
     {
       "@type": "OpeningHoursSpecification",
-      dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-      opens: "12:30",
-      closes: "14:30",
-    },
-    {
-      "@type": "OpeningHoursSpecification",
-      dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-      opens: "19:00",
-      closes: "22:30",
-    },
-    {
-      "@type": "OpeningHoursSpecification",
-      dayOfWeek: ["Saturday", "Sunday"],
-      opens: "12:30",
-      closes: "15:00",
-    },
-    {
-      "@type": "OpeningHoursSpecification",
-      dayOfWeek: ["Saturday", "Sunday"],
-      opens: "19:00",
-      closes: "23:00",
+      dayOfWeek: [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday",
+      ],
+      opens: "11:30",
+      closes: "23:30",
     },
   ],
 };
