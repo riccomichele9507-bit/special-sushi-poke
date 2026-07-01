@@ -8,6 +8,10 @@ import type Stripe from "stripe";
 import { getStripe, isStripeConfigured } from "@/lib/stripe/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { enqueuePrintJob } from "@/lib/print/queue";
+import {
+  sendOrderConfirmationEmail,
+  sendOwnerOrderEmail,
+} from "@/lib/email/send";
 
 export const runtime = "nodejs";
 // Body raw richiesto da Stripe per verificare signature
@@ -151,9 +155,16 @@ async function handleCheckoutCompleted(
     .single();
   if (full) {
     await enqueuePrintJob(full);
+    // Email best-effort (dedup interno evita doppioni con la pagina di ritorno).
+    // Un errore email NON deve far fallire il webhook (Stripe ritenterebbe).
+    try {
+      await sendOrderConfirmationEmail(full);
+      await sendOwnerOrderEmail(full); // telefono + composizione poke (solo titolare)
+    } catch (e) {
+      console.error("email post-conferma webhook:", e);
+    }
   }
 
-  // TODO C7: trigger email conferma ordine via Resend
   console.log(`Ordine ${order.order_number} confermato via Stripe`);
 }
 

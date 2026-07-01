@@ -308,11 +308,108 @@ export async function sendOrderConfirmationEmail(order: Order): Promise<SendResu
   `;
   const html = brandShell({ title: subject, bodyHtml: body });
   try {
-    const r = await resend.emails.send({ from: getFromEmail(), replyTo: getReplyTo(), bcc: getBccEmail(), to: order.customer_email, subject, html });
+    // Nessun BCC al titolare: riceve la sua email dedicata (sendOwnerOrderEmail)
+    // con telefono e composizione poke. Questa resta la conferma "pulita" al cliente.
+    const r = await resend.emails.send({ from: getFromEmail(), replyTo: getReplyTo(), to: order.customer_email, subject, html });
     if (r.error) return { sent: false, reason: r.error.message };
     await admin.from("marketing_emails_log").insert({
       customer_id: order.customer_id,
       email: order.customer_email,
+      email_type: emailType,
+      subject,
+      resend_id: r.data?.id ?? null,
+    });
+    return { sent: true };
+  } catch (e) {
+    return { sent: false, reason: e instanceof Error ? e.message : "unknown" };
+  }
+}
+
+/**
+ * Email al TITOLARE (ristorante) ad ogni nuovo ordine, con i dettagli operativi
+ * che NON stanno nella conferma cliente: TELEFONO del cliente e la COMPOSIZIONE
+ * delle poke personalizzate (base, proteine, topping, salse). Va SOLO al titolare
+ * (indirizzo BCC/ristorante). Dedup per ordine. Mai throw.
+ */
+export async function sendOwnerOrderEmail(order: Order): Promise<SendResult> {
+  try {
+    const resend = getResend();
+    if (!resend) return { sent: false, reason: "resend_not_configured" };
+    const to = getBccEmail();
+    if (!to) return { sent: false, reason: "no_owner_email" };
+
+    const admin = createAdminClient();
+    const emailType = `order_owner:${order.order_number}`;
+    const { data: existing } = await admin
+      .from("marketing_emails_log")
+      .select("id")
+      .eq("email_type", emailType)
+      .eq("email", to)
+      .limit(1)
+      .maybeSingle();
+    if (existing) return { sent: false, reason: "already_sent" };
+
+    const isDelivery = order.order_type === "delivery";
+    const slot = `${formatRomeTime(order.slot_start)}–${formatRomeTime(order.slot_end)}`;
+    const items = Array.isArray(order.items)
+      ? (order.items as Array<{
+          name?: string;
+          qty?: number;
+          lineTotalCents?: number;
+          variant?: string;
+          extras?: string[];
+        }>)
+      : [];
+    const itemsHtml = items
+      .map((it) => {
+        const price = `€${((it.lineTotalCents ?? 0) / 100).toFixed(2).replace(".", ",")}`;
+        const sub = [
+          it.variant,
+          it.extras && it.extras.length ? it.extras.join(", ") : null,
+        ]
+          .filter(Boolean)
+          .join(" · ");
+        const subRow = sub
+          ? `<tr><td colspan="2" style="font-size:13px;color:#5a5048;padding:0 0 6px 14px;">↳ ${escapeHtml(sub)}</td></tr>`
+          : "";
+        return `<tr><td style="padding:4px 0;font-size:15px;font-weight:600;color:#2d2a26;">${escapeHtml(String(it.qty ?? 1))}× ${escapeHtml(it.name ?? "Piatto")}</td><td style="padding:4px 0;font-size:15px;text-align:right;color:#5a5048;">${price}</td></tr>${subRow}`;
+      })
+      .join("");
+
+    const subject = `🍣 Nuovo ordine #${order.order_number} — ${order.customer_name}`;
+    const body = `
+      <div style="text-align:center;background:${isDelivery ? "#5a7a64" : "#b8965a"};color:#fff;border-radius:12px;padding:10px;margin:0 0 14px;">
+        <div style="font-size:20px;font-weight:800;letter-spacing:.05em;">${isDelivery ? "DELIVERY" : "RITIRO"}</div>
+        <div style="font-size:14px;opacity:.95;">${isDelivery ? "Consegna" : "Pronto"}: ${slot}</div>
+      </div>
+      <h1 style="margin:0 0 6px;font-size:20px;font-weight:800;">Ordine #${escapeHtml(order.order_number)}</h1>
+      <p style="margin:0 0 12px;font-size:15px;color:#5a5048;line-height:1.5;">
+        <strong>${escapeHtml(order.customer_name)}</strong><br/>
+        📞 <a href="tel:${escapeHtml(order.customer_phone)}" style="color:#5a7a64;font-weight:700;text-decoration:none;">${escapeHtml(order.customer_phone)}</a>
+      </p>
+      ${
+        isDelivery
+          ? `<p style="margin:0 0 12px;font-size:14px;color:#5a5048;line-height:1.5;">📍 ${escapeHtml(order.address_line ?? "")}${order.address_notes ? "<br/>" + escapeHtml(order.address_notes) : ""}${order.driver_notes ? '<br/><em>Note rider: ' + escapeHtml(order.driver_notes) + "</em>" : ""}</p>`
+          : ""
+      }
+      <table style="width:100%;border-collapse:collapse;margin:6px 0;">${itemsHtml}
+        ${order.discount_cents > 0 ? `<tr><td style="font-size:14px;color:#5a5048;padding-top:6px;">Sconto${order.discount_code ? " (" + escapeHtml(order.discount_code) + ")" : ""}</td><td style="text-align:right;font-size:14px;color:#5a5048;padding-top:6px;">−€${(order.discount_cents / 100).toFixed(2).replace(".", ",")}</td></tr>` : ""}
+        <tr><td style="border-top:1px solid #eee;padding-top:8px;font-size:16px;font-weight:800;">TOTALE</td><td style="border-top:1px solid #eee;padding-top:8px;font-size:16px;font-weight:800;text-align:right;color:#5a7a64;">€${(order.total_cents / 100).toFixed(2).replace(".", ",")}</td></tr>
+      </table>
+      <p style="font-size:13px;color:#8a8074;margin:6px 0 0;">Pagamento: ${order.payment_method === "card" ? "Carta — già pagato online" : "Contanti/carta alla consegna"}</p>
+    `;
+    const html = brandShell({ title: subject, bodyHtml: body });
+    const r = await resend.emails.send({
+      from: getFromEmail(),
+      replyTo: getReplyTo(),
+      to,
+      subject,
+      html,
+    });
+    if (r.error) return { sent: false, reason: r.error.message };
+    await admin.from("marketing_emails_log").insert({
+      customer_id: order.customer_id,
+      email: to,
       email_type: emailType,
       subject,
       resend_id: r.data?.id ?? null,

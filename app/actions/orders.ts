@@ -14,7 +14,10 @@ import {
   resolveCodeDiscount,
   type CodeDiscount,
 } from "@/lib/promo/discount-code";
-import { sendOrderConfirmationEmail } from "@/lib/email/send";
+import {
+  sendOrderConfirmationEmail,
+  sendOwnerOrderEmail,
+} from "@/lib/email/send";
 import type { CartItem, CustomPokeConfig } from "@/types/cart";
 import type { Json } from "@/lib/supabase/database.types";
 
@@ -532,5 +535,6 @@ async function finalizeCashOrder(
   if (full) {
     await enqueuePrintJob(full);
     await sendOrderConfirmationEmail(full);
+    await sendOwnerOrderEmail(full); // telefono + composizione poke (solo titolare)
   }
 }

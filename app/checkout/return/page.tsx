@@ -2,7 +2,10 @@ import { redirect } from "next/navigation";
 import { getStripe, isStripeConfigured } from "@/lib/stripe/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { enqueuePrintJob } from "@/lib/print/queue";
-import { sendOrderConfirmationEmail } from "@/lib/email/send";
+import {
+  sendOrderConfirmationEmail,
+  sendOwnerOrderEmail,
+} from "@/lib/email/send";
 import { PostPaymentRedirect } from "./redirect-client";
 
 /**
@@ -55,6 +58,7 @@ async function confirmPaidOrder(
   if (full) {
     await enqueuePrintJob(full);
     await sendOrderConfirmationEmail(full); // best-effort
+    await sendOwnerOrderEmail(full); // telefono + composizione poke (solo titolare)
   }
   return info;
 }
