@@ -1,8 +1,13 @@
+import type { Metadata } from "next";
 import { HeroCard } from "@/components/home/hero-card";
 import { PromoBanner } from "@/components/home/promo-banner";
 import { ChefRecommendations } from "@/components/home/chef-recommendations";
 import { CategoryCircles } from "@/components/home/category-circles";
 import { RestaurantLocation } from "@/components/home/restaurant-location";
+
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
 export default function HomePage() {
   return (

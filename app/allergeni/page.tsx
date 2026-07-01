@@ -6,6 +6,7 @@ export const metadata: Metadata = {
   title: "Allergeni e Informazioni Prodotti",
   description:
     "Informazioni su prodotti, allergeni e trattamenti sanitari di Special Sushi Poke: abbattimento anti-Anisakis, provenienza, 14 allergeni e contaminazione crociata.",
+  alternates: { canonical: "/allergeni" },
 };
 
 export default function AllergeniPage() {

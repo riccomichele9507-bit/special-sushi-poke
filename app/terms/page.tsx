@@ -6,6 +6,7 @@ import { restaurant } from "@/data/restaurant";
 export const metadata: Metadata = {
   title: "Termini di servizio",
   description: "Termini e condizioni di Special Sushi Poke Bari.",
+  alternates: { canonical: "/terms" },
 };
 
 export default function TermsPage() {

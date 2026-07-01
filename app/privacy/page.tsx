@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description: "Informativa privacy di Special Sushi Poke Bari.",
+  alternates: { canonical: "/privacy" },
 };
 
 export default function PrivacyPage() {

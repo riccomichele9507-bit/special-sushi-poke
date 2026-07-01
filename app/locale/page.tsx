@@ -9,6 +9,7 @@ import { InstagramIcon, FacebookIcon } from "@/components/shared/social-icons";
 export const metadata: Metadata = {
   title: "Il nostro locale",
   description: "Chi siamo, recensioni dei clienti, dove trovarci.",
+  alternates: { canonical: "/locale" },
 };
 
 export default function LocalePage() {

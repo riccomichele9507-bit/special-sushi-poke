@@ -48,6 +48,12 @@ export const metadata: Metadata = {
       },
     ],
   },
+  twitter: {
+    card: "summary_large_image",
+    title: `${restaurant.name} — ${restaurant.tagline}`,
+    description: "Sushi e Poke a Bari. Menu navigabile, consegna gratuita.",
+    images: ["/og/og-default.png"],
+  },
 };
 
 const restaurantJsonLd = {
@@ -69,8 +75,39 @@ const restaurantJsonLd = {
   },
   telephone: restaurant.whatsapp,
   url: siteUrl,
+  hasMenu: `${siteUrl}/menu`,
   servesCuisine: restaurant.cuisine,
   priceRange: restaurant.priceRange,
+  acceptsReservations: false,
+  areaServed: restaurant.address.city,
+  sameAs: [restaurant.social.instagram, restaurant.social.facebook],
+  // Orari (rispecchiano data/restaurant.ts → hours). Verificare che siano corretti.
+  openingHoursSpecification: [
+    {
+      "@type": "OpeningHoursSpecification",
+      dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+      opens: "12:30",
+      closes: "14:30",
+    },
+    {
+      "@type": "OpeningHoursSpecification",
+      dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+      opens: "19:00",
+      closes: "22:30",
+    },
+    {
+      "@type": "OpeningHoursSpecification",
+      dayOfWeek: ["Saturday", "Sunday"],
+      opens: "12:30",
+      closes: "15:00",
+    },
+    {
+      "@type": "OpeningHoursSpecification",
+      dayOfWeek: ["Saturday", "Sunday"],
+      opens: "19:00",
+      closes: "23:00",
+    },
+  ],
 };
 
 export default async function RootLayout({

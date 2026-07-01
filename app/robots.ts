@@ -9,7 +9,16 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/checkout", "/checkout/"],
+        // Aree private/transazionali: fuori dall'indice + niente spreco crawl budget.
+        disallow: [
+          "/checkout",
+          "/account",
+          "/admin",
+          "/login",
+          "/signup",
+          "/auth",
+          "/api/",
+        ],
       },
     ],
     sitemap: `${siteUrl}/sitemap.xml`,
