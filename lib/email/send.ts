@@ -6,6 +6,7 @@
 import "server-only";
 import { getResend, getFromEmail, getReplyTo, getBccEmail } from "./client";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { restaurant } from "@/data/restaurant";
 import type { Database } from "@/lib/supabase/database.types";
 
 type Order = Database["public"]["Tables"]["orders"]["Row"];
@@ -410,6 +411,59 @@ export async function sendOwnerOrderEmail(order: Order): Promise<SendResult> {
     await admin.from("marketing_emails_log").insert({
       customer_id: order.customer_id,
       email: to,
+      email_type: emailType,
+      subject,
+      resend_id: r.data?.id ?? null,
+    });
+    return { sent: true };
+  } catch (e) {
+    return { sent: false, reason: e instanceof Error ? e.message : "unknown" };
+  }
+}
+
+/**
+ * Email post-ordine che invita a lasciare una recensione Google (inviata ~12h
+ * dopo l'ordine, dal cron). A TUTTI i clienti (delivery e pickup). Dedup per
+ * ordine. Mai throw.
+ */
+export async function sendReviewRequestEmail(order: Order): Promise<SendResult> {
+  try {
+    const resend = getResend();
+    if (!resend) return { sent: false, reason: "resend_not_configured" };
+    if (!order.customer_email?.includes("@")) {
+      return { sent: false, reason: "no_email" };
+    }
+
+    const admin = createAdminClient();
+    const emailType = `review_request:${order.order_number}`;
+    const { data: existing } = await admin
+      .from("marketing_emails_log")
+      .select("id")
+      .eq("email_type", emailType)
+      .eq("email", order.customer_email)
+      .limit(1)
+      .maybeSingle();
+    if (existing) return { sent: false, reason: "already_sent" };
+
+    const subject = "Com'è andata? Lascia una recensione ⭐ — Special Sushi Poke";
+    const body = `
+      <h1 style="margin:0 0 10px;font-size:23px;font-weight:800;">Grazie ${escapeHtml(order.customer_name)}! 🍣</h1>
+      <p style="font-size:16px;line-height:1.55;margin:0 0 16px;color:#5a5048;">Speriamo tu abbia gustato il tuo ordine. Ci regali <strong>30 secondi</strong>? Una tua recensione su Google ci aiuta tantissimo — e aiuta altri a scoprirci.</p>
+      ${ctaButton(restaurant.googleReviewUrl, "Lascia una recensione ⭐")}
+      <p style="font-size:13px;color:#8a8074;text-align:center;margin:16px 0 0;">Grazie di cuore — il team di Special Sushi Poke</p>
+    `;
+    const html = brandShell({ title: subject, bodyHtml: body });
+    const r = await resend.emails.send({
+      from: getFromEmail(),
+      replyTo: getReplyTo(),
+      to: order.customer_email,
+      subject,
+      html,
+    });
+    if (r.error) return { sent: false, reason: r.error.message };
+    await admin.from("marketing_emails_log").insert({
+      customer_id: order.customer_id,
+      email: order.customer_email,
       email_type: emailType,
       subject,
       resend_id: r.data?.id ?? null,
