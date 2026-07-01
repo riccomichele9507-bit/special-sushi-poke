@@ -20,6 +20,7 @@ export const restaurant = {
     "https://wa.me/393533263829?text=" +
     encodeURIComponent("Ciao Special Sushi Poke! Vorrei informazioni sull'ordine."),
   email: "specialsushipoke@gmail.com",
+  vat: "09041530727",
   hours: {
     weekdays: "12:30 – 14:30 · 19:00 – 22:30",
     weekend: "12:30 – 15:00 · 19:00 – 23:00",

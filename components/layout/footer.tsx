@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MapPin, Mail, ExternalLink } from "lucide-react";
+import { MapPin, Mail, ExternalLink, Receipt } from "lucide-react";
 import { Container } from "@/components/shared/container";
 import { InstagramIcon, FacebookIcon } from "@/components/shared/social-icons";
 import { restaurant } from "@/data/restaurant";
@@ -82,6 +82,10 @@ export function Footer() {
                   <Mail className="h-3.5 w-3.5 text-gold" strokeWidth={1.75} />
                   {restaurant.email}
                 </a>
+              </li>
+              <li className="flex items-center gap-2.5 text-[13px] text-white/45">
+                <Receipt className="h-3.5 w-3.5 shrink-0 text-gold" strokeWidth={1.75} />
+                P. IVA {restaurant.vat}
               </li>
             </ul>
 
