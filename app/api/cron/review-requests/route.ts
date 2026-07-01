@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
     .gte("created_at", lower)
     .not("status", "in", "(received,cancelled,refunded)")
     .not("customer_email", "is", null)
+    .eq("is_test", false) // niente richieste recensione per gli ordini di test
     .order("created_at", { ascending: true })
     .limit(MAX_PER_RUN);
 
