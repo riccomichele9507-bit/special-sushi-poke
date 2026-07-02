@@ -142,6 +142,9 @@ export function CheckoutForm({
   const cartItems = useCartStore((s) => s.items);
   const tipCents = usePricing((s) => s.tipCents);
   const [marketingConsent, setMarketingConsent] = useState(true);
+  // Numero civico: campo dedicato perché l'autocomplete Google spesso lo omette
+  // o lo mette impreciso. Obbligatorio per la consegna (finisce nei dettagli rider).
+  const [civico, setCivico] = useState("");
 
   // Codice sconto (feedback immediato; il server ricalcola comunque l'anti-tamper)
   const [discountCode, setDiscountCode] = useState("");
@@ -181,6 +184,11 @@ export function CheckoutForm({
       return;
     }
 
+    if (data.orderType === "delivery" && !civico.trim()) {
+      toast.error("Inserisci il numero civico per la consegna.");
+      return;
+    }
+
     const result = await createOrder({
       idempotencyKey: idempotencyKeyRef.current,
       orderType: data.orderType,
@@ -188,7 +196,15 @@ export function CheckoutForm({
       phone: data.phone,
       email: data.email,
       addressLine: data.orderType === "delivery" ? data.addressLine : undefined,
-      addressNotes: data.orderType === "delivery" ? data.addressNotes : undefined,
+      addressNotes:
+        data.orderType === "delivery"
+          ? [
+              civico.trim() ? `Civico ${civico.trim()}` : null,
+              data.addressNotes?.trim() || null,
+            ]
+              .filter(Boolean)
+              .join(" · ") || undefined
+          : undefined,
       driverNotes: data.orderType === "delivery" ? data.driverNotes : undefined,
       paymentMethod: data.paymentMethod,
       slotStartIso: selectedSlot.startIso,
@@ -286,6 +302,20 @@ export function CheckoutForm({
               />
             )}
           />
+
+          <div className="space-y-2">
+            <Label htmlFor="civico" className={LABEL_CLASSES}>
+              Numero civico
+            </Label>
+            <Input
+              id="civico"
+              value={civico}
+              onChange={(e) => setCivico(e.target.value)}
+              placeholder="Es. 12/B"
+              aria-label="Numero civico"
+              className={INPUT_CLASSES}
+            />
+          </div>
 
           <div className="space-y-2">
             <Label htmlFor="addressNotes" className={LABEL_CLASSES}>
@@ -412,7 +442,7 @@ export function CheckoutForm({
               setDiscountCode(e.target.value);
               setCodeFeedback(null);
             }}
-            placeholder="Es. BENTORNATO10"
+            placeholder="Inserisci il codice"
             autoCapitalize="characters"
             autoComplete="off"
             className={cn(INPUT_CLASSES, "flex-1 uppercase placeholder:normal-case")}
