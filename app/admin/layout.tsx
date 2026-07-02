@@ -25,9 +25,9 @@ export default async function AdminLayout({
     .maybeSingle();
 
   return (
-    <div className="flex min-h-screen bg-paper">
+    <div className="min-h-screen bg-paper md:flex">
       <AdminSidebar userEmail={user.email ?? ""} />
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         <PrinterStatusBanner initialHealth={health ?? null} />
         <main className="flex-1 p-6 max-w-6xl w-full mx-auto">{children}</main>
       </div>

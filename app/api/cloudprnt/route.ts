@@ -80,8 +80,14 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient();
   const printerMac = body.printerMAC ?? null;
   const printing = Boolean(body.printingInProgress);
+  // Star invia statusCode come "200 OK" (non "200"): estrai il prefisso numerico
+  // e considera 2xx = OK (stessa logica del DELETE handler). Evita che lo stato
+  // grezzo ASB ("2f c 0 0…") finisca salvato come se fosse un errore.
+  const statusNum = body.statusCode ? Number.parseInt(body.statusCode, 10) : NaN;
   const paperStatus =
-    body.statusCode === "200" ? "OK" : (body.status ?? body.statusCode ?? "UNKNOWN");
+    Number.isFinite(statusNum) && statusNum >= 200 && statusNum < 300
+      ? "OK"
+      : (body.status ?? body.statusCode ?? "UNKNOWN");
 
   // Aggiorna printer_health per banner Realtime dashboard
   await supabase

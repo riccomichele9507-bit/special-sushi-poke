@@ -28,9 +28,6 @@ function classifyStatus(health: PrinterHealth | null): {
       text: `Stampante OFFLINE (ultimo segnale ${Math.floor(secondsSincePoll / 60)} min fa)`,
     };
   }
-  if (health.paper_status && health.paper_status !== "OK") {
-    return { level: "error", text: `Stato: ${health.paper_status}` };
-  }
   if (
     health.oldest_pending_age_seconds != null &&
     health.oldest_pending_age_seconds > 60
@@ -40,7 +37,7 @@ function classifyStatus(health: PrinterHealth | null): {
       text: `${health.pending_jobs_count} job in attesa (più vecchio ${Math.floor(health.oldest_pending_age_seconds / 60)} min)`,
     };
   }
-  return { level: "ok", text: "Stampante OK · pronta" };
+  return { level: "ok", text: "Stampante attiva" };
 }
 
 export function PrinterStatusBanner({
@@ -82,7 +79,7 @@ export function PrinterStatusBanner({
 
   return (
     <div
-      className={`sticky top-0 z-30 flex items-center gap-2 border-b px-4 py-2 text-sm ${cls}`}
+      className={`z-30 flex items-center gap-2 border-b px-4 py-2 text-sm md:sticky md:top-0 ${cls}`}
     >
       {status.level === "error" ? (
         <AlertTriangle className="h-4 w-4" />

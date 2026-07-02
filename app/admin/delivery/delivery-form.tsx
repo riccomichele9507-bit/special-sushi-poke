@@ -77,13 +77,6 @@ export function DeliveryForm({ settings }: { settings: Settings }) {
           <F label="Consegna gratis entro km" name="free_delivery_max_km" type="number" value={settings?.free_delivery_max_km ?? 6} />
         </Row>
         <F label="Min carrello oltre il gratuito (€)" name="min_cart_cents_above_free" type="number" value={settings?.min_cart_cents_above_free ?? 3000} hint="In CENTESIMI: 3000 = €30,00" />
-        <F
-          label="Tempi viaggio (JSON)"
-          name="travel_buckets"
-          value={JSON.stringify(settings?.travel_buckets ?? [], null, 2)}
-          textarea
-          hint="Array {max_km, min}. Bucket trovato col primo max_km ≥ distanza."
-        />
       </Section>
 
       <Section title="Orari pranzo">

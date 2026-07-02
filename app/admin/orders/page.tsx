@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Eye } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/database.types";
 import { QuickActionButton } from "./quick-action-button";
@@ -70,6 +71,7 @@ export default async function AdminOrdersPage({
           <thead className="bg-bamboo/5 text-left">
             <tr>
               <th className="px-3 py-2">#</th>
+              <th className="px-3 py-2">Dettaglio</th>
               <th className="px-3 py-2">Ora</th>
               <th className="px-3 py-2">Tipo</th>
               <th className="px-3 py-2">Slot</th>
@@ -98,6 +100,15 @@ export default async function AdminOrdersPage({
                       TEST
                     </span>
                   )}
+                </td>
+                <td className="px-3 py-2">
+                  <Link
+                    href={`/admin/orders/${o.id}`}
+                    className="inline-flex items-center gap-1 rounded-full bg-bamboo px-3 py-1 text-xs font-semibold text-paper hover:bg-bamboo/90"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    Vedi ordine
+                  </Link>
                 </td>
                 <td className="px-3 py-2 text-warm-gray">
                   {new Date(o.created_at).toLocaleString("it-IT", {
@@ -158,7 +169,7 @@ export default async function AdminOrdersPage({
             ))}
             {(!orders || orders.length === 0) && (
               <tr>
-                <td colSpan={9} className="px-3 py-8 text-center text-warm-gray">
+                <td colSpan={10} className="px-3 py-8 text-center text-warm-gray">
                   Nessun ordine al momento.
                 </td>
               </tr>
