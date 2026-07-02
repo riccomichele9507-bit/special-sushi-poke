@@ -156,7 +156,7 @@ export async function GET(request: NextRequest) {
     .maybeSingle();
 
   if (!job) {
-    return new NextResponse("", { status: 204 });
+    return new NextResponse(null, { status: 204 });
   }
 
   // CANCEL-DURING-PRINT CHECK
@@ -179,7 +179,7 @@ export async function GET(request: NextRequest) {
         })
         .eq("id", job.id);
 
-      return new NextResponse("", { status: 204 });
+      return new NextResponse(null, { status: 204 });
     }
   }
 
