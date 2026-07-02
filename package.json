@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "seed": "cross-env NODE_OPTIONS=--use-system-ca tsx scripts/seed-supabase.ts"
+    "seed": "cross-env NODE_OPTIONS=--use-system-ca tsx scripts/seed-supabase.ts",
+    "stripe:webhook": "cross-env NODE_OPTIONS=--use-system-ca tsx scripts/create-stripe-webhook.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
