@@ -17,16 +17,13 @@ function classifyStatus(health: PrinterHealth | null): {
   text: string;
 } {
   if (!health || !health.last_poll_at) {
-    return { level: "error", text: "Stampante mai contattata" };
+    return { level: "error", text: "Stampante non funzionante" };
   }
   const secondsSincePoll = Math.floor(
     (Date.now() - new Date(health.last_poll_at).getTime()) / 1000,
   );
   if (!health.printing_in_progress && secondsSincePoll > 5 * 60) {
-    return {
-      level: "error",
-      text: `Stampante OFFLINE (ultimo segnale ${Math.floor(secondsSincePoll / 60)} min fa)`,
-    };
+    return { level: "error", text: "Stampante non funzionante" };
   }
   if (
     health.oldest_pending_age_seconds != null &&
@@ -34,7 +31,7 @@ function classifyStatus(health: PrinterHealth | null): {
   ) {
     return {
       level: "warn",
-      text: `${health.pending_jobs_count} job in attesa (più vecchio ${Math.floor(health.oldest_pending_age_seconds / 60)} min)`,
+      text: `Stampante attiva · ${health.pending_jobs_count} in coda`,
     };
   }
   return { level: "ok", text: "Stampante attiva" };
@@ -79,14 +76,14 @@ export function PrinterStatusBanner({
 
   return (
     <div
-      className={`z-30 flex items-center gap-2 border-b px-4 py-2 text-sm md:sticky md:top-0 ${cls}`}
+      className={`sticky top-14 z-30 flex items-center justify-center gap-2 border-b px-4 py-3 text-base font-bold sm:text-lg md:top-0 ${cls}`}
     >
       {status.level === "error" ? (
-        <AlertTriangle className="h-4 w-4" />
+        <AlertTriangle className="h-5 w-5" />
       ) : (
-        <Printer className="h-4 w-4" />
+        <Printer className="h-5 w-5" />
       )}
-      <span className="font-medium">{status.text}</span>
+      <span>{status.text}</span>
       {health?.printing_in_progress && (
         <span className="ml-2 text-xs opacity-70">(stampa in corso…)</span>
       )}
