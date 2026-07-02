@@ -20,7 +20,9 @@ async function getQuickStats() {
       .from("orders")
       .select("id", { count: "exact", head: true })
       .gte("created_at", todayStart.toISOString())
-      .eq("is_test", false),
+      .eq("is_test", false)
+      // Esclude i checkout non pagati (status 'received'): conta solo ordini reali.
+      .neq("status", "received"),
     supabase
       .from("dishes")
       .select("id", { count: "exact", head: true })

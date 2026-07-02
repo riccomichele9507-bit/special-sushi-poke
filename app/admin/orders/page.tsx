@@ -19,6 +19,10 @@ export default async function AdminOrdersPage({
     .select(
       "id, order_number, created_at, slot_start, slot_end, order_type, status, customer_name, customer_phone, customer_id, total_cents, payment_method, fiscal_receipt_issued, is_test",
     )
+    // Gli ordini 'received' = checkout carta NON completato (nessun pagamento).
+    // Non sono ordini reali → non devono MAI comparire in cucina. I contanti
+    // passano subito a 'confirmed', quindi qui restano solo gli ordini pagati.
+    .neq("status", "received")
     .order("created_at", { ascending: false })
     .limit(100);
   if (params.status) query = query.eq("status", params.status as OrderStatus);
@@ -27,7 +31,6 @@ export default async function AdminOrdersPage({
 
   const statuses = [
     { id: "", label: "Tutti" },
-    { id: "received", label: "Ricevuti" },
     { id: "confirmed", label: "Confermati" },
     { id: "in_delivery", label: "Affidati al rider" },
     { id: "ready", label: "Pronti al ritiro" },
@@ -39,7 +42,8 @@ export default async function AdminOrdersPage({
       <div>
         <h1 className="text-3xl font-serif-jp text-ink">Ordini</h1>
         <p className="text-sm text-warm-gray mt-1">
-          Ultimi 100 ordini ({orders?.length ?? 0} mostrati). Gli ordini di prova
+          Solo ordini <strong>pagati/confermati</strong> ({orders?.length ?? 0} mostrati):
+          i checkout con carta non completati non compaiono. Gli ordini di prova
           hanno il badge{" "}
           <span className="rounded bg-amber-100 px-1 text-[10px] font-bold text-amber-900">TEST</span>.
         </p>
