@@ -222,30 +222,68 @@ export function generateReceiptPlainText(order: OrderRow): string {
   return sanitizeAscii(generateReceiptText(order));
 }
 
+/** Estrae il numero civico dalle note ("Civico 12 · ...") se presente. */
+function extractCivico(notes: string | null): string | null {
+  if (!notes) return null;
+  const m = notes.match(/Civico\s+([^\s·|,;]+)/i);
+  return m ? m[1].trim() : null;
+}
+
+/** True se l'indirizzo contiene già quel civico (blocco numerico, non il CAP). */
+function addressHasCivico(address: string, civico: string): boolean {
+  const num = civico.match(/\d+/)?.[0];
+  if (!num) return true; // civico non numerico → non forzo, tengo il place_id
+  return new RegExp(`(^|[^\\d])${num}([^\\d]|$)`).test(address);
+}
+
+/** Inserisce il civico dopo il nome della via (prima della prima virgola). */
+function insertCivico(address: string, civico: string): string {
+  return address.includes(",")
+    ? address.replace(/^([^,]+)/, `$1 ${civico}`)
+    : `${address} ${civico}`;
+}
+
 /**
  * URL Google Maps navigazione verso l'indirizzo di consegna.
  * destination = INDIRIZZO TESTUALE (es. "Viale Unità d'Italia 15, Bari") così
- * Maps mostra il nome della via invece di un segnaposto a coordinate; il
- * place_id àncora la posizione esatta. Fallback alle coordinate se manca
- * l'indirizzo. (Google Maps URLs API, dir).
+ * Maps mostra il nome della via; il place_id àncora la posizione esatta.
+ *
+ * Se il cliente ha inserito a mano un CIVICO che NON è già nell'indirizzo Google
+ * (autocomplete con la sola via), la destinazione viene ricostruita col civico e
+ * il place_id viene OMESSO (punterebbe alla via senza numero) → il navigatore
+ * porta al numero esatto. Tutto in try/catch: qualsiasi imprevisto ricade sul
+ * comportamento base (mai peggio di prima).
  */
-function mapsNavUrl(order: OrderRow): string | null {
-  const geo = order.geo as
-    | { lat?: number; lng?: number; placeId?: string }
-    | null;
-  const hasCoords =
-    !!geo && typeof geo.lat === "number" && typeof geo.lng === "number";
-  const address = order.address_line?.trim();
-  if (!address && !hasCoords) return null;
+export function mapsNavUrl(order: OrderRow): string | null {
+  try {
+    const geo = order.geo as
+      | { lat?: number; lng?: number; placeId?: string }
+      | null;
+    const hasCoords =
+      !!geo && typeof geo.lat === "number" && typeof geo.lng === "number";
+    const address = order.address_line?.trim();
+    if (!address && !hasCoords) return null;
 
-  const destination = address
-    ? encodeURIComponent(address)
-    : `${geo!.lat},${geo!.lng}`;
-  let url = `https://www.google.com/maps/dir/?api=1&destination=${destination}`;
-  if (geo?.placeId) {
-    url += `&destination_place_id=${encodeURIComponent(geo.placeId)}`;
+    const civico = extractCivico(order.address_notes);
+    if (address && civico && !addressHasCivico(address, civico)) {
+      const dest = insertCivico(address, civico);
+      return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}`;
+    }
+
+    const destination = address
+      ? encodeURIComponent(address)
+      : `${geo!.lat},${geo!.lng}`;
+    let url = `https://www.google.com/maps/dir/?api=1&destination=${destination}`;
+    if (geo?.placeId) {
+      url += `&destination_place_id=${encodeURIComponent(geo.placeId)}`;
+    }
+    return url;
+  } catch {
+    const address = order.address_line?.trim();
+    return address
+      ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`
+      : null;
   }
-  return url;
 }
 
 /**
