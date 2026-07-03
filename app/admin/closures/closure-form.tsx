@@ -29,7 +29,7 @@ export function ClosureForm() {
 
   return (
     <form action={action} data-form="add-closure" className="space-y-3">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1">
           <Label className="text-xs">Da</Label>
           <Input name="start_date" type="date" required />

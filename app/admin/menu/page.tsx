@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Button } from "@/components/ui/button";
 import { DishRowToggle } from "./dish-row-toggle";
@@ -29,6 +29,8 @@ export default async function AdminMenuPage({
       .select("id, label")
       .order("sort_order", { ascending: true }),
   ]);
+
+  const catMap = new Map((categories ?? []).map((c) => [c.id, c.label]));
 
   return (
     <div className="space-y-6">
@@ -69,64 +71,47 @@ export default async function AdminMenuPage({
         ))}
       </div>
 
-      <div className="rounded-lg border border-bamboo/20 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-bamboo/5 text-left">
-            <tr>
-              <th className="px-4 py-2">Piatto</th>
-              <th className="px-4 py-2">Categoria</th>
-              <th className="px-4 py-2 text-right">Prezzo</th>
-              <th className="px-4 py-2 text-center">Disponibile</th>
-              <th className="px-4 py-2"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {dishes?.map((d) => (
-              <tr
-                key={d.id}
-                className="border-t border-bamboo/10 hover:bg-bamboo/5"
-              >
-                <td className="px-4 py-2">
-                  <div className="flex items-center gap-2">
-                    {d.image ? (
-                      <img
-                        src={d.image}
-                        alt=""
-                        className="h-10 w-10 rounded object-cover"
-                      />
-                    ) : (
-                      <div className="h-10 w-10 rounded bg-bamboo/10" />
-                    )}
-                    <span className="font-medium">{d.name}</span>
-                  </div>
-                </td>
-                <td className="px-4 py-2 text-warm-gray">{d.category_id}</td>
-                <td className="px-4 py-2 text-right">
-                  €{(d.price / 100).toFixed(2).replace(".", ",")}
-                </td>
-                <td className="px-4 py-2 text-center">
-                  <DishRowToggle dishId={d.id} active={d.is_active} />
-                </td>
-                <td className="px-4 py-2 text-right">
-                  <Link
-                    href={`/admin/menu/${d.id}`}
-                    className="text-bamboo text-sm hover:underline"
-                  >
-                    Modifica
-                  </Link>
-                </td>
-              </tr>
-            ))}
-            {(!dishes || dishes.length === 0) && (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-warm-gray">
-                  Nessun piatto trovato.
-                </td>
-              </tr>
+      <ul className="divide-y divide-bamboo/10 overflow-hidden rounded-lg border border-bamboo/20">
+        {dishes?.map((d) => (
+          <li key={d.id} className="flex items-center gap-3 px-3 py-3">
+            {/* Modifica: pulsante a lato, sempre visibile anche su mobile */}
+            <Link
+              href={`/admin/menu/${d.id}`}
+              className="inline-flex shrink-0 items-center gap-1 rounded-full bg-bamboo px-3 py-2 text-xs font-semibold text-paper hover:bg-bamboo/90"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Modifica
+            </Link>
+            {d.image ? (
+              <img
+                src={d.image}
+                alt=""
+                className="h-11 w-11 shrink-0 rounded object-cover"
+              />
+            ) : (
+              <div className="h-11 w-11 shrink-0 rounded bg-bamboo/10" />
             )}
-          </tbody>
-        </table>
-      </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-medium text-ink">{d.name}</p>
+              <p className="truncate text-xs text-warm-gray">
+                {catMap.get(d.category_id) ?? d.category_id} · €
+                {(d.price / 100).toFixed(2).replace(".", ",")}
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-col items-center gap-1">
+              <span className="text-[10px] font-medium uppercase tracking-wide text-warm-gray">
+                Disp.
+              </span>
+              <DishRowToggle dishId={d.id} active={d.is_active} />
+            </div>
+          </li>
+        ))}
+        {(!dishes || dishes.length === 0) && (
+          <li className="px-4 py-8 text-center text-warm-gray">
+            Nessun piatto trovato.
+          </li>
+        )}
+      </ul>
     </div>
   );
 }

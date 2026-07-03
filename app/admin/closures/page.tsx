@@ -26,45 +26,32 @@ export default async function AdminClosuresPage() {
         <ClosureForm />
       </div>
 
-      <div className="rounded-lg border border-bamboo/20 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-bamboo/5 text-left">
-            <tr>
-              <th className="px-4 py-2">Da</th>
-              <th className="px-4 py-2">A</th>
-              <th className="px-4 py-2">Motivo</th>
-              <th className="px-4 py-2">Pranzo</th>
-              <th className="px-4 py-2">Cena</th>
-              <th className="px-4 py-2"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {closures?.map((c) => (
-              <tr key={c.id} className="border-t border-bamboo/10">
-                <td className="px-4 py-2">{c.start_date}</td>
-                <td className="px-4 py-2">{c.end_date}</td>
-                <td className="px-4 py-2 text-warm-gray">{c.reason ?? "—"}</td>
-                <td className="px-4 py-2">
-                  {c.closes_lunch ? "❌ Chiuso" : "✅ Aperto"}
-                </td>
-                <td className="px-4 py-2">
-                  {c.closes_dinner ? "❌ Chiuso" : "✅ Aperto"}
-                </td>
-                <td className="px-4 py-2 text-right">
-                  <ClosureDeleteButton id={c.id} label={`${c.start_date} — ${c.reason ?? "Chiusura"}`} />
-                </td>
-              </tr>
-            ))}
-            {(!closures || closures.length === 0) && (
-              <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-warm-gray">
-                  Nessuna chiusura programmata.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <ul className="divide-y divide-bamboo/10 overflow-hidden rounded-lg border border-bamboo/20">
+        {closures?.map((c) => (
+          <li key={c.id} className="flex items-center gap-3 px-3 py-3">
+            {/* Rimuovi: pulsante a lato, sempre visibile anche su mobile */}
+            <ClosureDeleteButton
+              id={c.id}
+              label={`${c.start_date} — ${c.reason ?? "Chiusura"}`}
+            />
+            <div className="min-w-0 flex-1">
+              <p className="font-medium text-ink">
+                {c.start_date}
+                {c.end_date !== c.start_date ? ` → ${c.end_date}` : ""}
+              </p>
+              <p className="truncate text-xs text-warm-gray">
+                {c.reason ?? "—"} · Pranzo {c.closes_lunch ? "❌" : "✅"} · Cena{" "}
+                {c.closes_dinner ? "❌" : "✅"}
+              </p>
+            </div>
+          </li>
+        ))}
+        {(!closures || closures.length === 0) && (
+          <li className="px-4 py-6 text-center text-warm-gray">
+            Nessuna chiusura programmata.
+          </li>
+        )}
+      </ul>
     </div>
   );
 }
