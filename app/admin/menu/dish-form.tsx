@@ -138,17 +138,11 @@ export function DishForm({
         <Check name="is_featured" label="Featured" defaultChecked={dish?.is_featured ?? false} />
         <Check name="is_most_ordered" label="Più ordinato" defaultChecked={dish?.is_most_ordered ?? false} />
       </div>
-      <div className="grid grid-cols-3 gap-4">
-        <Field label="bg_from" hint="HEX, opz">
-          <Input name="bg_from" defaultValue={dish?.bg_from ?? ""} />
-        </Field>
-        <Field label="bg_to" hint="HEX, opz">
-          <Input name="bg_to" defaultValue={dish?.bg_to ?? ""} />
-        </Field>
-        <Field label="Ordine">
-          <Input name="sort_order" type="number" defaultValue={dish?.sort_order ?? 0} />
-        </Field>
-      </div>
+      {/* Campi tecnici (sfumatura sfondo + ordine): nascosti all'utente ma
+          conservati intatti nel salvataggio, così non vengono azzerati. */}
+      <input type="hidden" name="bg_from" defaultValue={dish?.bg_from ?? ""} />
+      <input type="hidden" name="bg_to" defaultValue={dish?.bg_to ?? ""} />
+      <input type="hidden" name="sort_order" defaultValue={dish?.sort_order ?? 0} />
 
       {error && (
         <div className="rounded bg-sushi-red/10 border border-sushi-red/30 text-sushi-red text-sm p-2">
