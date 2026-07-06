@@ -8,8 +8,16 @@ const nextConfig: NextConfig = {
   // Entrambi tenuti esterni al bundle server.
   serverExternalPackages: ["node-thermal-printer", "@napi-rs/canvas"],
   images: {
-    formats: ["image/avif", "image/webp"],
+    // Solo WebP (niente AVIF): dimezza le versioni generate per ogni immagine
+    // → meno "cache writes" su Vercel. WebP è supportato da tutti i browser.
+    formats: ["image/webp"],
+    // Le foto dei piatti non cambiano quasi mai: cache 31 giorni → ogni immagine
+    // viene ottimizzata UNA volta e riusata, invece di essere riscritta spesso.
+    minimumCacheTTL: 2678400,
     qualities: [60, 75, 90],
+    // Meno breakpoint = meno varianti per immagine (mobile-first: bastano questi).
+    deviceSizes: [640, 750, 1080, 1200, 1920],
+    imageSizes: [48, 96, 128, 256],
     remotePatterns: [
       {
         protocol: "https",
