@@ -7,11 +7,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { CategoryTabs } from "@/components/menu/category-tabs";
 import { DishCard } from "@/components/menu/dish-card";
 import { categories } from "@/data/categories";
-import { getMenu, getDishesByCategory, searchDishes } from "@/lib/menu-registry";
+import { getDishesByCategory, searchDishes } from "@/lib/menu-registry";
 
 export function MenuTabClient() {
   const [query, setQuery] = useState("");
-  const menu = getMenu();
   const activeCategories = useMemo(
     () => categories.filter((c) => c.available),
     [],
@@ -26,9 +25,6 @@ export function MenuTabClient() {
     <div className="mx-auto max-w-md px-4 pb-12 pt-4">
       <header className="mb-4">
         <h1 className="font-heading text-2xl font-bold text-ink">Menu</h1>
-        <p className="mt-1 font-sans text-xs text-warm-gray">
-          {menu.length} piatti · {activeCategories.length} categorie
-        </p>
       </header>
 
       <div className="relative mb-2">
