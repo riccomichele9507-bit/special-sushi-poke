@@ -8,6 +8,7 @@ const quickLinks = [
   { href: "/", label: "Home" },
   { href: "/menu", label: "Menu" },
   { href: "/locale", label: "Il nostro locale" },
+  { href: "/consegna", label: "Zone di consegna" },
   { href: "/account", label: "Il mio profilo" },
   { href: "/faq", label: "Domande frequenti" },
 ] as const;

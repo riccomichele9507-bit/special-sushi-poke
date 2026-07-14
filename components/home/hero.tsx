@@ -122,6 +122,9 @@ export function Hero() {
             className="font-heading text-5xl sm:text-6xl md:text-7xl font-semibold leading-[0.95] tracking-tight text-paper will-change-transform"
           >
             {restaurant.name}
+            <span className="mt-3 block font-sans text-base font-normal tracking-normal text-white/70 sm:text-lg">
+              Sushi e Poke d&apos;asporto a Bari
+            </span>
           </h1>
 
           <p
