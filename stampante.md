@@ -46,7 +46,7 @@ essere registrata al cloud Star.
 2. Menu (in alto a sinistra) → **CloudPRNT** → **CloudPRNT Service = ENABLE**.
 3. Compila e **Submit**:
    - **Server URL**: `https://specialsushipokebari.com/api/cloudprnt`
-   - **Polling Time**: `10` (secondi)
+   - **Polling Time**: `30` (secondi) — 30s tiene basse le invocazioni Vercel; usa 10s solo se serve stampa quasi istantanea
    - **User Name**: `printer`
    - **Password**: `<CLOUDPRNT_TOKEN>` (uguale a Vercel)
 4. **Save** → **SaveRestart device** → **Execute**.
