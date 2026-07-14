@@ -75,15 +75,15 @@ export function MapEmbed() {
                   Orari
                 </p>
                 <p className="mt-1 font-sans text-sm text-white/75">
-                  <span className="text-white/55">Lun — Ven · </span>
-                  {restaurant.hours.weekdays}
+                  <span className="text-white/55">Pranzo · </span>
+                  {restaurant.hours.lunch}
                 </p>
                 <p className="font-sans text-sm text-white/75">
-                  <span className="text-white/55">Sab — Dom · </span>
-                  {restaurant.hours.weekend}
+                  <span className="text-white/55">Cena · </span>
+                  {restaurant.hours.dinner}
                 </p>
                 <p className="mt-1 font-sans text-xs text-white/45">
-                  {restaurant.hours.closed}
+                  {restaurant.hours.days}
                 </p>
               </div>
             </div>
