@@ -9,6 +9,7 @@ const quickLinks = [
   { href: "/menu", label: "Menu" },
   { href: "/locale", label: "Il nostro locale" },
   { href: "/account", label: "Il mio profilo" },
+  { href: "/faq", label: "Domande frequenti" },
 ] as const;
 
 export function Footer() {
