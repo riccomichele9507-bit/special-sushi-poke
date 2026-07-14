@@ -179,14 +179,14 @@ export default function LocalePage() {
             <Clock className="mt-0.5 h-4 w-4 shrink-0 text-bamboo" strokeWidth={1.75} />
             <div className="font-sans text-sm">
               <p className="text-ink">
-                <span className="text-warm-gray">Lun — Ven · </span>
-                {restaurant.hours.weekdays}
+                <span className="text-warm-gray">Pranzo · </span>
+                {restaurant.hours.lunch}
               </p>
               <p className="text-ink">
-                <span className="text-warm-gray">Sab — Dom · </span>
-                {restaurant.hours.weekend}
+                <span className="text-warm-gray">Cena · </span>
+                {restaurant.hours.dinner}
               </p>
-              <p className="mt-0.5 text-xs text-warm-gray">{restaurant.hours.closed}</p>
+              <p className="mt-0.5 text-xs text-warm-gray">{restaurant.hours.days}</p>
             </div>
           </li>
         </ul>

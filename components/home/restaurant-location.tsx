@@ -77,18 +77,19 @@ export function RestaurantLocation() {
               </p>
               <dl className="space-y-1 text-sm">
                 <div className="flex items-baseline gap-2">
-                  <dt className="w-20 shrink-0 font-medium text-ink">Lun — Ven</dt>
+                  <dt className="w-20 shrink-0 font-medium text-ink">Pranzo</dt>
                   <dd className="text-warm-gray tabular-nums">
-                    {restaurant.hours.weekdays}
+                    {restaurant.hours.lunch}
                   </dd>
                 </div>
                 <div className="flex items-baseline gap-2">
-                  <dt className="w-20 shrink-0 font-medium text-ink">Sab — Dom</dt>
+                  <dt className="w-20 shrink-0 font-medium text-ink">Cena</dt>
                   <dd className="text-warm-gray tabular-nums">
-                    {restaurant.hours.weekend}
+                    {restaurant.hours.dinner}
                   </dd>
                 </div>
               </dl>
+              <p className="text-xs text-warm-gray">{restaurant.hours.days}</p>
             </div>
           </div>
         </div>

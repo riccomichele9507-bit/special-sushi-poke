@@ -22,9 +22,9 @@ export const restaurant = {
   email: "specialsushipoke@gmail.com",
   vat: "09041530727",
   hours: {
-    weekdays: "11:30 – 23:30",
-    weekend: "11:30 – 23:30",
-    closed: "Aperto tutti i giorni · orario continuato",
+    lunch: "11:30 – 15:00",
+    dinner: "18:30 – 00:30",
+    days: "Aperto tutti i giorni",
   },
   social: {
     instagram: "https://instagram.com/specialsushipoke",

@@ -39,7 +39,7 @@ const faqs: { q: string; a: string }[] = [
   },
   {
     q: "Quali sono gli orari?",
-    a: "Siamo aperti tutti i giorni dalle 11:30 alle 23:30, con orario continuato.",
+    a: "Siamo aperti tutti i giorni a pranzo (11:30–15:00) e a cena (18:30–00:30).",
   },
   {
     q: "Dove vi trovate?",
