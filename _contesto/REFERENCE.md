@@ -47,7 +47,7 @@ special-sushi-poke/
 │   ├── format.ts        # formattazione prezzi/date
 │   ├── validations.ts   # schemi zod
 │   ├── cart-ui-store.ts # stato apertura drawer (Zustand)
-│   ├── dish-detail-store.ts / pricing-store.ts / discount-codes.ts
+│   ├── dish-detail-store.ts / pricing-store.ts
 │   ├── use-media-query.ts / use-countdown.ts
 ├── store/
 │   └── cart-store.ts    # stato carrello globale (Zustand, persist localStorage)
