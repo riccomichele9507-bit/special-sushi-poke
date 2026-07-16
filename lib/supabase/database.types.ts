@@ -271,6 +271,7 @@ export type Database = {
           max_redemptions: number | null
           min_order_cents: number
           redemptions: number
+          requires_auth: boolean
           valid_from: string | null
           valid_to: string | null
           value: number
@@ -284,6 +285,7 @@ export type Database = {
           max_redemptions?: number | null
           min_order_cents?: number
           redemptions?: number
+          requires_auth?: boolean
           valid_from?: string | null
           valid_to?: string | null
           value: number
@@ -297,6 +299,7 @@ export type Database = {
           max_redemptions?: number | null
           min_order_cents?: number
           redemptions?: number
+          requires_auth?: boolean
           valid_from?: string | null
           valid_to?: string | null
           value?: number

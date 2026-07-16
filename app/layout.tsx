@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Inter, Noto_Serif_JP } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
+import { PromoCodeCapture } from "@/components/promo/promo-code-capture";
 import { restaurant } from "@/data/restaurant";
 import { getMenu } from "@/lib/data/queries";
 import { getPromoConfig } from "@/lib/promo/server";
@@ -142,6 +144,10 @@ export default async function RootLayout({
             <CustomerLayoutShell>{children}</CustomerLayoutShell>
           </MenuRegistryProvider>
         </PromoConfigProvider>
+        {/* Cattura ?code=… dal QR volantino → cart-store → auto-apply al checkout */}
+        <Suspense fallback={null}>
+          <PromoCodeCapture />
+        </Suspense>
         <Toaster
           position="top-center"
           theme="light"

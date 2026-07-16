@@ -42,6 +42,9 @@ export const useCartStore = create<CartState>()(
   persist(
     (set) => ({
       items: [],
+      pendingCode: null,
+      setPendingCode: (code) =>
+        set({ pendingCode: code?.trim().toUpperCase() || null }),
       add: (dishId) =>
         set((state) => {
           const existing = state.items.find((i) => i.dishId === dishId);

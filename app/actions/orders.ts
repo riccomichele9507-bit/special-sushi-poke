@@ -102,6 +102,7 @@ export async function createOrder(
     admin,
     input.discountCode,
     subtotalCents,
+    { isAuthenticated: !!user },
   );
   const { discountCents, discountCode, totalCents } = computeTotals(
     subtotalCents,

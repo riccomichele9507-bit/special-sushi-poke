@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -154,19 +154,46 @@ export function CheckoutForm({
     message: string;
   } | null>(null);
 
-  async function applyDiscountCode() {
-    const code = discountCode.trim();
-    if (!code) return;
-    setCheckingCode(true);
-    const r = await quoteDiscountCode(code, cartCents);
-    setCheckingCode(false);
-    if (r.ok) {
-      const eur = `€${(r.discountCents / 100).toFixed(2).replace(".", ",")}`;
-      setCodeFeedback({ ok: true, message: `Codice applicato: −${eur} di sconto` });
-    } else {
-      setCodeFeedback({ ok: false, message: r.message });
+  const applyDiscountCode = useCallback(
+    async (codeArg?: string) => {
+      const code = (codeArg ?? discountCode).trim();
+      if (!code) return;
+      setCheckingCode(true);
+      const r = await quoteDiscountCode(code, cartCents);
+      setCheckingCode(false);
+      setCodeFeedback(
+        r.ok
+          ? {
+              ok: true,
+              message: `Codice applicato: −€${(r.discountCents / 100)
+                .toFixed(2)
+                .replace(".", ",")} di sconto`,
+            }
+          : { ok: false, message: r.message },
+      );
+    },
+    [discountCode, cartCents],
+  );
+
+  // Auto-apply del codice arrivato dal QR volantino (?code=… → cart-store).
+  // Parte una volta sola, quando il carrello è idratato e valorizzato, se il
+  // cliente non ha già digitato un codice a mano.
+  const pendingCode = useCartStore((s) => s.pendingCode);
+  const autoAppliedRef = useRef(false);
+  useEffect(() => {
+    if (
+      autoAppliedRef.current ||
+      !hydrated ||
+      !pendingCode ||
+      discountCode ||
+      cartCents <= 0
+    ) {
+      return;
     }
-  }
+    autoAppliedRef.current = true;
+    setDiscountCode(pendingCode);
+    void applyDiscountCode(pendingCode);
+  }, [hydrated, pendingCode, discountCode, cartCents, applyDiscountCode]);
 
   // Chiave anti-doppione: stabile per questo tentativo di checkout, così un
   // doppio-tap / retry crea UN solo ordine (il server fa dedup su questa chiave).
@@ -449,7 +476,7 @@ export function CheckoutForm({
           />
           <button
             type="button"
-            onClick={applyDiscountCode}
+            onClick={() => applyDiscountCode()}
             disabled={checkingCode || !discountCode.trim()}
             className="h-12 shrink-0 rounded-xl border border-bamboo/50 px-5 text-sm font-semibold text-bamboo transition hover:bg-bamboo/10 disabled:cursor-not-allowed disabled:opacity-40"
           >

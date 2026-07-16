@@ -13,26 +13,47 @@ export interface CodeDiscount {
   label: string | null;
 }
 
+/** Opzioni di contesto per la risoluzione del codice. */
+export interface ResolveCodeOptions {
+  /**
+   * True se l'utente è autenticato. I codici con `requires_auth` (es. SUSHI10
+   * del volantino "iscriviti e ottieni 10%") sono riscattabili SOLO da iscritti.
+   * Default `false` → fail-closed: un chiamante che dimentica di passarlo non
+   * concede sconti riservati agli iscritti a un ospite.
+   */
+  isAuthenticated?: boolean;
+}
+
 /**
  * Risolve un codice sconto sul subtotale dato. Ritorna null se il codice non
- * esiste, è disattivato, scaduto/non ancora valido, esaurito (max_redemptions)
- * o sotto la soglia minima. Mai eccezioni.
+ * esiste, è disattivato, scaduto/non ancora valido, esaurito (max_redemptions),
+ * sotto la soglia minima, o riservato agli iscritti mentre l'utente è ospite.
+ * Mai eccezioni.
  */
 export async function resolveCodeDiscount(
   admin: AdminClient,
   rawCode: string | undefined | null,
   subtotalCents: number,
+  opts: ResolveCodeOptions = {},
 ): Promise<CodeDiscount | null> {
-  const code = rawCode?.trim();
+  // Normalizza a MAIUSCOLO + match ESATTO. Prima si usava ilike() col valore
+  // grezzo del cliente: `%` e `*` valgono da wildcard in PostgREST, quindi
+  // digitando "SUSHI2%" si pescava SUSHI20 (20%) senza conoscerlo. I codici in
+  // `discount_codes` sono per convenzione maiuscoli, quindi eq() sul valore
+  // normalizzato resta case-insensitive per il cliente ma immune ai wildcard.
+  const code = rawCode?.trim().toUpperCase();
   if (!code) return null;
 
   const { data: row } = await admin
     .from("discount_codes")
     .select("*")
-    .ilike("code", code) // match case-insensitive (nessun wildcard nel valore)
+    .eq("code", code)
     .eq("active", true)
     .maybeSingle();
   if (!row) return null;
+
+  // Codice riservato agli iscritti: se l'utente non è autenticato → non applicabile.
+  if (row.requires_auth && !opts.isAuthenticated) return null;
 
   const now = Date.now();
   if (row.valid_from && new Date(row.valid_from).getTime() > now) return null;

@@ -31,6 +31,12 @@ export interface CartItemWithDish {
 
 export interface CartState {
   items: CartItem[];
+  /**
+   * Codice sconto catturato dall'URL (?code=…, es. QR volantino) in attesa di
+   * essere pre-applicato al checkout. Persistito: sopravvive alla navigazione e
+   * al reload, così chi arriva dal QR trova il codice già pronto. `null` se assente.
+   */
+  pendingCode: string | null;
   add: (dishId: string) => void;
   /** Aggiunge una poke creata col builder (sempre nuova riga, mai unisce con esistenti). */
   addCustomPoke: (config: CustomPokeConfig) => void;
@@ -38,4 +44,6 @@ export interface CartState {
   increment: (dishId: string) => void;
   decrement: (dishId: string) => void;
   clear: () => void;
+  /** Salva/aggiorna il codice sconto in attesa (o lo azzera con null). */
+  setPendingCode: (code: string | null) => void;
 }
