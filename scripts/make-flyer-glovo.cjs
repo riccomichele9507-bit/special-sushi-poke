@@ -80,7 +80,7 @@ async function main() {
   const cream = `rgb(${corner[0]},${corner[1]},${corner[2]})`;
 
   // --- QR brandizzato ---
-  const QR_PX = 440;
+  const QR_PX = 420;
   const { svg: qrSvg } = brandedQrSvg(URL, QR_PX);
   const qrBuf = await sharp(Buffer.from(qrSvg)).png().toBuffer();
   await sharp(qrBuf).toFile(QR_OUT);
@@ -90,13 +90,13 @@ async function main() {
   const logoQrBuf = await sharp(LOGO).resize(LOGO_QR_PX, LOGO_QR_PX).toBuffer();
 
   // --- logo mark header ---
-  const LOGO_TOP_PX = 92;
+  const LOGO_TOP_PX = 80;
   const logoTopBuf = await sharp(LOGO).resize(LOGO_TOP_PX, LOGO_TOP_PX).toBuffer();
 
   // QR card geometry
-  const CARD = 500;
+  const CARD = 480;
   const CARD_X = Math.round((W - CARD) / 2);
-  const CARD_Y = 452;
+  const CARD_Y = 414;
   const QR_X = CARD_X + Math.round((CARD - QR_PX) / 2);
   const QR_Y = CARD_Y + Math.round((CARD - QR_PX) / 2);
   const CENTER_X = CARD_X + CARD / 2;
@@ -112,14 +112,14 @@ async function main() {
   <rect x="20" y="20" width="${W - 40}" height="${H - 40}" rx="40" fill="none" stroke="${GOLD}" stroke-width="3" stroke-opacity="0.55"/>
 
   <!-- eyebrow -->
-  <text x="${W / 2}" y="240" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="27" letter-spacing="5" fill="${GOLD}">ISCRIVITI &#183; ORDINA DAL NOSTRO SITO</text>
+  <text x="${W / 2}" y="200" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="27" letter-spacing="5" fill="${GOLD}">ISCRIVITI E ORDINA DAL NOSTRO SITO</text>
 
   <!-- offerta protagonista -->
-  <text x="${W / 2}" y="342" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="bold" font-size="104" fill="${INK}">10% DI SCONTO</text>
+  <text x="${W / 2}" y="300" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="bold" font-size="104" fill="${INK}">10% DI SCONTO</text>
 
   <!-- badge: senza minimo + consegna gratis -->
-  <rect x="${(W - badgeW) / 2}" y="378" width="${badgeW}" height="64" rx="32" fill="none" stroke="${GOLD}" stroke-width="2.5"/>
-  <text x="${W / 2}" y="418" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="26" letter-spacing="1.5" fill="${BAMBOO_DEEP}">SENZA MINIMO DI SPESA &#183; CONSEGNA GRATIS A BARI</text>
+  <rect x="${(W - badgeW) / 2}" y="336" width="${badgeW}" height="62" rx="31" fill="none" stroke="${GOLD}" stroke-width="2.5"/>
+  <text x="${W / 2}" y="375" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="26" letter-spacing="1.5" fill="${BAMBOO_DEEP}">SENZA MINIMO DI SPESA &#183; CONSEGNA GRATIS A BARI</text>
 
   <!-- QR card -->
   <rect x="${CARD_X}" y="${CARD_Y}" width="${CARD}" height="${CARD}" rx="40" fill="#ffffff" stroke="${GOLD}" stroke-width="3" stroke-opacity="0.5"/>
@@ -127,25 +127,28 @@ async function main() {
   <rect x="${CENTER_X - 66}" y="${CENTER_Y - 66}" width="132" height="132" rx="22" fill="${cream}"/>
 
   <!-- pill codice -->
-  <rect x="${(W - pillW) / 2}" y="978" width="${pillW}" height="96" rx="26" fill="${BAMBOO_DEEP}"/>
-  <text x="${W / 2}" y="1041" text-anchor="middle" font-family="Arial, sans-serif" fill="${cream}">
-    <tspan font-size="34" font-weight="bold" letter-spacing="2">CODICE</tspan>
-    <tspan font-size="52" font-weight="bold" letter-spacing="4" dx="22">SUSHI10</tspan>
+  <rect x="${(W - pillW) / 2}" y="916" width="${pillW}" height="88" rx="24" fill="${BAMBOO_DEEP}"/>
+  <text x="${W / 2}" y="974" text-anchor="middle" font-family="Arial, sans-serif" fill="${cream}">
+    <tspan font-size="32" font-weight="bold" letter-spacing="2">CODICE</tspan>
+    <tspan font-size="50" font-weight="bold" letter-spacing="4" dx="20">SUSHI10</tspan>
   </text>
 
-  <!-- caption -->
-  <text x="${W / 2}" y="1118" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="29" fill="${BAMBOO_DEEP}">Inquadra &#183; Iscriviti &#183; Risparmia</text>
+  <!-- si applica da solo: il QR lo inserisce, non va digitato -->
+  <text x="${W / 2}" y="1048" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="30" fill="${BAMBOO_DEEP}">Si applica da solo: non devi digitarlo</text>
+
+  <!-- vincolo iscrizione -->
+  <text x="${W / 2}" y="1092" text-anchor="middle" font-family="Arial, sans-serif" font-size="27" fill="${WARM}">(codice valido solo con iscrizione)</text>
 
   <!-- footer -->
-  <rect x="0" y="1146" width="${W}" height="54" fill="${BAMBOO_DEEP}"/>
-  <text x="${W / 2}" y="1181" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="30" fill="${cream}">specialsushipokebari.com</text>
+  <rect x="0" y="1140" width="${W}" height="60" fill="${BAMBOO_DEEP}"/>
+  <text x="${W / 2}" y="1179" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="30" fill="${cream}">specialsushipokebari.com</text>
 </svg>`;
 
   await sharp({
     create: { width: W, height: H, channels: 3, background: cream },
   })
     .composite([
-      { input: logoTopBuf, top: 96, left: Math.round((W - LOGO_TOP_PX) / 2) },
+      { input: logoTopBuf, top: 68, left: Math.round((W - LOGO_TOP_PX) / 2) },
       { input: Buffer.from(svg), top: 0, left: 0 },
       { input: qrBuf, top: QR_Y, left: QR_X },
       {
