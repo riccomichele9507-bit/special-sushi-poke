@@ -25,7 +25,11 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Tutte le route eccetto asset statici e file pubblici
-    "/((?!_next/static|_next/image|favicon.ico|menu/|og/|.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml|json)$).*)",
+    // Tutte le route eccetto API, asset statici e file pubblici.
+    // `api/` è ESCLUSO di proposito: le route API si autenticano da sole
+    // (token CloudPRNT, firma Stripe, bearer cron) e non usano la sessione
+    // Supabase. Includerle raddoppiava le invocazioni Vercel — la stampante
+    // polla di continuo e ogni poll costava middleware + endpoint.
+    "/((?!api/|_next/static|_next/image|favicon.ico|menu/|og/|.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml|json)$).*)",
   ],
 };
