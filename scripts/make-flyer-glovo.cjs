@@ -1,11 +1,13 @@
-// Volantino QUADRATO 10×10 cm — inserto da mettere negli ordini Glovo.
+// Volantino A6 ORIZZONTALE 14,8×10,5 cm — inserto da mettere negli ordini Glovo.
 // Obiettivo: chi apre il sacchetto Glovo scannerizza il QR, si iscrive e ordina
 // direttamente dal sito con 10% di sconto (codice SUSHI10, riservato agli iscritti).
 // Il QR porta a /menu?code=SUSHI10 → l'app cattura il codice e lo pre-applica al
-// checkout in automatico. Tutto generato via sharp (stessa pipeline del volantino A5).
+// checkout in automatico.
 //
-// Output: marketing/volantino-glovo-10x10.png (+ qr-glovo.png)
-// Formato: 1200×1200 px ≈ 10×10 cm a 300 DPI (stampa cut-to-size).
+// Output: marketing/volantino-glovo-a6.png (+ qr-glovo.png)
+// Formato: 1748×1240 px = 148×105 mm esatti a 300 DPI (A6 landscape).
+// Le proporzioni combaciano con il preset A6 di Canva (1748/1240 = 148/105),
+// quindi l'immagine riempie il formato senza bordi bianchi né ritagli.
 
 const path = require("path");
 const sharp = require("sharp");
@@ -13,11 +15,12 @@ const QRCode = require("qrcode");
 
 const ROOT = path.resolve(__dirname, "..");
 const LOGO = path.join(ROOT, "public", "logo-mark.png");
-const OUT = path.join(ROOT, "marketing", "volantino-glovo-10x10.png");
+const OUT = path.join(ROOT, "marketing", "volantino-glovo-a6.png");
 const QR_OUT = path.join(ROOT, "marketing", "qr-glovo.png");
 
-const W = 1200;
-const H = 1200;
+const DPI = 300;
+const W = 1748; // 148 mm
+const H = 1240; // 105 mm
 
 // URL del QR: code=SUSHI10 catturato dall'app (PromoCodeCapture) e pre-applicato
 // al checkout. utm per capire quante iscrizioni arrivano dal volantino Glovo.
@@ -80,87 +83,103 @@ async function main() {
   const cream = `rgb(${corner[0]},${corner[1]},${corner[2]})`;
 
   // --- QR brandizzato ---
-  const QR_PX = 420;
+  const QR_PX = 520;
   const { svg: qrSvg } = brandedQrSvg(URL, QR_PX);
   const qrBuf = await sharp(Buffer.from(qrSvg)).png().toBuffer();
-  await sharp(qrBuf).toFile(QR_OUT);
+  await sharp(qrBuf).withMetadata({ density: DPI }).toFile(QR_OUT);
 
   // --- logo mark centro QR ---
-  const LOGO_QR_PX = 108;
+  const LOGO_QR_PX = 130;
   const logoQrBuf = await sharp(LOGO).resize(LOGO_QR_PX, LOGO_QR_PX).toBuffer();
 
-  // --- logo mark header ---
-  const LOGO_TOP_PX = 80;
+  // --- logo mark header (colonna sinistra) ---
+  const LOGO_TOP_PX = 82;
   const logoTopBuf = await sharp(LOGO).resize(LOGO_TOP_PX, LOGO_TOP_PX).toBuffer();
 
-  // QR card geometry
-  const CARD = 480;
-  const CARD_X = Math.round((W - CARD) / 2);
-  const CARD_Y = 414;
+  // Area utile: dentro la cornice, sopra il footer. Ogni colonna e' centrata
+  // verticalmente qui dentro, altrimenti il contenuto resta in alto e sotto
+  // rimane una fascia vuota.
+  const FOOTER_Y = 1168;
+  const AREA_TOP = 22;
+  const AREA_CY = Math.round((AREA_TOP + FOOTER_Y) / 2); // 595
+
+  // ---- COLONNA DESTRA: QR + codice ----
+  const CARD = 600;
+  const CARD_X = W - 70 - CARD; // 1078
+  const pillW = 470;
+  const PILL_H = 88;
+  const PILL_GAP = 42;
+  const R_BLOCK = CARD + PILL_GAP + PILL_H; // altezza blocco destro
+  const CARD_Y = Math.round(AREA_CY - R_BLOCK / 2);
+  const PILL_Y = CARD_Y + CARD + PILL_GAP;
   const QR_X = CARD_X + Math.round((CARD - QR_PX) / 2);
   const QR_Y = CARD_Y + Math.round((CARD - QR_PX) / 2);
-  const CENTER_X = CARD_X + CARD / 2;
-  const CENTER_Y = CARD_Y + CARD / 2;
+  const R_CX = CARD_X + CARD / 2; // centro colonna destra
+  const R_CY = CARD_Y + CARD / 2;
 
-  const badgeW = 780;
-  const pillW = 560;
+  // ---- COLONNA SINISTRA: offerta ----
+  const L_LEFT = 70;
+  const L_RIGHT = CARD_X - 56;
+  const L_CX = Math.round((L_LEFT + L_RIGHT) / 2);
+  const badgeW = 820;
 
   // --- overlay SVG (testi, badge, card, footer) ---
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
   <!-- cornice coupon -->
-  <rect x="20" y="20" width="${W - 40}" height="${H - 40}" rx="40" fill="none" stroke="${GOLD}" stroke-width="3" stroke-opacity="0.55"/>
+  <rect x="22" y="22" width="${W - 44}" height="${H - 44}" rx="40" fill="none" stroke="${GOLD}" stroke-width="3" stroke-opacity="0.55"/>
 
   <!-- eyebrow -->
-  <text x="${W / 2}" y="200" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="27" letter-spacing="5" fill="${GOLD}">ISCRIVITI E ORDINA DAL NOSTRO SITO</text>
+  <text x="${L_CX}" y="469" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="26" letter-spacing="4.5" fill="${GOLD}">ISCRIVITI E ORDINA DAL NOSTRO SITO</text>
 
   <!-- offerta protagonista -->
-  <text x="${W / 2}" y="300" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="bold" font-size="104" fill="${INK}">10% DI SCONTO</text>
+  <text x="${L_CX}" y="597" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="bold" font-size="110" fill="${INK}">10% DI SCONTO</text>
 
   <!-- badge: senza minimo + consegna gratis -->
-  <rect x="${(W - badgeW) / 2}" y="336" width="${badgeW}" height="62" rx="31" fill="none" stroke="${GOLD}" stroke-width="2.5"/>
-  <text x="${W / 2}" y="375" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="26" letter-spacing="1.5" fill="${BAMBOO_DEEP}">SENZA MINIMO DI SPESA &#183; CONSEGNA GRATIS A BARI</text>
-
-  <!-- QR card -->
-  <rect x="${CARD_X}" y="${CARD_Y}" width="${CARD}" height="${CARD}" rx="40" fill="#ffffff" stroke="${GOLD}" stroke-width="3" stroke-opacity="0.5"/>
-  <!-- stamp crema dietro logo -->
-  <rect x="${CENTER_X - 66}" y="${CENTER_Y - 66}" width="132" height="132" rx="22" fill="${cream}"/>
-
-  <!-- pill codice -->
-  <rect x="${(W - pillW) / 2}" y="916" width="${pillW}" height="88" rx="24" fill="${BAMBOO_DEEP}"/>
-  <text x="${W / 2}" y="974" text-anchor="middle" font-family="Arial, sans-serif" fill="${cream}">
-    <tspan font-size="32" font-weight="bold" letter-spacing="2">CODICE</tspan>
-    <tspan font-size="50" font-weight="bold" letter-spacing="4" dx="20">SUSHI10</tspan>
-  </text>
+  <rect x="${L_CX - badgeW / 2}" y="643" width="${badgeW}" height="64" rx="32" fill="none" stroke="${GOLD}" stroke-width="2.5"/>
+  <text x="${L_CX}" y="684" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="26" letter-spacing="1.5" fill="${BAMBOO_DEEP}">SENZA MINIMO DI SPESA &#183; CONSEGNA GRATIS A BARI</text>
 
   <!-- si applica da solo: il QR lo inserisce, non va digitato -->
-  <text x="${W / 2}" y="1048" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="30" fill="${BAMBOO_DEEP}">Si applica da solo: non devi digitarlo</text>
+  <text x="${L_CX}" y="800" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="31" fill="${BAMBOO_DEEP}">Si applica da solo: non devi digitarlo</text>
 
   <!-- vincolo iscrizione -->
-  <text x="${W / 2}" y="1092" text-anchor="middle" font-family="Arial, sans-serif" font-size="27" fill="${WARM}">(codice valido solo con iscrizione)</text>
+  <text x="${L_CX}" y="850" text-anchor="middle" font-family="Arial, sans-serif" font-size="27" fill="${WARM}">(codice valido solo con iscrizione)</text>
+
+  <!-- QR card -->
+  <rect x="${CARD_X}" y="${CARD_Y}" width="${CARD}" height="${CARD}" rx="38" fill="#ffffff" stroke="${GOLD}" stroke-width="3" stroke-opacity="0.5"/>
+  <!-- stamp crema dietro logo -->
+  <rect x="${R_CX - 72}" y="${R_CY - 72}" width="144" height="144" rx="22" fill="${cream}"/>
+
+  <!-- pill codice -->
+  <rect x="${R_CX - pillW / 2}" y="${PILL_Y}" width="${pillW}" height="86" rx="24" fill="${BAMBOO_DEEP}"/>
+  <text x="${R_CX}" y="${PILL_Y + 58}" text-anchor="middle" font-family="Arial, sans-serif" fill="${cream}">
+    <tspan font-size="29" font-weight="bold" letter-spacing="2">CODICE</tspan>
+    <tspan font-size="46" font-weight="bold" letter-spacing="3.5" dx="18">SUSHI10</tspan>
+  </text>
 
   <!-- footer -->
-  <rect x="0" y="1140" width="${W}" height="60" fill="${BAMBOO_DEEP}"/>
-  <text x="${W / 2}" y="1179" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="30" fill="${cream}">specialsushipokebari.com</text>
+  <rect x="0" y="${FOOTER_Y}" width="${W}" height="${H - FOOTER_Y}" fill="${BAMBOO_DEEP}"/>
+  <text x="${W / 2}" y="${FOOTER_Y + 47}" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="31" fill="${cream}">specialsushipokebari.com</text>
 </svg>`;
 
   await sharp({
     create: { width: W, height: H, channels: 3, background: cream },
   })
     .composite([
-      { input: logoTopBuf, top: 68, left: Math.round((W - LOGO_TOP_PX) / 2) },
+      { input: logoTopBuf, top: 325, left: Math.round(L_CX - LOGO_TOP_PX / 2) },
       { input: Buffer.from(svg), top: 0, left: 0 },
       { input: qrBuf, top: QR_Y, left: QR_X },
       {
         input: logoQrBuf,
-        top: Math.round(CENTER_Y - LOGO_QR_PX / 2),
-        left: Math.round(CENTER_X - LOGO_QR_PX / 2),
+        top: Math.round(R_CY - LOGO_QR_PX / 2),
+        left: Math.round(R_CX - LOGO_QR_PX / 2),
       },
     ])
+    .withMetadata({ density: DPI }) // così Canva/stampa leggono 148×105 mm reali
     .png()
     .toFile(OUT);
 
-  console.log("OK ->", OUT);
+  console.log(`OK -> ${OUT}  (${W}x${H}px = 148x105mm @ ${DPI}dpi)`);
 }
 
 main().catch((e) => {
