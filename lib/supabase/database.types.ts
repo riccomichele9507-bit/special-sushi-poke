@@ -622,6 +622,7 @@ export type Database = {
           id: string
           job_token: string | null
           last_error: string | null
+          media_type: string
           order_id: string | null
           payload: string
           printed_at: string | null
@@ -635,6 +636,7 @@ export type Database = {
           id?: string
           job_token?: string | null
           last_error?: string | null
+          media_type?: string
           order_id?: string | null
           payload: string
           printed_at?: string | null
@@ -648,6 +650,7 @@ export type Database = {
           id?: string
           job_token?: string | null
           last_error?: string | null
+          media_type?: string
           order_id?: string | null
           payload?: string
           printed_at?: string | null

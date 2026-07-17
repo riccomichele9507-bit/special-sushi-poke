@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
   // Cerca un job pending
   const { data: job, error } = await supabase
     .from("print_jobs")
-    .select("id")
+    .select("id, media_type")
     .eq("status", "pending")
     .order("created_at", { ascending: true })
     .limit(1)
@@ -127,7 +127,9 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     jobReady: true,
-    mediaTypes: [PRINT_MEDIA_TYPE],
+    // Tipo del singolo job: comanda (image/png) o configurazione stampante
+    // (application/vnd.star.starconfiguration).
+    mediaTypes: [job.media_type ?? PRINT_MEDIA_TYPE],
     jobToken,
     deleteMethod: "DELETE",
   });
@@ -149,7 +151,7 @@ export async function GET(request: NextRequest) {
   // Trova il job: prima per jobToken (preciso), fallback al più vecchio in_progress
   let jobQuery = supabase
     .from("print_jobs")
-    .select("id, payload, order_id")
+    .select("id, payload, order_id, media_type")
     .eq("status", "in_progress");
 
   if (jobToken) {
@@ -194,7 +196,7 @@ export async function GET(request: NextRequest) {
   return new NextResponse(body, {
     status: 200,
     headers: {
-      "Content-Type": PRINT_MEDIA_TYPE,
+      "Content-Type": job.media_type ?? PRINT_MEDIA_TYPE,
       "Content-Length": String(body.length),
       "Cache-Control": "no-store",
     },
