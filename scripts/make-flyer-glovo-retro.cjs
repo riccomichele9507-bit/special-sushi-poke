@@ -40,9 +40,10 @@ async function main() {
   const LOGO_PX = 190;
   const logoBuf = await sharp(LOGO).resize(LOGO_PX, LOGO_PX).toBuffer();
 
-  const FOOTER_Y = 1168;
+  // Niente barra footer a fondo pagina: toccava il bordo del foglio e in stampa
+  // senza bleed lascia righe bianche o tagli storti (stesso motivo del fronte).
   const CX = W / 2;
-  const LOGO_TOP = 250;
+  const LOGO_TOP = 270;
 
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
@@ -50,23 +51,22 @@ async function main() {
   <rect x="22" y="22" width="${W - 44}" height="${H - 44}" rx="40" fill="none" stroke="${GOLD}" stroke-width="3" stroke-opacity="0.55"/>
 
   <!-- il ringraziamento e' il protagonista -->
-  <text x="${CX}" y="620" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="bold" font-size="104" fill="${INK}">Grazie per aver ordinato</text>
+  <text x="${CX}" y="640" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="bold" font-size="104" fill="${INK}">Grazie per aver ordinato</text>
 
   <!-- filetto -->
-  <rect x="${CX - 150}" y="676" width="300" height="2.5" fill="${GOLD}" fill-opacity="0.75"/>
+  <rect x="${CX - 150}" y="696" width="300" height="2.5" fill="${GOLD}" fill-opacity="0.75"/>
 
   <!-- nome del locale -->
-  <text x="${CX}" y="770" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="46" letter-spacing="9" fill="${BAMBOO_DEEP}">${NOME}</text>
+  <text x="${CX}" y="790" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="46" letter-spacing="9" fill="${BAMBOO_DEEP}">${NOME}</text>
 
   <!-- tagline -->
-  <text x="${CX}" y="826" text-anchor="middle" font-family="Arial, sans-serif" font-size="30" fill="${WARM}">${TAGLINE}</text>
+  <text x="${CX}" y="846" text-anchor="middle" font-family="Arial, sans-serif" font-size="30" fill="${WARM}">${TAGLINE}</text>
 
   <!-- indirizzo -->
-  <text x="${CX}" y="886" text-anchor="middle" font-family="Arial, sans-serif" font-size="27" fill="${WARM}">${INDIRIZZO}</text>
+  <text x="${CX}" y="906" text-anchor="middle" font-family="Arial, sans-serif" font-size="27" fill="${WARM}">${INDIRIZZO}</text>
 
-  <!-- footer, identico al fronte -->
-  <rect x="0" y="${FOOTER_Y}" width="${W}" height="${H - FOOTER_Y}" fill="${BAMBOO_DEEP}"/>
-  <text x="${CX}" y="${FOOTER_Y + 47}" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="31" fill="${cream}">specialsushipokebari.com</text>
+  <!-- dominio: dentro l'area sicura, non in una barra a fondo pagina -->
+  <text x="${CX}" y="972" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="31" fill="${BAMBOO_DEEP}">specialsushipokebari.com</text>
 </svg>`;
 
   await sharp({

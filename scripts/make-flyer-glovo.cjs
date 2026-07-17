@@ -96,20 +96,21 @@ async function main() {
   const LOGO_TOP_PX = 82;
   const logoTopBuf = await sharp(LOGO).resize(LOGO_TOP_PX, LOGO_TOP_PX).toBuffer();
 
-  // Area utile: dentro la cornice, sopra il footer. Ogni colonna e' centrata
-  // verticalmente qui dentro, altrimenti il contenuto resta in alto e sotto
-  // rimane una fascia vuota.
-  const FOOTER_Y = 1168;
+  // Area utile: tutto l'interno della cornice. Niente barra footer a fondo
+  // pagina: toccava il bordo del foglio e in stampa senza bleed lascia righe
+  // bianche o tagli storti. Il dominio sta sotto il QR, dentro l'area sicura.
   const AREA_TOP = 22;
-  const AREA_CY = Math.round((AREA_TOP + FOOTER_Y) / 2); // 595
+  const AREA_BOTTOM = H - 22;
+  const AREA_CY = Math.round((AREA_TOP + AREA_BOTTOM) / 2); // 620
 
-  // ---- COLONNA DESTRA: QR + codice ----
+  // ---- COLONNA DESTRA: QR + codice + dominio ----
   const CARD = 600;
   const CARD_X = W - 70 - CARD; // 1078
   const pillW = 470;
   const PILL_H = 88;
   const PILL_GAP = 42;
-  const R_BLOCK = CARD + PILL_GAP + PILL_H; // altezza blocco destro
+  const UNDER_PILL = 100; // istruzione d'uso + dominio
+  const R_BLOCK = CARD + PILL_GAP + PILL_H + UNDER_PILL;
   const CARD_Y = Math.round(AREA_CY - R_BLOCK / 2);
   const PILL_Y = CARD_Y + CARD + PILL_GAP;
   const QR_X = CARD_X + Math.round((CARD - QR_PX) / 2);
@@ -130,21 +131,21 @@ async function main() {
   <rect x="22" y="22" width="${W - 44}" height="${H - 44}" rx="40" fill="none" stroke="${GOLD}" stroke-width="3" stroke-opacity="0.55"/>
 
   <!-- HOOK: la prova piu' forte ce l'ha in bocca mentre legge -->
-  <text x="${L_CX}" y="455" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="31" letter-spacing="3.5" fill="${GOLD}">TI &#200; PIACIUTO?</text>
+  <text x="${L_CX}" y="478" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="31" letter-spacing="3.5" fill="${GOLD}">TI &#200; PIACIUTO?</text>
 
   <!-- offerta protagonista: il numero, non la richiesta di iscriversi -->
-  <text x="${L_CX}" y="524" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="33" letter-spacing="2" fill="${INK}">LA PROSSIMA VOLTA LO PAGHI</text>
-  <text x="${L_CX}" y="630" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="bold" font-size="100" fill="${INK}">IL 20% IN MENO</text>
+  <text x="${L_CX}" y="547" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="33" letter-spacing="2" fill="${INK}">LA PROSSIMA VOLTA LO PAGHI</text>
+  <text x="${L_CX}" y="653" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="bold" font-size="100" fill="${INK}">IL 20% IN MENO</text>
 
   <!-- la scala: rende sensato "usalo sull'ordine piu' grande" e spinge verso i 40 -->
-  <rect x="${L_CX - badgeW / 2}" y="678" width="${badgeW}" height="64" rx="32" fill="none" stroke="${GOLD}" stroke-width="2.5"/>
-  <text x="${L_CX}" y="719" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="25" letter-spacing="1.2" fill="${BAMBOO_DEEP}">10% SUBITO &#183; 20% SOPRA I 40&#8364; &#183; CONSEGNA GRATIS</text>
+  <rect x="${L_CX - badgeW / 2}" y="701" width="${badgeW}" height="64" rx="32" fill="none" stroke="${GOLD}" stroke-width="2.5"/>
+  <text x="${L_CX}" y="742" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="25" letter-spacing="1.2" fill="${BAMBOO_DEEP}">10% SUBITO &#183; 20% SOPRA I 40&#8364; &#183; CONSEGNA GRATIS</text>
 
   <!-- nudge sullo scontrino medio: il codice vale una volta sola -->
-  <text x="${L_CX}" y="822" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="30" fill="${BAMBOO_DEEP}">Vale una volta sola: usalo sull&#8217;ordine pi&#249; grande</text>
+  <text x="${L_CX}" y="845" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="30" fill="${BAMBOO_DEEP}">Vale una volta sola: usalo sull&#8217;ordine pi&#249; grande</text>
 
   <!-- l'attrito residuo va rimpicciolito, non nascosto -->
-  <text x="${L_CX}" y="870" text-anchor="middle" font-family="Arial, sans-serif" font-size="26" fill="${WARM}">Iscriviti in 30 secondi &#183; poi l&#8217;indirizzo resta salvato</text>
+  <text x="${L_CX}" y="893" text-anchor="middle" font-family="Arial, sans-serif" font-size="26" fill="${WARM}">Iscriviti in 30 secondi &#183; poi l&#8217;indirizzo resta salvato</text>
 
   <!-- QR card -->
   <rect x="${CARD_X}" y="${CARD_Y}" width="${CARD}" height="${CARD}" rx="38" fill="#ffffff" stroke="${GOLD}" stroke-width="3" stroke-opacity="0.5"/>
@@ -159,18 +160,17 @@ async function main() {
   </text>
 
   <!-- istruzione d'uso, sotto il QR: il codice lo inserisce il QR -->
-  <text x="${R_CX}" y="${PILL_Y + 132}" text-anchor="middle" font-family="Arial, sans-serif" font-size="25" fill="${WARM}">Si applica da solo: non devi digitarlo</text>
+  <text x="${R_CX}" y="${PILL_Y + PILL_H + 46}" text-anchor="middle" font-family="Arial, sans-serif" font-size="25" fill="${WARM}">Si applica da solo: non devi digitarlo</text>
 
-  <!-- footer -->
-  <rect x="0" y="${FOOTER_Y}" width="${W}" height="${H - FOOTER_Y}" fill="${BAMBOO_DEEP}"/>
-  <text x="${W / 2}" y="${FOOTER_Y + 47}" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="31" fill="${cream}">specialsushipokebari.com</text>
+  <!-- dominio: sotto il QR, non piu' in una barra a fondo pagina -->
+  <text x="${R_CX}" y="${PILL_Y + PILL_H + 98}" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="31" fill="${BAMBOO_DEEP}">specialsushipokebari.com</text>
 </svg>`;
 
   await sharp({
     create: { width: W, height: H, channels: 3, background: cream },
   })
     .composite([
-      { input: logoTopBuf, top: 325, left: Math.round(L_CX - LOGO_TOP_PX / 2) },
+      { input: logoTopBuf, top: 348, left: Math.round(L_CX - LOGO_TOP_PX / 2) },
       { input: Buffer.from(svg), top: 0, left: 0 },
       { input: qrBuf, top: QR_Y, left: QR_X },
       {
