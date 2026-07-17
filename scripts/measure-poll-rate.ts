@@ -17,9 +17,10 @@ const sb = createClient(v("NEXT_PUBLIC_SUPABASE_URL")!, v("SUPABASE_SERVICE_ROLE
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function main() {
+  const samples = Number.parseInt(process.argv[2] ?? "30", 10);
   const seen: string[] = [];
-  console.log("Campiono last_poll_at per 60 secondi...\n");
-  for (let i = 0; i < 30; i++) {
+  console.log(`Campiono last_poll_at per ~${samples * 2} secondi...\n`);
+  for (let i = 0; i < samples; i++) {
     const { data } = await sb
       .from("printer_health")
       .select("last_poll_at")

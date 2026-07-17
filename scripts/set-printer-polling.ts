@@ -33,11 +33,15 @@ if (!Number.isFinite(seconds) || seconds < 1 || seconds > 7200) {
 }
 
 // SOLO polling_time: nessun'altra impostazione toccata (raggio d'azione minimo).
+// device_name è OBBLIGATORIO ("required when a parent element exists", spec pag. 28):
+// senza, la stampante scarta il blocco in silenzio. Per TSP143IV il valore è
+// "TSP100IV" (spec pag. 32: '"TSP100IV" TSP100IV series').
 const config = {
   title: "star_configuration",
   version: "1.3.0",
   configurations: [
     {
+      device_name: "TSP100IV",
       password_protected_settings: {
         current_password: password,
         cloudprnt: { polling_time: seconds },
