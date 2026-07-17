@@ -29,6 +29,7 @@ import { createOrder } from "@/app/actions/orders";
 import { quoteDiscountCode } from "@/app/actions/discount";
 import { usePricing } from "@/lib/pricing-store";
 import { TipSelector } from "@/components/cart/tip-selector";
+import { CartSummary } from "@/components/cart/cart-summary";
 
 const INPUT_CLASSES =
   "h-12 rounded-xl border-border bg-paper-warm/40 px-4 text-base text-ink placeholder:text-warm-gray/70 focus-visible:border-bamboo/60 focus-visible:ring-bamboo/20 focus-visible:bg-paper";
@@ -141,6 +142,9 @@ export function CheckoutForm({
 
   const cartItems = useCartStore((s) => s.items);
   const tipCents = usePricing((s) => s.tipCents);
+  const setCodeDiscount = usePricing((s) => s.setCodeDiscount);
+  const clearCodeDiscount = usePricing((s) => s.clearCodeDiscount);
+  const codeForSubtotal = usePricing((s) => s.codeForSubtotalCents);
   const [marketingConsent, setMarketingConsent] = useState(true);
   // Numero civico: campo dedicato perché l'autocomplete Google spesso lo omette
   // o lo mette impreciso. Obbligatorio per la consegna (finisce nei dettagli rider).
@@ -153,6 +157,10 @@ export function CheckoutForm({
     ok: boolean;
     message: string;
   } | null>(null);
+  // Codice REALMENTE applicato (validato dal server), distinto dal testo nel
+  // campo: è l'unico che finisce in createOrder ed è quello di cui il totale
+  // mostra lo sconto. Così ciò che il cliente vede e ciò che paga coincidono.
+  const [appliedCode, setAppliedCode] = useState<string | null>(null);
 
   const applyDiscountCode = useCallback(
     async (codeArg?: string) => {
@@ -161,19 +169,35 @@ export function CheckoutForm({
       setCheckingCode(true);
       const r = await quoteDiscountCode(code, cartCents);
       setCheckingCode(false);
-      setCodeFeedback(
-        r.ok
-          ? {
-              ok: true,
-              message: `Codice applicato: −€${(r.discountCents / 100)
-                .toFixed(2)
-                .replace(".", ",")} di sconto`,
-            }
-          : { ok: false, message: r.message },
-      );
+      if (r.ok) {
+        setAppliedCode(r.code);
+        setCodeDiscount({
+          cents: r.discountCents,
+          label: r.code,
+          subtotalCents: r.subtotalCents,
+        });
+        setCodeFeedback({
+          ok: true,
+          message: `Codice applicato: −€${(r.discountCents / 100)
+            .toFixed(2)
+            .replace(".", ",")} di sconto`,
+        });
+      } else {
+        setAppliedCode(null);
+        clearCodeDiscount();
+        setCodeFeedback({ ok: false, message: r.message });
+      }
     },
-    [discountCode, cartCents],
+    [discountCode, cartCents, setCodeDiscount, clearCodeDiscount],
   );
+
+  // Il carrello può cambiare dopo aver applicato il codice (drawer aperto
+  // dall'header): uno sconto percentuale dipende dal subtotale, quindi va
+  // ricalcolato invece di mostrare una cifra vecchia.
+  useEffect(() => {
+    if (!appliedCode || codeForSubtotal === cartCents) return;
+    void applyDiscountCode(appliedCode);
+  }, [appliedCode, cartCents, codeForSubtotal, applyDiscountCode]);
 
   // Auto-apply del codice arrivato dal QR volantino (?code=… → cart-store).
   // Parte una volta sola, quando il carrello è idratato e valorizzato, se il
@@ -243,7 +267,7 @@ export function CheckoutForm({
       items: cartItems,
       tipCents,
       marketingConsent,
-      discountCode: discountCode.trim() || undefined,
+      discountCode: appliedCode ?? undefined,
     });
 
     if (!result.ok) {
@@ -468,6 +492,12 @@ export function CheckoutForm({
             onChange={(e) => {
               setDiscountCode(e.target.value);
               setCodeFeedback(null);
+              // Il testo non combacia più col codice applicato → lo sconto
+              // mostrato non vale più: via dal totale finché non riapplica.
+              if (appliedCode && e.target.value.trim().toUpperCase() !== appliedCode) {
+                setAppliedCode(null);
+                clearCodeDiscount();
+              }
             }}
             placeholder="Inserisci il codice"
             autoCapitalize="characters"
@@ -527,6 +557,15 @@ export function CheckoutForm({
           </p>
         </div>
       </label>
+
+      {/* Riepilogo totali: su desktop c'è già il pannello laterale
+          (OrderSummarySide), su mobile non c'era NULLA — il cliente applicava
+          il codice e scopriva il totale solo su Stripe. */}
+      {!cartEmpty && (
+        <div className="rounded-2xl border border-border bg-paper-warm/30 p-4 lg:hidden">
+          <CartSummary showPickupNote={false} />
+        </div>
+      )}
 
       <button
         type="submit"

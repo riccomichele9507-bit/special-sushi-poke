@@ -270,6 +270,7 @@ export type Database = {
           label: string | null
           max_redemptions: number | null
           min_order_cents: number
+          once_per_customer: boolean
           redemptions: number
           requires_auth: boolean
           valid_from: string | null
@@ -284,6 +285,7 @@ export type Database = {
           label?: string | null
           max_redemptions?: number | null
           min_order_cents?: number
+          once_per_customer?: boolean
           redemptions?: number
           requires_auth?: boolean
           valid_from?: string | null
@@ -298,6 +300,7 @@ export type Database = {
           label?: string | null
           max_redemptions?: number | null
           min_order_cents?: number
+          once_per_customer?: boolean
           redemptions?: number
           requires_auth?: boolean
           valid_from?: string | null

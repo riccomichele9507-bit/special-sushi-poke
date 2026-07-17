@@ -12,6 +12,7 @@ import {
 import { getPromoConfig } from "@/lib/promo/server";
 import {
   resolveCodeDiscount,
+  codeRejectionMessage,
   type CodeDiscount,
 } from "@/lib/promo/discount-code";
 import {
@@ -94,16 +95,33 @@ export async function createOrder(
   if ("ok" in items) return items;
   const { snapshots, subtotalCents } = items;
 
-  // 4. Totali: promo automatica (config dal DB) OPPURE codice sconto inserito,
-  //    si applica il maggiore (no stacking) + mancia (anti-tamper)
+  // 4. Totali: promo automatica (config dal DB) + codice sconto, CUMULATIVI,
+  //    + mancia. Tutto ricalcolato dal DB (anti-tamper).
   const tipCents = Math.max(0, input.tipCents ?? 0);
   const promo = await getPromoConfig();
-  const codeDiscount = await resolveCodeDiscount(
-    admin,
-    input.discountCode,
-    subtotalCents,
-    { isAuthenticated: !!user },
-  );
+
+  // Il codice arriva solo se il cliente l'ha applicato davvero, e il totale che
+  // ha visto lo include già. Se ora non è più valido NON lo scartiamo in
+  // silenzio (gli addebiteremmo più di quanto mostrato): l'ordine fallisce e il
+  // cliente legge il motivo.
+  let codeDiscount: CodeDiscount | null = null;
+  if (input.discountCode?.trim()) {
+    const r = await resolveCodeDiscount(
+      admin,
+      input.discountCode,
+      subtotalCents,
+      {
+        isAuthenticated: !!user,
+        customerId: user?.id ?? null,
+        customerEmail: input.email ?? user?.email ?? null,
+      },
+    );
+    if (!r.ok) {
+      return fail(`discount_${r.reason}`, codeRejectionMessage(r.reason));
+    }
+    codeDiscount = r.discount;
+  }
+
   const { discountCents, discountCode, totalCents } = computeTotals(
     subtotalCents,
     tipCents,
@@ -282,8 +300,13 @@ async function recomputeItems(
 }
 
 /**
- * Sconto + totale. Confronta la promo automatica col codice sconto inserito e
- * applica il MAGGIORE (no stacking). Marca discount_code col codice vincente.
+ * Sconto + totale. Promo automatica del locale e codice sconto sono CUMULATIVI:
+ * si sommano (es. 10% sopra €40 + SUSHI10 10% = 20%), mai oltre il subtotale.
+ *
+ * `discount_code` marca il codice del cliente quando c'è, altrimenti il
+ * marcatore della promo automatica. La precedenza al codice non è estetica: il
+ * limite "un riscatto per cliente" cerca proprio qui i riscatti passati
+ * (vedi hasRedeemedCode in lib/promo/discount-code.ts).
  */
 function computeTotals(
   subtotalCents: number,
@@ -292,12 +315,9 @@ function computeTotals(
   codeDiscount: CodeDiscount | null = null,
 ): { discountCents: number; discountCode: string | null; totalCents: number } {
   const autoCents = computeAutoPromoCents(subtotalCents, promo);
-  let discountCents = autoCents;
-  let discountCode = autoCents > 0 ? PROMO_CODE : null;
-  if (codeDiscount && codeDiscount.cents > discountCents) {
-    discountCents = codeDiscount.cents;
-    discountCode = codeDiscount.code;
-  }
+  const codeCents = codeDiscount?.cents ?? 0;
+  const discountCents = Math.min(autoCents + codeCents, subtotalCents);
+  const discountCode = codeDiscount?.code ?? (autoCents > 0 ? PROMO_CODE : null);
   const totalCents = subtotalCents + tipCents - discountCents;
   return { discountCents, discountCode, totalCents };
 }

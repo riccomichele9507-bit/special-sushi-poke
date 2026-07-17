@@ -5,10 +5,21 @@
 // (anti-tamper). Qui usiamo il subtotale passato dal client solo per l'anteprima.
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { resolveCodeDiscount } from "@/lib/promo/discount-code";
+import {
+  resolveCodeDiscount,
+  codeRejectionMessage,
+} from "@/lib/promo/discount-code";
 
 export type QuoteCodeResult =
-  | { ok: true; discountCents: number; label: string | null }
+  | {
+      ok: true;
+      discountCents: number;
+      label: string | null;
+      /** Codice normalizzato: il client lo rimanda a createOrder così com'è. */
+      code: string;
+      /** Subtotale su cui è stato calcolato: se il carrello cambia, va rifatto. */
+      subtotalCents: number;
+    }
   | { ok: false; message: string; requiresAuth?: boolean };
 
 export async function quoteDiscountCode(
@@ -22,39 +33,33 @@ export async function quoteDiscountCode(
     ? Math.max(0, Math.floor(subtotalCents))
     : 0;
 
-  // Stato autenticazione: i codici "riservati agli iscritti" (requires_auth)
-  // valgono solo se l'utente è loggato.
+  // Identità dal cookie di sessione, mai dal client: decide sia i codici
+  // riservati agli iscritti (requires_auth) sia il limite once_per_customer.
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const isAuthenticated = !!user;
 
   const admin = createAdminClient();
   const result = await resolveCodeDiscount(admin, trimmed, safeSubtotal, {
-    isAuthenticated,
+    isAuthenticated: !!user,
+    customerId: user?.id ?? null,
+    customerEmail: user?.email ?? null,
   });
-  if (result) {
-    return { ok: true, discountCents: result.cents, label: result.label };
-  }
 
-  // Distinzione: codice valido ma riservato agli iscritti (ospite) vs codice
-  // davvero non valido. Riproviamo "come iscritto": se passa, il blocco è l'auth.
-  if (!isAuthenticated) {
-    const asMember = await resolveCodeDiscount(admin, trimmed, safeSubtotal, {
-      isAuthenticated: true,
-    });
-    if (asMember) {
-      return {
-        ok: false,
-        requiresAuth: true,
-        message: "Accedi o registrati per usare questo codice.",
-      };
-    }
+  if (result.ok) {
+    return {
+      ok: true,
+      discountCents: result.discount.cents,
+      label: result.discount.label,
+      code: result.discount.code,
+      subtotalCents: safeSubtotal,
+    };
   }
 
   return {
     ok: false,
-    message: "Codice non valido o non applicabile a questo ordine.",
+    message: codeRejectionMessage(result.reason),
+    requiresAuth: result.reason === "requires_auth",
   };
 }

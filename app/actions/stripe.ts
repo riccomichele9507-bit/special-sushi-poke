@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe, isStripeConfigured } from "@/lib/stripe/server";
+import { codeAlreadyRedeemed } from "@/lib/promo/discount-code";
 
 export type CheckoutSessionResult =
   | { ok: true; clientSecret: string; sessionId: string }
@@ -54,6 +55,24 @@ export async function createCheckoutSession(
     return {
       ok: false,
       errorMessage: `Ordine già in stato "${order.status}", non pagabile di nuovo.`,
+    };
+  }
+
+  // Codici a riscatto unico: ricontrolla ADESSO. Alla creazione l'ordine a
+  // carta è ancora "received" e non conta come riscatto (così chi abbandona il
+  // checkout non brucia il codice), ma senza questo gate un cliente poteva
+  // creare N ordini scontati non pagati e poi pagarli tutti. Questo ordine è
+  // ancora "received": qui si vedono solo gli ALTRI ordini già pagati.
+  if (
+    await codeAlreadyRedeemed(admin, order.discount_code, {
+      customerId: order.customer_id,
+      customerEmail: order.customer_email,
+    })
+  ) {
+    return {
+      ok: false,
+      errorMessage:
+        "Hai già usato questo codice sconto: vale una volta sola per cliente. Rifai l'ordine senza il codice.",
     };
   }
 

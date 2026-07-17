@@ -17,11 +17,22 @@ export function CartSummary({
 }) {
   const subtotal = useCartTotal();
   const tipCents = usePricing((s) => s.tipCents);
+  const codeLabel = usePricing((s) => s.codeLabel);
+  const rawCodeCents = usePricing((s) => s.codeCents);
+  const codeForSubtotal = usePricing((s) => s.codeForSubtotalCents);
 
   const promo = promoConfig();
   const promoCents = computeAutoPromoCents(subtotal, promo);
   const missingCents = centsToPromo(subtotal, promo);
-  const total = Math.max(0, subtotal - promoCents) + tipCents;
+
+  // Lo sconto del codice vale solo per il subtotale su cui è stato calcolato:
+  // se il carrello è cambiato dopo, il valore è stale e va ignorato finché il
+  // checkout non lo ricalcola (uno sconto percentuale dipende dal subtotale).
+  const codeCents = codeForSubtotal === subtotal ? rawCodeCents : 0;
+
+  // Cumulativi, come fa il server in computeTotals (app/actions/orders.ts).
+  const discountCents = Math.min(promoCents + codeCents, subtotal);
+  const total = subtotal - discountCents + tipCents;
 
   return (
     <div className="flex flex-col gap-2">
@@ -37,6 +48,17 @@ export function CartSummary({
           </span>
           <span className="font-heading font-semibold text-bamboo-deep tabular-nums">
             −<Price cents={promoCents} size="sm" className="!text-bamboo-deep" />
+          </span>
+        </div>
+      )}
+
+      {codeCents > 0 && (
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-bamboo-deep font-medium">
+            Codice {codeLabel}
+          </span>
+          <span className="font-heading font-semibold text-bamboo-deep tabular-nums">
+            −<Price cents={codeCents} size="sm" className="!text-bamboo-deep" />
           </span>
         </div>
       )}
