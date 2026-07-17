@@ -6,6 +6,7 @@
 import "server-only";
 import { getResend, getFromEmail, getReplyTo, getBccEmail } from "./client";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getPromoConfig } from "@/lib/promo/server";
 import { restaurant } from "@/data/restaurant";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -236,17 +237,27 @@ export async function sendWelcomeEmail(args: {
     .maybeSingle();
   if (existing) return { sent: false, reason: "already_sent" };
 
+  // Vantaggi REALI dell'iscrizione. Niente programma punti: non esiste (nessuna
+  // tabella, nessun saldo) e prometterlo creava un debito impagabile — chi
+  // arrivava a "100 punti" non avrebbe mai visto i 5€.
+  // La promo è configurabile dall'admin (restaurant_settings): letta dal DB e
+  // non scritta a mano, altrimenti cambiandola in pannello l'email mentirebbe.
+  const promo = await getPromoConfig();
+  const promoLine = promo.active
+    ? `Da ora la consegna a Bari è gratuita e ogni ordine sopra i ${(promo.minCents / 100).toFixed(0)}€ ha il ${promo.percent}% di sconto applicato in automatico — nessun codice da inserire.`
+    : `Da ora la consegna a Bari è gratuita.`;
+
   // Tono "transazionale" (no immagine grande, meno cue da newsletter) → resta in
   // Posta principale invece che Promozioni/Spam.
   const subject = "Grazie per la tua iscrizione — Special Sushi Poke";
   const body = `
     <h1 style="margin:0 0 12px;font-size:22px;font-weight:800;">Ciao ${escapeHtml(args.name || "")}, account creato ✓</h1>
     <p style="font-size:16px;line-height:1.55;margin:0 0 14px;color:#5a5048;">Grazie per esserti iscritto a Special Sushi Poke. Il tuo account è attivo.</p>
-    <p style="font-size:15px;line-height:1.7;margin:0 0 14px;color:#2d2a26;">Da ora ogni ordine accumula punti: 1€ = 1 punto, a 100 punti ricevi 5€ di sconto automatico. La consegna a Bari è gratuita.</p>
+    <p style="font-size:15px;line-height:1.7;margin:0 0 14px;color:#2d2a26;">${promoLine} E il tuo indirizzo resta salvato: la prossima volta ordini in due tap.</p>
     <p style="font-size:15px;line-height:1.6;margin:0;color:#5a5048;">Quando vuoi, trovi il menu qui: <a href="${SITE_URL}/menu" style="color:#5a7a64;font-weight:600;">specialsushipokebari.com/menu</a></p>
   `;
   const html = brandShell({ title: subject, bodyHtml: body });
-  const text = `Ciao ${args.name || ""}, account creato.\n\nGrazie per esserti iscritto a Special Sushi Poke. Il tuo account è attivo.\nOgni ordine accumula punti: 1€ = 1 punto, a 100 punti 5€ di sconto. Consegna gratuita a Bari.\n\nMenu: ${SITE_URL}/menu\n\nSpecial Sushi Poke - Via G. Petroni 12/H-i, Bari`;
+  const text = `Ciao ${args.name || ""}, account creato.\n\nGrazie per esserti iscritto a Special Sushi Poke. Il tuo account è attivo.\n${promoLine} E il tuo indirizzo resta salvato: la prossima volta ordini in due tap.\n\nMenu: ${SITE_URL}/menu\n\nSpecial Sushi Poke - Via G. Petroni 12/H-i, Bari`;
   try {
     const r = await resend.emails.send({ from: getFromEmail(), replyTo: getReplyTo(), bcc: getBccEmail(), to: args.to, subject, html, text });
     if (r.error) return { sent: false, reason: r.error.message };
@@ -290,8 +301,11 @@ export async function sendOrderConfirmationEmail(order: Order): Promise<SendResu
         `<tr><td style="padding:4px 0;font-size:14px;color:#2d2a26;">${escapeHtml(String(it.qty ?? 1))}× ${escapeHtml(it.name ?? "Piatto")}</td><td style="padding:4px 0;font-size:14px;text-align:right;color:#5a5048;">€${(((it.lineTotalCents ?? 0)) / 100).toFixed(2).replace(".", ",")}</td></tr>`,
     )
     .join("");
-  const eligible = Math.max(0, order.subtotal_cents - (order.discount_cents ?? 0));
-  const points = order.customer_id ? Math.floor(eligible / 100) : 0;
+  // Il risparmio è un FATTO già avvenuto (discount_cents dell'ordine), non una
+  // promessa: rimpiazza i "punti" che venivano calcolati qui, mostrati e mai
+  // salvati da nessuna parte. Rinforza anche l'abitudine giusta — ordinare dal
+  // sito conviene — che è l'unico messaggio utile contro le piattaforme.
+  const savedCents = order.discount_cents ?? 0;
   const subject = `Ordine ${order.order_number} ricevuto ✓ Special Sushi Poke`;
   const body = `
     <h1 style="margin:0 0 8px;font-size:23px;font-weight:800;">Ordine #${escapeHtml(order.order_number)} ricevuto ✓</h1>
@@ -304,7 +318,7 @@ export async function sendOrderConfirmationEmail(order: Order): Promise<SendResu
       <div style="font-size:22px;font-weight:800;">${slot}</div>
       ${isDelivery && order.address_line ? `<div style="font-size:13px;opacity:.9;margin-top:4px;">${escapeHtml(order.address_line)}</div>` : ""}
     </div>
-    ${points > 0 ? `<p style="font-size:14px;text-align:center;color:#b8965a;margin:0 0 6px;">⭐ Hai guadagnato <strong>${points} punti</strong>!</p>` : ""}
+    ${savedCents > 0 ? `<p style="font-size:14px;text-align:center;color:#5a7a64;margin:0 0 6px;">💚 Hai risparmiato <strong>€${(savedCents / 100).toFixed(2).replace(".", ",")}</strong> ordinando dal nostro sito.</p>` : ""}
     ${order.customer_id ? ctaButton(`${SITE_URL}/account/orders/${order.order_number}`, "Vedi il tuo ordine") : ctaButton(`${SITE_URL}/menu`, "Ordina ancora")}
   `;
   const html = brandShell({ title: subject, bodyHtml: body });
