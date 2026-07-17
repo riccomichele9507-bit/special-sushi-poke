@@ -129,21 +129,22 @@ async function main() {
   <!-- cornice coupon -->
   <rect x="22" y="22" width="${W - 44}" height="${H - 44}" rx="40" fill="none" stroke="${GOLD}" stroke-width="3" stroke-opacity="0.55"/>
 
-  <!-- eyebrow -->
-  <text x="${L_CX}" y="469" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="26" letter-spacing="4.5" fill="${GOLD}">ISCRIVITI E ORDINA DAL NOSTRO SITO</text>
+  <!-- HOOK: la prova piu' forte ce l'ha in bocca mentre legge -->
+  <text x="${L_CX}" y="455" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="31" letter-spacing="3.5" fill="${GOLD}">TI &#200; PIACIUTO?</text>
 
-  <!-- offerta protagonista -->
-  <text x="${L_CX}" y="597" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="bold" font-size="110" fill="${INK}">10% DI SCONTO</text>
+  <!-- offerta protagonista: il numero, non la richiesta di iscriversi -->
+  <text x="${L_CX}" y="524" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="33" letter-spacing="2" fill="${INK}">LA PROSSIMA VOLTA LO PAGHI</text>
+  <text x="${L_CX}" y="630" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="bold" font-size="100" fill="${INK}">IL 20% IN MENO</text>
 
-  <!-- badge: senza minimo + consegna gratis -->
-  <rect x="${L_CX - badgeW / 2}" y="643" width="${badgeW}" height="64" rx="32" fill="none" stroke="${GOLD}" stroke-width="2.5"/>
-  <text x="${L_CX}" y="684" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="26" letter-spacing="1.5" fill="${BAMBOO_DEEP}">SENZA MINIMO DI SPESA &#183; CONSEGNA GRATIS A BARI</text>
+  <!-- la scala: rende sensato "usalo sull'ordine piu' grande" e spinge verso i 40 -->
+  <rect x="${L_CX - badgeW / 2}" y="678" width="${badgeW}" height="64" rx="32" fill="none" stroke="${GOLD}" stroke-width="2.5"/>
+  <text x="${L_CX}" y="719" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="25" letter-spacing="1.2" fill="${BAMBOO_DEEP}">10% SUBITO &#183; 20% SOPRA I 40&#8364; &#183; CONSEGNA GRATIS</text>
 
-  <!-- si applica da solo: il QR lo inserisce, non va digitato -->
-  <text x="${L_CX}" y="800" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="31" fill="${BAMBOO_DEEP}">Si applica da solo: non devi digitarlo</text>
+  <!-- nudge sullo scontrino medio: il codice vale una volta sola -->
+  <text x="${L_CX}" y="822" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="30" fill="${BAMBOO_DEEP}">Vale una volta sola: usalo sull&#8217;ordine pi&#249; grande</text>
 
-  <!-- vincolo iscrizione -->
-  <text x="${L_CX}" y="850" text-anchor="middle" font-family="Arial, sans-serif" font-size="27" fill="${WARM}">(codice valido solo con iscrizione)</text>
+  <!-- l'attrito residuo va rimpicciolito, non nascosto -->
+  <text x="${L_CX}" y="870" text-anchor="middle" font-family="Arial, sans-serif" font-size="26" fill="${WARM}">Iscriviti in 30 secondi &#183; poi l&#8217;indirizzo resta salvato</text>
 
   <!-- QR card -->
   <rect x="${CARD_X}" y="${CARD_Y}" width="${CARD}" height="${CARD}" rx="38" fill="#ffffff" stroke="${GOLD}" stroke-width="3" stroke-opacity="0.5"/>
@@ -156,6 +157,9 @@ async function main() {
     <tspan font-size="29" font-weight="bold" letter-spacing="2">CODICE</tspan>
     <tspan font-size="46" font-weight="bold" letter-spacing="3.5" dx="18">SUSHI10</tspan>
   </text>
+
+  <!-- istruzione d'uso, sotto il QR: il codice lo inserisce il QR -->
+  <text x="${R_CX}" y="${PILL_Y + 132}" text-anchor="middle" font-family="Arial, sans-serif" font-size="25" fill="${WARM}">Si applica da solo: non devi digitarlo</text>
 
   <!-- footer -->
   <rect x="0" y="${FOOTER_Y}" width="${W}" height="${H - FOOTER_Y}" fill="${BAMBOO_DEEP}"/>
