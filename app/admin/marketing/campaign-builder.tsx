@@ -169,10 +169,11 @@ export function CampaignBuilder({
         return;
       }
       const bits = [`Inviate ${r.sent} email`];
+      if (r.code) bits.push(`codice ${r.code}`);
       if (r.skippedNoConsent > 0) bits.push(`${r.skippedNoConsent} saltati (no consenso)`);
       if (r.suppressed > 0) bits.push(`${r.suppressed} disiscritti esclusi`);
       if (r.capped) bits.push("invio troncato dal limite mensile Resend");
-      toast.success(bits.join(" · "));
+      toast.success(bits.join(" · "), { duration: 8000 });
       runPreview(criteria);
     });
   };

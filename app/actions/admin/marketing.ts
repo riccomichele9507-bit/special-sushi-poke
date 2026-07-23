@@ -16,6 +16,7 @@ import {
 } from "@/lib/marketing/segments";
 import { segmentCriteriaSchema, campaignContentSchema } from "@/lib/validations";
 import { createCampaignCode } from "@/lib/promo/campaign-code";
+import type { Json } from "@/lib/supabase/database.types";
 
 const PROMO_CODE = "BENTORNATO10";
 const PROMO_PERCENT = 10;
@@ -230,6 +231,8 @@ export type SendCampaignResult =
       recipients: number; // destinatari finali (prima del cap Resend)
       sent: number; // email effettivamente inviate (esclusi dedup/errori)
       capped: boolean; // true se il cap mensile Resend ha troncato l'invio
+      code: string | null; // codice sconto generato (null se campagna senza sconto)
+      expiresAt: string | null; // scadenza del codice (ISO)
     }
   | { ok: false; error: string };
 
@@ -246,7 +249,7 @@ export async function sendCampaign(
   contentRaw: unknown,
 ): Promise<SendCampaignResult> {
   try {
-    await assertAdmin();
+    const userId = await assertAdmin();
     const criteria = segmentCriteriaSchema.parse(criteriaRaw);
     const content = campaignContentSchema.parse(contentRaw);
     const sb = createAdminClient();
@@ -290,11 +293,18 @@ export async function sendCampaign(
       .slice(0, 8);
     const campaignKey = `campaign:${slugify(content.subject)}-${contentHash}:${monthKey(now)}`;
 
-    // Sconto: UN codice fresco e memorabile per l'intera campagna. Il tetto usi
-    // (max_redemptions) = n. destinatari raggiunti in questo invio.
-    let promoCode: string | null = null;
-    let expiresAt: string | null = null;
-    if (content.discount && allowed > 0) {
+    // Se la campagna (stesso campaign_key) è già stata inviata, riusa il suo
+    // codice; altrimenti generane uno nuovo. UN codice fresco e memorabile per
+    // campagna; il tetto usi (max_redemptions) = destinatari di questo invio.
+    const { data: existingCampaign } = await sb
+      .from("campaigns")
+      .select("id, discount_code, expires_at, sent, recipients")
+      .eq("campaign_key", campaignKey)
+      .maybeSingle();
+
+    let promoCode: string | null = existingCampaign?.discount_code ?? null;
+    let expiresAt: string | null = existingCampaign?.expires_at ?? null;
+    if (!existingCampaign && content.discount && allowed > 0) {
       const created = await createCampaignCode(
         sb,
         {
@@ -326,6 +336,32 @@ export async function sendCampaign(
       if (res.sent) sent++;
     }
 
+    // Storico campagne (per il report conversioni): insert o update.
+    if (existingCampaign) {
+      await sb
+        .from("campaigns")
+        .update({
+          sent: (existingCampaign.sent ?? 0) + sent,
+          recipients: Math.max(existingCampaign.recipients ?? 0, recipients.length),
+        })
+        .eq("id", existingCampaign.id);
+    } else {
+      await sb.from("campaigns").insert({
+        campaign_key: campaignKey,
+        subject: content.subject,
+        discount_code: promoCode,
+        discount_kind: content.discount?.kind ?? null,
+        discount_value: content.discount?.value ?? null,
+        min_order_cents: content.discount?.minOrderCents ?? null,
+        expires_at: expiresAt,
+        recipients: recipients.length,
+        sent,
+        include_no_consent: content.includeNoConsent,
+        criteria: criteria as unknown as Json,
+        created_by: userId,
+      });
+    }
+
     return {
       ok: true,
       matched: matched.length,
@@ -334,6 +370,8 @@ export async function sendCampaign(
       recipients: recipients.length,
       sent,
       capped,
+      code: promoCode,
+      expiresAt,
     };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Errore" };

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CampaignBuilder } from "./campaign-builder";
 
@@ -12,12 +13,20 @@ export default async function AdminMarketingPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-serif-jp text-ink">Campagne email</h1>
-        <p className="mt-1 text-sm text-warm-gray">
-          Segmenta i clienti (registrati + guest) e invia una campagna. L&apos;invio
-          rispetta il consenso e include sempre il link di disiscrizione.
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h1 className="text-3xl font-serif-jp text-ink">Campagne email</h1>
+          <p className="mt-1 text-sm text-warm-gray">
+            Segmenta i clienti (registrati + guest) e invia una campagna. L&apos;invio
+            rispetta il consenso e include sempre il link di disiscrizione.
+          </p>
+        </div>
+        <Link
+          href="/admin/marketing/storico"
+          className="rounded-full border border-bamboo/20 px-3 py-1.5 text-xs text-warm-gray hover:border-bamboo/50"
+        >
+          📊 Storico campagne
+        </Link>
       </div>
 
       <CampaignBuilder

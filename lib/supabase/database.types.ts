@@ -39,6 +39,57 @@ export type Database = {
         }
         Relationships: []
       }
+      campaigns: {
+        Row: {
+          campaign_key: string
+          created_at: string
+          created_by: string | null
+          criteria: Json | null
+          discount_code: string | null
+          discount_kind: string | null
+          discount_value: number | null
+          expires_at: string | null
+          id: string
+          include_no_consent: boolean
+          min_order_cents: number | null
+          recipients: number
+          sent: number
+          subject: string
+        }
+        Insert: {
+          campaign_key: string
+          created_at?: string
+          created_by?: string | null
+          criteria?: Json | null
+          discount_code?: string | null
+          discount_kind?: string | null
+          discount_value?: number | null
+          expires_at?: string | null
+          id?: string
+          include_no_consent?: boolean
+          min_order_cents?: number | null
+          recipients?: number
+          sent?: number
+          subject: string
+        }
+        Update: {
+          campaign_key?: string
+          created_at?: string
+          created_by?: string | null
+          criteria?: Json | null
+          discount_code?: string | null
+          discount_kind?: string | null
+          discount_value?: number | null
+          expires_at?: string | null
+          id?: string
+          include_no_consent?: boolean
+          min_order_cents?: number | null
+          recipients?: number
+          sent?: number
+          subject?: string
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           available: boolean
