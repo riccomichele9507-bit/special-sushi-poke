@@ -7,6 +7,7 @@ import {
   SEGMENT_PRESETS,
   type SegmentCriteria,
 } from "@/lib/marketing/segments";
+import { EMAIL_TEMPLATES, type EmailTemplate } from "@/data/email-templates";
 import {
   previewSegment,
   sendCampaign,
@@ -95,6 +96,20 @@ export function CampaignBuilder({
     setActivePreset(id);
   };
 
+  const applyTemplate = (t: EmailTemplate) => {
+    setSubject(t.subject);
+    setMessage(t.message);
+    setPromoCode(t.suggestedPromoCode ?? "");
+    if (t.suggestedPresetId) {
+      const p = SEGMENT_PRESETS.find((x) => x.id === t.suggestedPresetId);
+      if (p) {
+        setCriteria(p.criteria);
+        setActivePreset(p.id);
+      }
+    }
+    toast.success(`Template "${t.label}" caricato. Controlla e invia.`);
+  };
+
   const reachableForce =
     preview?.ok ? preview.total - preview.suppressed : 0;
   const target = includeNoConsent ? reachableForce : preview?.ok ? preview.reachableDefault : 0;
@@ -158,6 +173,28 @@ export function CampaignBuilder({
     <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
       {/* Colonna sinistra: filtri + compose */}
       <div className="space-y-6">
+        {/* Template pronti */}
+        <section className="rounded-xl border border-bamboo/20 p-4">
+          <h2 className="text-sm font-semibold text-ink">Template pronti</h2>
+          <p className="mb-3 text-xs text-warm-gray">
+            Parti da un template: imposta con un click il segmento, l&apos;oggetto,
+            il messaggio e il codice. Poi controlli l&apos;anteprima e invii.
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {EMAIL_TEMPLATES.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => applyTemplate(t)}
+                className="rounded-lg border border-bamboo/20 p-3 text-left transition-colors hover:border-bamboo/50 hover:bg-bamboo/5"
+              >
+                <div className="text-sm font-medium text-ink">{t.label}</div>
+                <div className="text-xs text-warm-gray">{t.description}</div>
+              </button>
+            ))}
+          </div>
+        </section>
+
         {/* Preset */}
         <section className="rounded-xl border border-bamboo/20 p-4">
           <h2 className="mb-3 text-sm font-semibold text-ink">Segmenti rapidi</h2>
