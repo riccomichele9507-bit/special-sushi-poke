@@ -24,6 +24,31 @@ function euro(cents: number): string {
   return `€${(cents / 100).toFixed(2).replace(".", ",")}`;
 }
 
+/** Traduce i criteri attivi (diversi dal default) in etichette leggibili. */
+function activeConditions(
+  c: SegmentCriteria,
+  catLabel: (id: string) => string,
+): string[] {
+  const out: string[] = [];
+  if (c.consent === "consenting") out.push("con consenso");
+  if (c.consent === "non_consenting") out.push("senza consenso");
+  if (c.registration === "registered") out.push("registrati");
+  if (c.registration === "guest") out.push("guest (senza account)");
+  if (c.orderActivity === "has_ordered") out.push("ha ordinato");
+  if (c.orderActivity === "never") out.push("mai ordinato");
+  if (c.registeredWithinDays != null) out.push(`iscritti da ≤${c.registeredWithinDays}gg`);
+  if (c.inactiveDays != null) out.push(`non ordina da ≥${c.inactiveDays}gg`);
+  if (c.minOrders != null) out.push(`≥${c.minOrders} ordini`);
+  if (c.minSpentCents != null) out.push(`spesa ≥ €${Math.round(c.minSpentCents / 100)}`);
+  if (c.orderType === "delivery") out.push("ordina in consegna");
+  if (c.orderType === "pickup") out.push("ordina al ritiro");
+  if (c.categoryId) out.push(`categoria: ${catLabel(c.categoryId)}`);
+  if (c.discountUse === "used_any") out.push("ha usato uno sconto");
+  if (c.discountUse === "never_used") out.push("mai usato sconti");
+  if (c.discountUse === "used_specific" && c.discountCode) out.push(`ha usato ${c.discountCode}`);
+  return out;
+}
+
 export function CampaignBuilder({
   categories,
   discountCodes,
@@ -124,6 +149,11 @@ export function CampaignBuilder({
     });
   };
 
+  const conditions = activeConditions(
+    criteria,
+    (id) => categories.find((c) => c.id === id)?.label ?? id,
+  );
+
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
       {/* Colonna sinistra: filtri + compose */}
@@ -159,7 +189,13 @@ export function CampaignBuilder({
 
         {/* Filtri componibili */}
         <section className="rounded-xl border border-bamboo/20 p-4">
-          <h2 className="mb-3 text-sm font-semibold text-ink">Filtri</h2>
+          <div className="mb-3">
+            <h2 className="text-sm font-semibold text-ink">Filtri</h2>
+            <p className="text-xs text-warm-gray">
+              Puoi combinarne quanti vuoi: si sommano <strong>tutti insieme</strong> (E).
+              Es. <em>registrati</em> + <em>mai ordinato</em> + <em>con consenso</em>.
+            </p>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Consenso marketing">
               <Select
@@ -321,6 +357,27 @@ export function CampaignBuilder({
       <aside className="space-y-4 lg:sticky lg:top-4 lg:self-start">
         <section className="rounded-xl border border-bamboo/20 p-4">
           <h2 className="mb-3 text-sm font-semibold text-ink">Anteprima destinatari</h2>
+
+          <div className="mb-3 rounded-lg bg-paper-warm/60 p-2.5">
+            <div className="text-[10px] uppercase tracking-wide text-warm-gray">
+              Chi ricevrà (tutte le condizioni insieme)
+            </div>
+            {conditions.length === 0 ? (
+              <div className="mt-1 text-xs text-ink">Tutti i clienti (nessun filtro)</div>
+            ) : (
+              <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                {conditions.map((c, i) => (
+                  <span key={c} className="inline-flex items-center gap-1">
+                    {i > 0 && <span className="text-[10px] text-warm-gray">e</span>}
+                    <span className="rounded-full bg-bamboo/10 px-2 py-0.5 text-[11px] text-bamboo-deep">
+                      {c}
+                    </span>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
           {!preview || !preview.ok ? (
             <p className="text-sm text-warm-gray">
               {previewing ? "Calcolo…" : preview && !preview.ok ? preview.error : "—"}
