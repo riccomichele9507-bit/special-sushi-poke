@@ -21,6 +21,19 @@ type CodeOpt = { code: string; label: string | null };
 const DEFAULT_MESSAGE =
   "Torna a trovarci da Special Sushi Poke! Sushi e poke freschi, consegna gratis a Bari. Ti aspettiamo.";
 
+type DiscountConfig = {
+  kind: "percent" | "fixed";
+  value: number; // percent → 1..100 · fixed → centesimi
+  expiryDays: number;
+  minOrderCents: number;
+};
+const DEFAULT_DISCOUNT: DiscountConfig = {
+  kind: "percent",
+  value: 10,
+  expiryDays: 7,
+  minOrderCents: 1500,
+};
+
 function euro(cents: number): string {
   return `€${(cents / 100).toFixed(2).replace(".", ",")}`;
 }
@@ -60,7 +73,7 @@ export function CampaignBuilder({
   const [criteria, setCriteria] = useState<SegmentCriteria>(DEFAULT_CRITERIA);
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState(DEFAULT_MESSAGE);
-  const [promoCode, setPromoCode] = useState<string>("");
+  const [discount, setDiscount] = useState<DiscountConfig | null>(null);
   const [includeNoConsent, setIncludeNoConsent] = useState(false);
   const [activePreset, setActivePreset] = useState<string | null>(null);
   const [sampleQuery, setSampleQuery] = useState("");
@@ -99,7 +112,7 @@ export function CampaignBuilder({
   const applyTemplate = (t: EmailTemplate) => {
     setSubject(t.subject);
     setMessage(t.message);
-    setPromoCode(t.suggestedPromoCode ?? "");
+    setDiscount(t.suggestedDiscount ?? null);
     if (t.suggestedPresetId) {
       const p = SEGMENT_PRESETS.find((x) => x.id === t.suggestedPresetId);
       if (p) {
@@ -148,7 +161,7 @@ export function CampaignBuilder({
       const r: SendCampaignResult = await sendCampaign(criteria, {
         subject: subject.trim(),
         message: message.trim(),
-        promoCode: promoCode || null,
+        discount,
         includeNoConsent,
       });
       if (!r.ok) {
@@ -383,16 +396,76 @@ export function CampaignBuilder({
                 className="w-full resize-y rounded-md border border-bamboo/25 px-3 py-2 text-sm outline-none focus:border-bamboo"
               />
             </Field>
-            <Field label="Codice sconto (opzionale)">
-              <Select
-                value={promoCode}
-                onChange={setPromoCode}
-                options={[
-                  ["", "Nessuno"],
-                  ...discountCodes.map((c) => [c.code, c.label ? `${c.code} — ${c.label}` : c.code] as [string, string]),
-                ]}
-              />
-            </Field>
+            <div>
+              <label className="flex items-center gap-2 text-sm text-ink">
+                <input
+                  type="checkbox"
+                  checked={!!discount}
+                  onChange={(e) => setDiscount(e.target.checked ? DEFAULT_DISCOUNT : null)}
+                />
+                Aggiungi uno sconto a questa campagna
+              </label>
+
+              {discount && (
+                <div className="mt-2 grid gap-3 rounded-lg bg-paper-warm/50 p-3 sm:grid-cols-2">
+                  <Field label="Tipo di sconto">
+                    <Select
+                      value={discount.kind}
+                      onChange={(v) => {
+                        const kind = v as DiscountConfig["kind"];
+                        setDiscount({ ...discount, kind, value: kind === "percent" ? 10 : 500 });
+                      }}
+                      options={[
+                        ["percent", "Percentuale (%)"],
+                        ["fixed", "Importo fisso (€)"],
+                      ]}
+                    />
+                  </Field>
+                  <Field label={discount.kind === "percent" ? "Valore (%)" : "Valore (€)"}>
+                    <NumberInput
+                      value={
+                        discount.kind === "percent"
+                          ? discount.value
+                          : Math.round(discount.value / 100)
+                      }
+                      min={1}
+                      onChange={(v) =>
+                        setDiscount({
+                          ...discount,
+                          value:
+                            v == null
+                              ? discount.kind === "percent"
+                                ? 10
+                                : 500
+                              : discount.kind === "percent"
+                                ? Math.min(100, v)
+                                : v * 100,
+                        })
+                      }
+                    />
+                  </Field>
+                  <Field label="Scade dopo (giorni)">
+                    <NumberInput
+                      value={discount.expiryDays}
+                      min={1}
+                      onChange={(v) => setDiscount({ ...discount, expiryDays: v ?? 7 })}
+                    />
+                  </Field>
+                  <Field label="Ordine minimo (€)">
+                    <NumberInput
+                      value={Math.round(discount.minOrderCents / 100)}
+                      min={0}
+                      onChange={(v) => setDiscount({ ...discount, minOrderCents: (v ?? 0) * 100 })}
+                    />
+                  </Field>
+                  <p className="text-[11px] leading-relaxed text-warm-gray sm:col-span-2">
+                    Verrà generato un codice breve (es. <strong>GUSTO37</strong>), valido{" "}
+                    {discount.expiryDays} giorni, 1 uso per cliente. Il link nell&apos;email lo
+                    applica da solo al checkout.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </section>
       </div>

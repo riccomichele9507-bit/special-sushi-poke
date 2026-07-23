@@ -24,6 +24,15 @@ function formatRomeTime(iso: string): string {
   });
 }
 
+function formatRomeDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("it-IT", {
+    timeZone: "Europe/Rome",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+}
+
 /**
  * Email mandata quando l'admin clicca "Affidato al rider" (delivery)
  * o "Pronto al ritiro" (pickup). Dedup via email_type univoco per ordine.
@@ -561,6 +570,7 @@ export async function sendMarketingCampaignEmail(args: {
   subject: string;
   messageText: string;
   promoCode?: string | null;
+  expiresAt?: string | null; // ISO scadenza codice → "valido fino al ..."
   campaignKey: string; // es. "campaign:<slug>:<YYYY-MM>"
 }): Promise<SendResult> {
   const resend = getResend();
@@ -568,6 +578,16 @@ export async function sendMarketingCampaignEmail(args: {
   if (!args.to?.includes("@")) return { sent: false, reason: "no_email" };
   const admin = createAdminClient();
   const unsubscribeUrl = buildUnsubscribeUrl(args.to);
+
+  // Il link porta al menu col codice GIÀ agganciato: PromoCodeCapture lo applica
+  // da solo al checkout, il cliente non deve digitare nulla.
+  const menuUrl = args.promoCode
+    ? `${SITE_URL}/menu?code=${encodeURIComponent(args.promoCode)}`
+    : `${SITE_URL}/menu`;
+  const expiryLine = args.promoCode && args.expiresAt
+    ? `<div style="font-size:12px;color:#8a8074;margin-top:6px;">Valido fino al ${formatRomeDate(args.expiresAt)}</div>`
+    : "";
+
   const greeting = args.name
     ? `<p style="font-size:16px;line-height:1.6;margin:0 0 14px;color:#2d2a26;">Ciao <strong>${escapeHtml(args.name)}</strong>,</p>`
     : "";
@@ -575,19 +595,28 @@ export async function sendMarketingCampaignEmail(args: {
     ? `<div style="border:2px dashed #b8965a;border-radius:16px;padding:16px;text-align:center;margin:6px 0 4px;">
          <div style="font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#8a8074;">Codice sconto</div>
          <div style="font-size:26px;font-weight:800;letter-spacing:.08em;color:#5a7a64;margin:4px 0;">${escapeHtml(args.promoCode)}</div>
-         <div style="font-size:13px;color:#5a5048;">Usalo sul tuo prossimo ordine</div>
+         <div style="font-size:13px;color:#5a5048;">Si applica da solo cliccando qui sotto</div>
+         ${expiryLine}
        </div>`
+    : "";
+  const autoNote = args.promoCode
+    ? `<p style="font-size:12px;color:#8a8074;text-align:center;margin:10px 0 0;line-height:1.5;">Non devi digitare il codice: cliccando «Ordina ora» lo sconto si applica automaticamente al checkout.</p>`
     : "";
   const body = `
     ${greeting}
     ${textToParagraphs(args.messageText)}
     ${promoBox}
-    ${ctaButton(`${SITE_URL}/menu`, "Ordina ora")}
+    ${ctaButton(menuUrl, "Ordina ora")}
+    ${autoNote}
   `;
   const html = brandShell({ title: args.subject, bodyHtml: body, unsubscribeUrl });
   const text = `${args.name ? `Ciao ${args.name},\n\n` : ""}${args.messageText}${
-    args.promoCode ? `\n\nCodice sconto: ${args.promoCode}` : ""
-  }\n\nOrdina: ${SITE_URL}/menu\n\nAnnulla iscrizione: ${unsubscribeUrl}`;
+    args.promoCode
+      ? `\n\nCodice sconto: ${args.promoCode}${
+          args.expiresAt ? ` (valido fino al ${formatRomeDate(args.expiresAt)})` : ""
+        }\nSi applica in automatico aprendo questo link: ${menuUrl}`
+      : ""
+  }\n\nOrdina: ${menuUrl}\n\nAnnulla iscrizione: ${unsubscribeUrl}`;
 
   // Prenotazione ATOMICA prima dell'invio: l'indice unico parziale
   // marketing_emails_log_campaign_uq (email_type LIKE 'campaign:%') fa fallire

@@ -69,6 +69,21 @@ export const segmentCriteriaSchema = z.object({
 
 export type SegmentCriteriaInput = z.infer<typeof segmentCriteriaSchema>;
 
+// Sconto opzionale della campagna: genera un codice fresco per invio.
+export const campaignDiscountSchema = z
+  .object({
+    kind: z.enum(["percent", "fixed"]),
+    value: z.number().int().positive(), // percent → 1..100 · fixed → centesimi
+    expiryDays: z.number().int().min(1).max(90),
+    minOrderCents: z.number().int().min(0).max(100_000),
+  })
+  .refine((d) => d.kind !== "percent" || (d.value >= 1 && d.value <= 100), {
+    message: "La percentuale deve essere tra 1 e 100",
+    path: ["value"],
+  });
+
+export type CampaignDiscountInput = z.infer<typeof campaignDiscountSchema>;
+
 export const campaignContentSchema = z.object({
   subject: z
     .string()
@@ -80,7 +95,8 @@ export const campaignContentSchema = z.object({
     .trim()
     .min(5, "Messaggio troppo corto")
     .max(2000, "Messaggio troppo lungo (max 2000)"),
-  promoCode: z.string().trim().max(40).nullable().optional(),
+  // Sconto opzionale: se presente, sendCampaign genera un codice per la campagna.
+  discount: campaignDiscountSchema.nullable().optional(),
   // Guardia legale: forzare l'invio anche a chi NON ha consenso richiede opt-in esplicito.
   includeNoConsent: z.boolean().default(false),
 });

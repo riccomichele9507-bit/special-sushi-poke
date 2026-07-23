@@ -15,6 +15,7 @@ import {
   type SegmentCriteria,
 } from "@/lib/marketing/segments";
 import { segmentCriteriaSchema, campaignContentSchema } from "@/lib/validations";
+import { createCampaignCode } from "@/lib/promo/campaign-code";
 
 const PROMO_CODE = "BENTORNATO10";
 const PROMO_PERCENT = 10;
@@ -280,16 +281,35 @@ export async function sendCampaign(
     const allowed = Math.min(recipients.length, remaining, MAX_PER_RUN);
     const capped = allowed < recipients.length;
 
-    const promoCode = content.promoCode?.trim() ? content.promoCode.trim().toUpperCase() : null;
-
-    // Dedup key su HASH del contenuto (oggetto + messaggio + codice): campagne
-    // con contenuto diverso ma oggetto simile NON collidono (niente skip
-    // silenziosi); ri-inviare contenuto identico nello stesso mese dedupa.
+    // Dedup key su HASH del CONTENUTO (oggetto + messaggio + config sconto), NON
+    // del codice generato (che è casuale): così ri-inviare contenuto identico
+    // nello stesso mese dedupa per destinatario, e contenuti diversi non collidono.
     const contentHash = createHash("sha1")
-      .update(`${content.subject}\n${content.message}\n${promoCode ?? ""}`)
+      .update(`${content.subject}\n${content.message}\n${JSON.stringify(content.discount ?? null)}`)
       .digest("hex")
       .slice(0, 8);
     const campaignKey = `campaign:${slugify(content.subject)}-${contentHash}:${monthKey(now)}`;
+
+    // Sconto: UN codice fresco e memorabile per l'intera campagna. Il tetto usi
+    // (max_redemptions) = n. destinatari raggiunti in questo invio.
+    let promoCode: string | null = null;
+    let expiresAt: string | null = null;
+    if (content.discount && allowed > 0) {
+      const created = await createCampaignCode(
+        sb,
+        {
+          kind: content.discount.kind,
+          value: content.discount.value,
+          expiryDays: content.discount.expiryDays,
+          minOrderCents: content.discount.minOrderCents,
+          maxRedemptions: allowed,
+          label: `Campagna: ${content.subject}`,
+        },
+        now,
+      );
+      promoCode = created.code;
+      expiresAt = created.validTo;
+    }
 
     let sent = 0;
     for (const r of recipients.slice(0, allowed)) {
@@ -300,6 +320,7 @@ export async function sendCampaign(
         subject: content.subject,
         messageText: content.message,
         promoCode,
+        expiresAt,
         campaignKey,
       });
       if (res.sent) sent++;

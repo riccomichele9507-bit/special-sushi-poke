@@ -1,20 +1,28 @@
 // Template email marketing "già pronti" per la sezione /admin/marketing.
 // Ogni template imposta con un click: segmento consigliato + oggetto + messaggio
-// (+ codice sconto opzionale). Il titolare poi controlla l'anteprima e invia.
+// (+ eventuale sconto). Il titolare poi controlla l'anteprima e invia.
 //
 // NOTE per il testo (message):
 //  - NON iniziare con "Ciao {nome}": il saluto viene aggiunto automaticamente.
 //  - NON mettere link/bottone "Ordina ora": è aggiunto automaticamente in coda.
-//  - Se il template ha un codice, appare un box col codice → il testo può dire
-//    "usa il codice qui sotto". Se NON ha codice, il testo non deve citarlo.
+//  - Se il template ha uno sconto (`suggestedDiscount`), all'invio viene generato
+//    un codice breve (es. GUSTO37) e appare un box col codice + scadenza. Il testo
+//    può dire "usa il codice qui sotto". Se lo sconto è null, non citarlo.
 //  - Righe vuote (\n\n) = nuovi paragrafi. Tono semplice, mobile-first, un solo
 //    obiettivo per email (principio della skill email).
 //
 // `group`: "offerta" = con sconto · "annuncio" = senza sconto (relazione/novità).
 // `suggestedPresetId` → id in SEGMENT_PRESETS (lib/marketing/segments.ts).
-// `suggestedPromoCode` → codice esistente e attivo in discount_codes.
+// `suggestedDiscount` → configurazione sconto (il codice viene generato all'invio).
 
 export type TemplateGroup = "offerta" | "annuncio";
+
+export interface TemplateDiscount {
+  kind: "percent" | "fixed";
+  value: number; // percent → 1..100 · fixed → centesimi
+  expiryDays: number;
+  minOrderCents: number;
+}
 
 export interface EmailTemplate {
   id: string;
@@ -22,10 +30,17 @@ export interface EmailTemplate {
   label: string;
   description: string;
   suggestedPresetId: string | null;
-  suggestedPromoCode: string | null;
+  suggestedDiscount: TemplateDiscount | null;
   subject: string;
   message: string;
 }
+
+const D = (
+  value: number,
+  expiryDays: number,
+  minOrderCents: number,
+  kind: "percent" | "fixed" = "percent",
+): TemplateDiscount => ({ kind, value, expiryDays, minOrderCents });
 
 export const EMAIL_TEMPLATES: EmailTemplate[] = [
   // ── Con offerta (sconto) ──────────────────────────────────────────────
@@ -33,9 +48,9 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     id: "winback",
     group: "offerta",
     label: "Bentornato (dormienti)",
-    description: "Non ordina da un po' · sconto di riattivazione",
+    description: "Non ordina da un po' · 10% valido 7 giorni",
     suggestedPresetId: "dormant",
-    suggestedPromoCode: "BENTORNATO10",
+    suggestedDiscount: D(10, 7, 1500),
     subject: "Ci manchi 🍣 il tuo sushi ti aspetta",
     message:
       "È passato un po' dall'ultima volta, e ci sei mancato.\n\n" +
@@ -46,9 +61,9 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     id: "first_order",
     group: "offerta",
     label: "Primo ordine (iscritti)",
-    description: "Iscritto ma non ha ancora ordinato · sconto primo ordine",
+    description: "Iscritto ma non ha ancora ordinato · 10% valido 14 giorni",
     suggestedPresetId: "never_ordered",
-    suggestedPromoCode: "SUSHI10",
+    suggestedDiscount: D(10, 14, 1500),
     subject: "Il tuo primo ordine è a un tap 🍣",
     message:
       "Grazie per esserti iscritto! Manca solo una cosa: il tuo primo ordine.\n\n" +
@@ -59,9 +74,9 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     id: "loyalty",
     group: "offerta",
     label: "Grazie (abituali) + sconto",
-    description: "Chi ordina spesso · piccolo sconto di ringraziamento",
+    description: "Chi ordina spesso · 10% valido 14 giorni",
     suggestedPresetId: "repeat",
-    suggestedPromoCode: "BENTORNATO10",
+    suggestedDiscount: D(10, 14, 0),
     subject: "Grazie di cuore 🙏 un pensiero per te",
     message:
       "Sei uno dei nostri clienti più affezionati, e lo notiamo.\n\n" +
@@ -72,9 +87,9 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     id: "weekend",
     group: "offerta",
     label: "Serata sushi (promo)",
-    description: "Tutti i clienti con consenso · promo generica",
+    description: "Tutti i clienti con consenso · 10% valido 3 giorni (urgenza)",
     suggestedPresetId: null,
-    suggestedPromoCode: "BENTORNATO10",
+    suggestedDiscount: D(10, 3, 1500),
     subject: "Stasera sushi? 🍱 un motivo in più",
     message:
       "La voglia di sushi non ha bisogno di scuse — ma noi te ne diamo una comunque.\n\n" +
@@ -85,9 +100,9 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     id: "comfort_badday",
     group: "offerta",
     label: "Giornata storta (coccola)",
-    description: "Comfort food + piccolo sconto per tirarsi su",
+    description: "Comfort food + 10% valido 5 giorni per tirarsi su",
     suggestedPresetId: null,
-    suggestedPromoCode: "BENTORNATO10",
+    suggestedDiscount: D(10, 5, 1500),
     subject: "Giornata storta? Rimediamo noi 🍣",
     message:
       "Certe giornate girano male e basta. La cena, almeno quella, deve andare liscia.\n\n" +
@@ -102,7 +117,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     label: "Novità nel menù",
     description: "Annuncio nuovi piatti · nessuno sconto",
     suggestedPresetId: null,
-    suggestedPromoCode: null,
+    suggestedDiscount: null,
     subject: "Nuovi piatti nel menù 🍣 da provare",
     message:
       "C'è qualcosa di nuovo da assaggiare da Special Sushi Poke.\n\n" +
@@ -115,7 +130,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     label: "Ci manchi (senza sconto)",
     description: "Dormienti · messaggio caldo senza offerta",
     suggestedPresetId: "dormant",
-    suggestedPromoCode: null,
+    suggestedDiscount: null,
     subject: "Ci manchi 🍣",
     message:
       "È passato un po' dall'ultima volta, e ci sei mancato.\n\n" +
@@ -128,7 +143,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     label: "Grazie (senza sconto)",
     description: "Abituali · ringraziamento sincero senza offerta",
     suggestedPresetId: "repeat",
-    suggestedPromoCode: null,
+    suggestedDiscount: null,
     subject: "Grazie di cuore 🙏",
     message:
       "Sei uno dei nostri clienti più affezionati, e volevamo solo dirti grazie.\n\n" +
@@ -141,7 +156,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     label: "Dietro le quinte",
     description: "Racconto/qualità · costruisce relazione, nessuna richiesta",
     suggestedPresetId: null,
-    suggestedPromoCode: null,
+    suggestedDiscount: null,
     subject: "Come nasce la tua poke 🥢",
     message:
       "Ti sei mai chiesto cosa c'è dietro una poke fatta bene?\n\n" +
@@ -154,7 +169,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     label: "Piove? Sushi a casa",
     description: "Comfort/relax · empatico, senza sconto",
     suggestedPresetId: null,
-    suggestedPromoCode: null,
+    suggestedDiscount: null,
     subject: "Piove? Ci pensiamo noi 🌧️🍣",
     message:
       "Giornata grigia e zero voglia di uscire? Ti capiamo benissimo.\n\n" +
