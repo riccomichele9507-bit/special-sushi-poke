@@ -81,6 +81,19 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
       "Pesce fresco, poke generose e roll appena fatti, consegna gratis a Bari. Ordini in due minuti dal sito: niente code, niente attese al telefono.\n\n" +
       "Usa il codice qui sotto, al resto pensiamo noi.",
   },
+  {
+    id: "comfort_badday",
+    group: "offerta",
+    label: "Giornata storta (coccola)",
+    description: "Comfort food + piccolo sconto per tirarsi su",
+    suggestedPresetId: null,
+    suggestedPromoCode: "BENTORNATO10",
+    subject: "Giornata storta? Rimediamo noi 🍣",
+    message:
+      "Certe giornate girano male e basta. La cena, almeno quella, deve andare liscia.\n\n" +
+      "Sushi fresco e poke generose, pronti in pochi minuti e consegnati a casa a Bari senza spese. Zero code, zero telefonate.\n\n" +
+      "Coccolati stasera: il codice qui sotto è un pensiero da parte nostra.",
+  },
 
   // ── Senza sconto (annunci / relazione) ────────────────────────────────
   {
@@ -134,5 +147,18 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
       "Ti sei mai chiesto cosa c'è dietro una poke fatta bene?\n\n" +
       "Partiamo dal pesce fresco selezionato ogni giorno, riso preparato come si deve e ingredienti tagliati al momento quando arriva il tuo ordine. Niente scorciatoie.\n\n" +
       "La prossima volta che ordini, sai cosa arriva in tavola.",
+  },
+  {
+    id: "comfort_rain",
+    group: "annuncio",
+    label: "Piove? Sushi a casa",
+    description: "Comfort/relax · empatico, senza sconto",
+    suggestedPresetId: null,
+    suggestedPromoCode: null,
+    subject: "Piove? Ci pensiamo noi 🌧️🍣",
+    message:
+      "Giornata grigia e zero voglia di uscire? Ti capiamo benissimo.\n\n" +
+      "Resta comodo dove sei: poke colorate, sushi e roll freschi arrivano dritti a casa tua, con consegna gratis a Bari.\n\n" +
+      "Tu scegli la serie da guardare, al resto pensiamo noi.",
   },
 ];
