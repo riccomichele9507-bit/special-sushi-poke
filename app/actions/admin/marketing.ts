@@ -1,8 +1,20 @@
 "use server";
 
+import { createHash } from "node:crypto";
 import { assertAdmin } from "./helpers";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendDormantPromoEmail, sendCampaignRecapEmail } from "@/lib/email/send";
+import {
+  sendDormantPromoEmail,
+  sendCampaignRecapEmail,
+  sendMarketingCampaignEmail,
+} from "@/lib/email/send";
+import {
+  applySegment,
+  mapAudienceRow,
+  type AudienceRow,
+  type SegmentCriteria,
+} from "@/lib/marketing/segments";
+import { segmentCriteriaSchema, campaignContentSchema } from "@/lib/validations";
 
 const PROMO_CODE = "BENTORNATO10";
 const PROMO_PERCENT = 10;
@@ -88,6 +100,213 @@ export async function sendDormantCampaign(): Promise<CampaignResult> {
     }
 
     return { ok: true, sent, eligible: totalEligible };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Errore" };
+  }
+}
+
+// ============================================================================
+// Campagne a segmentazione (nuova sezione /admin/marketing)
+// ============================================================================
+
+// Tetto prudenziale sotto il limite Resend free (3k/mese) e cap per singolo invio.
+const RESEND_MONTHLY_CAP = 2900;
+const MAX_PER_RUN = 500;
+
+/** Carica l'audience unificata (registrati + guest) con metriche aggregate. */
+async function loadAudience(
+  sb: ReturnType<typeof createAdminClient>,
+): Promise<AudienceRow[]> {
+  const { data, error } = await sb.rpc("get_marketing_audience");
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(mapAudienceRow);
+}
+
+/** Set (lowercase) delle email nella suppression list. */
+async function loadSuppressed(
+  sb: ReturnType<typeof createAdminClient>,
+): Promise<Set<string>> {
+  const { data } = await sb.from("marketing_unsubscribes").select("email");
+  return new Set((data ?? []).map((r) => r.email.toLowerCase()));
+}
+
+function slugify(s: string): string {
+  const out = s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "") // rimuove i diacritici combinanti
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+  return out || "campagna";
+}
+
+function monthKey(now: Date): string {
+  return now.toISOString().slice(0, 7); // YYYY-MM
+}
+
+export type PreviewRow = {
+  email: string;
+  name: string | null;
+  isRegistered: boolean;
+  marketingConsent: boolean;
+  suppressed: boolean;
+  totalOrders: number;
+  totalSpentCents: number;
+  lastOrderAt: string | null;
+};
+
+export type PreviewResult =
+  | {
+      ok: true;
+      total: number; // righe che matchano il segmento
+      consenting: number; // di cui con consenso marketing
+      suppressed: number; // di cui disiscritte (suppression list)
+      reachableDefault: number; // destinatari con invio "solo consenso" (default)
+      sample: PreviewRow[]; // prime N per anteprima
+    }
+  | { ok: false; error: string };
+
+/**
+ * Calcola quante persone matchano il segmento + un'anteprima. Sola lettura.
+ * Non invia nulla. Usata per il contatore/anteprima live nella UI.
+ */
+export async function previewSegment(
+  criteriaRaw: SegmentCriteria,
+): Promise<PreviewResult> {
+  try {
+    await assertAdmin();
+    const criteria = segmentCriteriaSchema.parse(criteriaRaw);
+    const sb = createAdminClient();
+
+    const [audience, suppressed] = await Promise.all([
+      loadAudience(sb),
+      loadSuppressed(sb),
+    ]);
+
+    const matched = applySegment(audience, criteria);
+    const notSuppressed = matched.filter((r) => !suppressed.has(r.email.toLowerCase()));
+    const consenting = matched.filter((r) => r.marketingConsent).length;
+    const reachableDefault = notSuppressed.filter((r) => r.marketingConsent).length;
+
+    const sample: PreviewRow[] = matched.slice(0, 20).map((r) => ({
+      email: r.email,
+      name: r.name,
+      isRegistered: r.isRegistered,
+      marketingConsent: r.marketingConsent,
+      suppressed: suppressed.has(r.email.toLowerCase()),
+      totalOrders: r.totalOrders,
+      totalSpentCents: r.totalSpentCents,
+      lastOrderAt: r.lastOrderAt,
+    }));
+
+    return {
+      ok: true,
+      total: matched.length,
+      consenting,
+      suppressed: matched.length - notSuppressed.length,
+      reachableDefault,
+      sample,
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Errore" };
+  }
+}
+
+export type SendCampaignResult =
+  | {
+      ok: true;
+      matched: number; // righe del segmento
+      suppressed: number; // rimosse perché disiscritte
+      skippedNoConsent: number; // rimosse dalla guardia consenso (invio default)
+      recipients: number; // destinatari finali (prima del cap Resend)
+      sent: number; // email effettivamente inviate (esclusi dedup/errori)
+      capped: boolean; // true se il cap mensile Resend ha troncato l'invio
+    }
+  | { ok: false; error: string };
+
+/**
+ * Invia una campagna al segmento. Guardie applicate in ordine:
+ *  1) suppression list (SEMPRE rimossa, hard opt-out);
+ *  2) consenso: default solo consenso=sì; includeNoConsent=true forza anche i no
+ *     (scelta consapevole dell'utente, con doppia conferma lato UI);
+ *  3) cap Resend mensile + cap per singolo invio;
+ *  4) dedup per campagna (email_type = campaign:<slug>:<YYYY-MM>).
+ */
+export async function sendCampaign(
+  criteriaRaw: SegmentCriteria,
+  contentRaw: unknown,
+): Promise<SendCampaignResult> {
+  try {
+    await assertAdmin();
+    const criteria = segmentCriteriaSchema.parse(criteriaRaw);
+    const content = campaignContentSchema.parse(contentRaw);
+    const sb = createAdminClient();
+    const now = new Date();
+
+    const [audience, suppressed] = await Promise.all([
+      loadAudience(sb),
+      loadSuppressed(sb),
+    ]);
+
+    const matched = applySegment(audience, criteria, now.getTime());
+    const notSuppressed = matched.filter((r) => !suppressed.has(r.email.toLowerCase()));
+    const recipients = content.includeNoConsent
+      ? notSuppressed
+      : notSuppressed.filter((r) => r.marketingConsent);
+    const skippedNoConsent = content.includeNoConsent
+      ? 0
+      : notSuppressed.length - recipients.length;
+
+    // Cap Resend: conta TUTTE le email del mese (transazionali + campagne), non
+    // solo le campagne, altrimenti si sfora il limite free 3k/mese e Resend
+    // rifiuta anche le email d'ordine.
+    const monthStart = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+    );
+    const { count: sentThisMonth } = await sb
+      .from("marketing_emails_log")
+      .select("id", { count: "exact", head: true })
+      .gte("sent_at", monthStart.toISOString());
+
+    const remaining = Math.max(0, RESEND_MONTHLY_CAP - (sentThisMonth ?? 0));
+    const allowed = Math.min(recipients.length, remaining, MAX_PER_RUN);
+    const capped = allowed < recipients.length;
+
+    const promoCode = content.promoCode?.trim() ? content.promoCode.trim().toUpperCase() : null;
+
+    // Dedup key su HASH del contenuto (oggetto + messaggio + codice): campagne
+    // con contenuto diverso ma oggetto simile NON collidono (niente skip
+    // silenziosi); ri-inviare contenuto identico nello stesso mese dedupa.
+    const contentHash = createHash("sha1")
+      .update(`${content.subject}\n${content.message}\n${promoCode ?? ""}`)
+      .digest("hex")
+      .slice(0, 8);
+    const campaignKey = `campaign:${slugify(content.subject)}-${contentHash}:${monthKey(now)}`;
+
+    let sent = 0;
+    for (const r of recipients.slice(0, allowed)) {
+      const res = await sendMarketingCampaignEmail({
+        to: r.email,
+        name: r.name,
+        customerId: r.customerId,
+        subject: content.subject,
+        messageText: content.message,
+        promoCode,
+        campaignKey,
+      });
+      if (res.sent) sent++;
+    }
+
+    return {
+      ok: true,
+      matched: matched.length,
+      suppressed: matched.length - notSuppressed.length,
+      skippedNoConsent,
+      recipients: recipients.length,
+      sent,
+      capped,
+    };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Errore" };
   }

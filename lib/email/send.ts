@@ -7,6 +7,7 @@ import "server-only";
 import { getResend, getFromEmail, getReplyTo, getBccEmail } from "./client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPromoConfig } from "@/lib/promo/server";
+import { buildUnsubscribeUrl, buildUnsubscribePostUrl } from "@/lib/marketing/unsubscribe-token";
 import { restaurant } from "@/data/restaurant";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -191,8 +192,17 @@ const LOGO_URL = `${SITE_URL}/logo-mark.png`;
 const WHATSAPP_DISPLAY = "+39 353 326 3829";
 const RESTAURANT_ADDR = "Via G. Petroni 12/H-i, 70124 Bari";
 
-function brandShell(opts: { title: string; bodyHtml: string; heroImg?: string }): string {
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>${opts.title}</title></head>
+function brandShell(opts: {
+  title: string;
+  bodyHtml: string;
+  heroImg?: string;
+  /** Se presente, aggiunge il link di disiscrizione nel footer (email marketing). */
+  unsubscribeUrl?: string;
+}): string {
+  const unsubLine = opts.unsubscribeUrl
+    ? `<br/>Ricevi questa email come cliente di Special Sushi Poke · <a href="${opts.unsubscribeUrl}" style="color:#8a8074;text-decoration:underline;">Annulla iscrizione</a>`
+    : "";
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>${escapeHtml(opts.title)}</title></head>
 <body style="margin:0;padding:0;background:#f3eee5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#2d2a26;">
   <div style="max-width:600px;margin:0 auto;padding:28px 18px;">
     <div style="text-align:center;margin-bottom:16px;">
@@ -205,7 +215,7 @@ function brandShell(opts: { title: string; bodyHtml: string; heroImg?: string })
     </div>
     <p style="font-size:11px;color:#a0998e;text-align:center;margin:18px 0 0 0;line-height:1.6;">
       Special Sushi Poke · ${RESTAURANT_ADDR}<br/>
-      WhatsApp ${WHATSAPP_DISPLAY} · <a href="${SITE_URL}/menu" style="color:#5a7a64;">Vai al menu</a>
+      WhatsApp ${WHATSAPP_DISPLAY} · <a href="${SITE_URL}/menu" style="color:#5a7a64;">Vai al menu</a>${unsubLine}
     </p>
   </div>
 </body></html>`;
@@ -526,6 +536,111 @@ export async function sendCampaignRecapEmail(args: {
   }
 }
 
+/** Converte il testo libero dell'admin in paragrafi HTML sicuri (escape + a capo). */
+function textToParagraphs(text: string): string {
+  return text
+    .split(/\n{2,}/)
+    .map(
+      (para) =>
+        `<p style="font-size:16px;line-height:1.6;margin:0 0 14px;color:#2d2a26;">${escapeHtml(
+          para,
+        ).replace(/\n/g, "<br/>")}</p>`,
+    )
+    .join("");
+}
+
+/**
+ * Email di CAMPAGNA marketing (oggetto + messaggio liberi dall'admin, codice
+ * sconto opzionale). Include SEMPRE il link di disiscrizione (compliance).
+ * Dedup per campagna via email_type = campaignKey. Mai throw.
+ */
+export async function sendMarketingCampaignEmail(args: {
+  to: string;
+  name: string | null;
+  customerId: string | null;
+  subject: string;
+  messageText: string;
+  promoCode?: string | null;
+  campaignKey: string; // es. "campaign:<slug>:<YYYY-MM>"
+}): Promise<SendResult> {
+  const resend = getResend();
+  if (!resend) return { sent: false, reason: "resend_not_configured" };
+  if (!args.to?.includes("@")) return { sent: false, reason: "no_email" };
+  const admin = createAdminClient();
+  const unsubscribeUrl = buildUnsubscribeUrl(args.to);
+  const greeting = args.name
+    ? `<p style="font-size:16px;line-height:1.6;margin:0 0 14px;color:#2d2a26;">Ciao <strong>${escapeHtml(args.name)}</strong>,</p>`
+    : "";
+  const promoBox = args.promoCode
+    ? `<div style="border:2px dashed #b8965a;border-radius:16px;padding:16px;text-align:center;margin:6px 0 4px;">
+         <div style="font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#8a8074;">Codice sconto</div>
+         <div style="font-size:26px;font-weight:800;letter-spacing:.08em;color:#5a7a64;margin:4px 0;">${escapeHtml(args.promoCode)}</div>
+         <div style="font-size:13px;color:#5a5048;">Usalo sul tuo prossimo ordine</div>
+       </div>`
+    : "";
+  const body = `
+    ${greeting}
+    ${textToParagraphs(args.messageText)}
+    ${promoBox}
+    ${ctaButton(`${SITE_URL}/menu`, "Ordina ora")}
+  `;
+  const html = brandShell({ title: args.subject, bodyHtml: body, unsubscribeUrl });
+  const text = `${args.name ? `Ciao ${args.name},\n\n` : ""}${args.messageText}${
+    args.promoCode ? `\n\nCodice sconto: ${args.promoCode}` : ""
+  }\n\nOrdina: ${SITE_URL}/menu\n\nAnnulla iscrizione: ${unsubscribeUrl}`;
+
+  // Prenotazione ATOMICA prima dell'invio: l'indice unico parziale
+  // marketing_emails_log_campaign_uq (email_type LIKE 'campaign:%') fa fallire
+  // il secondo insert concorrente (23505) → niente doppio invio in caso di
+  // doppio click / retry / due tab admin.
+  const { data: reserved, error: reserveErr } = await admin
+    .from("marketing_emails_log")
+    .insert({
+      customer_id: args.customerId,
+      email: args.to,
+      email_type: args.campaignKey,
+      subject: args.subject,
+      resend_id: null,
+    })
+    .select("id")
+    .single();
+  if (reserveErr) {
+    // 23505 = unique_violation → già inviata/prenotata per questa campagna.
+    if (reserveErr.code === "23505") return { sent: false, reason: "already_sent" };
+    return { sent: false, reason: reserveErr.message };
+  }
+
+  try {
+    const r = await resend.emails.send({
+      from: getFromEmail(),
+      replyTo: getReplyTo(),
+      to: args.to,
+      subject: args.subject,
+      html,
+      text,
+      headers: {
+        // One-click unsubscribe (RFC 8058): migliora deliverability e reputazione.
+        // L'header punta all'endpoint POST; il link visibile porta alla pagina di conferma.
+        "List-Unsubscribe": `<${buildUnsubscribePostUrl(args.to)}>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      },
+    });
+    if (r.error) {
+      // Invio fallito → annulla la prenotazione così un retry può riprovare.
+      await admin.from("marketing_emails_log").delete().eq("id", reserved.id);
+      return { sent: false, reason: r.error.message };
+    }
+    await admin
+      .from("marketing_emails_log")
+      .update({ resend_id: r.data?.id ?? null })
+      .eq("id", reserved.id);
+    return { sent: true };
+  } catch (e) {
+    await admin.from("marketing_emails_log").delete().eq("id", reserved.id);
+    return { sent: false, reason: e instanceof Error ? e.message : "unknown" };
+  }
+}
+
 /** Email promo per cliente inattivo (dedup per campagna). */
 export async function sendDormantPromoEmail(args: {
   to: string;
@@ -549,6 +664,7 @@ export async function sendDormantPromoEmail(args: {
     .maybeSingle();
   if (existing) return { sent: false, reason: "already_sent" };
 
+  const unsubscribeUrl = buildUnsubscribeUrl(args.to);
   const subject = "Ci manchi! 🍣 Un'offerta per te da Special Sushi Poke";
   const body = `
     <h1 style="margin:0 0 10px;font-size:23px;font-weight:800;">Ci manchi, ${escapeHtml(args.name || "amico")}! 🍣</h1>
@@ -560,9 +676,19 @@ export async function sendDormantPromoEmail(args: {
     </div>
     ${ctaButton(`${SITE_URL}/menu`, "Ordina ora")}
   `;
-  const html = brandShell({ title: subject, bodyHtml: body });
+  const html = brandShell({ title: subject, bodyHtml: body, unsubscribeUrl });
   try {
-    const r = await resend.emails.send({ from: getFromEmail(), replyTo: getReplyTo(), to: args.to, subject, html });
+    const r = await resend.emails.send({
+      from: getFromEmail(),
+      replyTo: getReplyTo(),
+      to: args.to,
+      subject,
+      html,
+      headers: {
+        "List-Unsubscribe": `<${buildUnsubscribePostUrl(args.to)}>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      },
+    });
     if (r.error) return { sent: false, reason: r.error.message };
     await admin.from("marketing_emails_log").insert({
       customer_id: args.customerId,

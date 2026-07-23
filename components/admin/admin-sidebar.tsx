@@ -12,6 +12,7 @@ import {
   Truck,
   ShoppingBag,
   Users,
+  Mail,
   Printer,
   LogOut,
   Menu,
@@ -28,6 +29,7 @@ const NAV = [
   { href: "/admin/closures", label: "Chiusure / ferie", icon: CalendarX },
   { href: "/admin/restaurant", label: "Dati ristorante", icon: Store },
   { href: "/admin/customers", label: "Clienti", icon: Users },
+  { href: "/admin/marketing", label: "Campagne", icon: Mail },
   { href: "/admin/printer", label: "Stampante", icon: Printer },
 ];
 
