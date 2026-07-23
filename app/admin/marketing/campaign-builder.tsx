@@ -173,28 +173,6 @@ export function CampaignBuilder({
     <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
       {/* Colonna sinistra: filtri + compose */}
       <div className="space-y-6">
-        {/* Template pronti */}
-        <section className="rounded-xl border border-bamboo/20 p-4">
-          <h2 className="text-sm font-semibold text-ink">Template pronti</h2>
-          <p className="mb-3 text-xs text-warm-gray">
-            Parti da un template: imposta con un click il segmento, l&apos;oggetto,
-            il messaggio e il codice. Poi controlli l&apos;anteprima e invii.
-          </p>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {EMAIL_TEMPLATES.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => applyTemplate(t)}
-                className="rounded-lg border border-bamboo/20 p-3 text-left transition-colors hover:border-bamboo/50 hover:bg-bamboo/5"
-              >
-                <div className="text-sm font-medium text-ink">{t.label}</div>
-                <div className="text-xs text-warm-gray">{t.description}</div>
-              </button>
-            ))}
-          </div>
-        </section>
-
         {/* Preset */}
         <section className="rounded-xl border border-bamboo/20 p-4">
           <h2 className="mb-3 text-sm font-semibold text-ink">Segmenti rapidi</h2>
@@ -352,6 +330,35 @@ export function CampaignBuilder({
               </Field>
             )}
           </div>
+        </section>
+
+        {/* Template pronti (prima di Componi email) */}
+        <section className="rounded-xl border border-bamboo/20 p-4">
+          <h2 className="text-sm font-semibold text-ink">Template pronti</h2>
+          <p className="mb-3 text-xs text-warm-gray">
+            Scegli un template: imposta con un click segmento, oggetto, messaggio e
+            (dove previsto) il codice sconto. Poi controlli l&apos;anteprima e invii.
+          </p>
+          {(["offerta", "annuncio"] as const).map((g) => (
+            <div key={g} className="mb-3 last:mb-0">
+              <div className="mb-1.5 text-xs font-medium text-warm-gray">
+                {g === "offerta" ? "Con offerta (sconto)" : "Senza sconto (annunci)"}
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {EMAIL_TEMPLATES.filter((t) => t.group === g).map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => applyTemplate(t)}
+                    className="rounded-lg border border-bamboo/20 p-3 text-left transition-colors hover:border-bamboo/50 hover:bg-bamboo/5"
+                  >
+                    <div className="text-sm font-medium text-ink">{t.label}</div>
+                    <div className="text-xs text-warm-gray">{t.description}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
         </section>
 
         {/* Componi email */}
