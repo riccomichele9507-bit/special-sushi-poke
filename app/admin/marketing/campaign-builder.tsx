@@ -37,6 +37,7 @@ export function CampaignBuilder({
   const [promoCode, setPromoCode] = useState<string>("");
   const [includeNoConsent, setIncludeNoConsent] = useState(false);
   const [activePreset, setActivePreset] = useState<string | null>(null);
+  const [sampleQuery, setSampleQuery] = useState("");
 
   const [preview, setPreview] = useState<PreviewResult | null>(null);
   const [previewing, startPreview] = useTransition();
@@ -342,41 +343,70 @@ export function CampaignBuilder({
                 </p>
               )}
               {previewing && <p className="text-xs text-warm-gray">Aggiorno…</p>}
-              {preview.sample.length > 0 && (
-                <div className="max-h-64 overflow-y-auto rounded-lg border border-bamboo/10">
-                  <table className="w-full text-xs">
-                    <tbody>
-                      {preview.sample.map((r) => (
-                        <tr key={r.email} className="border-t border-bamboo/10 first:border-t-0">
-                          <td className="px-2 py-1.5">
-                            <div className="truncate max-w-[160px] text-ink" title={r.email}>
-                              {r.email}
-                            </div>
-                            <div className="text-[10px] text-warm-gray">
-                              {r.isRegistered ? "registrato" : "guest"} ·{" "}
-                              {r.totalOrders} ord · {euro(r.totalSpentCents)}
-                            </div>
-                          </td>
-                          <td className="px-2 py-1.5 text-right">
-                            {r.suppressed ? (
-                              <span className="text-sushi-red">disiscritto</span>
-                            ) : r.marketingConsent ? (
-                              <span className="text-bamboo-deep">✓ consenso</span>
-                            ) : (
-                              <span className="text-warm-gray">no consenso</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {preview.total > preview.sample.length && (
-                    <div className="px-2 py-1 text-center text-[10px] text-warm-gray">
-                      + altri {preview.total - preview.sample.length}
+              {preview.sample.length > 0 && (() => {
+                const q = sampleQuery.trim().toLowerCase();
+                const shown = q
+                  ? preview.sample.filter(
+                      (r) =>
+                        r.email.toLowerCase().includes(q) ||
+                        (r.name ?? "").toLowerCase().includes(q),
+                    )
+                  : preview.sample;
+                return (
+                  <div className="space-y-1.5">
+                    <input
+                      value={sampleQuery}
+                      onChange={(e) => setSampleQuery(e.target.value)}
+                      placeholder="Cerca nome o email…"
+                      className="w-full rounded-md border border-bamboo/25 px-2.5 py-1.5 text-xs outline-none focus:border-bamboo"
+                    />
+                    <div className="max-h-80 overflow-y-auto rounded-lg border border-bamboo/10">
+                      <table className="w-full text-xs">
+                        <tbody>
+                          {shown.map((r) => (
+                            <tr key={r.email} className="border-t border-bamboo/10 first:border-t-0">
+                              <td className="px-2 py-1.5">
+                                <div className="truncate max-w-[160px] text-ink" title={r.email}>
+                                  {r.name ? `${r.name} · ` : ""}
+                                  {r.email}
+                                </div>
+                                <div className="text-[10px] text-warm-gray">
+                                  {r.isRegistered ? "registrato" : "guest"} ·{" "}
+                                  {r.totalOrders} ord · {euro(r.totalSpentCents)}
+                                </div>
+                              </td>
+                              <td className="px-2 py-1.5 text-right">
+                                {r.suppressed ? (
+                                  <span className="text-sushi-red">disiscritto</span>
+                                ) : r.marketingConsent ? (
+                                  <span className="text-bamboo-deep">✓ consenso</span>
+                                ) : (
+                                  <span className="text-warm-gray">no consenso</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                          {shown.length === 0 && (
+                            <tr>
+                              <td className="px-2 py-3 text-center text-warm-gray">
+                                Nessuno corrisponde a “{sampleQuery}”.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
                     </div>
-                  )}
-                </div>
-              )}
+                    <p className="text-[10px] text-warm-gray">
+                      {q
+                        ? `${shown.length} risultati per "${sampleQuery}"`
+                        : `Mostrati ${preview.sample.length} di ${preview.total}`}
+                      {preview.sampleTruncated && !q
+                        ? " · usa i filtri per restringere"
+                        : ""}
+                    </p>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </section>

@@ -163,9 +163,13 @@ export type PreviewResult =
       consenting: number; // di cui con consenso marketing
       suppressed: number; // di cui disiscritte (suppression list)
       reachableDefault: number; // destinatari con invio "solo consenso" (default)
-      sample: PreviewRow[]; // prime N per anteprima
+      sample: PreviewRow[]; // destinatari (ordinati per email), fino a SAMPLE_CAP
+      sampleTruncated: boolean; // true se ci sono più righe di quelle restituite
     }
   | { ok: false; error: string };
+
+// Quante righe di anteprima restituire al client (audience piccola → tutte).
+const PREVIEW_SAMPLE_CAP = 300;
 
 /**
  * Calcola quante persone matchano il segmento + un'anteprima. Sola lettura.
@@ -189,7 +193,9 @@ export async function previewSegment(
     const consenting = matched.filter((r) => r.marketingConsent).length;
     const reachableDefault = notSuppressed.filter((r) => r.marketingConsent).length;
 
-    const sample: PreviewRow[] = matched.slice(0, 20).map((r) => ({
+    // Ordina per email (scansione prevedibile + ricerca lato client affidabile).
+    const sorted = [...matched].sort((a, b) => a.email.localeCompare(b.email));
+    const sample: PreviewRow[] = sorted.slice(0, PREVIEW_SAMPLE_CAP).map((r) => ({
       email: r.email,
       name: r.name,
       isRegistered: r.isRegistered,
@@ -207,6 +213,7 @@ export async function previewSegment(
       suppressed: matched.length - notSuppressed.length,
       reachableDefault,
       sample,
+      sampleTruncated: matched.length > PREVIEW_SAMPLE_CAP,
     };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Errore" };
