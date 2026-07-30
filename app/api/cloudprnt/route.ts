@@ -8,6 +8,23 @@
 //
 // Auth: HTTP Basic Auth (username:'printer', password=CLOUDPRNT_TOKEN) preferred
 //       Fallback: ?token=CLOUDPRNT_TOKEN in querystring (compat firmware vecchi)
+//
+// ANTI-DUPLICATI (regole invarianti — non rimuovere senza capirle):
+// 1) UN SOLO job "in volo" per volta. Il POST non rivendica un nuovo job finché
+//    quello precedente non è chiuso (printed/failed) o il lease è scaduto.
+//    Prima il POST rivendicava un job a OGNI poll: con 5 comande in coda la
+//    stampante se le prendeva tutte in 15 secondi pur scaricandone una sola,
+//    e le altre restavano "in_progress" per sempre (nessuno le confermava).
+// 2) SERVE-ONCE. Il GET segna `served_at` e non serve MAI due volte lo stesso
+//    job: un payload sceso in stampante può essere già uscito su carta, quindi
+//    non lo si ripropone. Meglio una comanda mancante (il titolare ristampa)
+//    che una comanda doppia in cucina.
+// 3) NIENTE ristampa automatica di un job già servito. Se manca la conferma
+//    DELETE il job finisce 'failed' e resta visibile in /admin/stampante.
+// 4) I fallback "job più vecchio in_progress" di GET/DELETE sono sicuri SOLO
+//    grazie alla regola 1 (al massimo un job in quello stato). Erano la causa
+//    delle comande vecchie ristampate: la conferma di una stampa chiudeva la
+//    riga sbagliata e il payload servito era quello di un ordine precedente.
 
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -23,6 +40,12 @@ export const runtime = "nodejs";
 // (lib/print/receipt.ts → generateReceiptPng), che permette QR di navigazione,
 // grassetto e simbolo € reale. Il payload è il PNG, salvato base64 in print_jobs.
 const PRINT_MEDIA_TYPE = "image/png";
+
+// Quanto a lungo un job rivendicato resta "di proprietà" della stampante prima
+// di essere considerato perso. Il polling consigliato è 30s → 120s copre 4 poll.
+const LEASE_SECONDS = 120;
+// Oltre questo numero di tentativi il job va in 'failed' (niente loop infiniti).
+const MAX_ATTEMPTS = 3;
 
 // ============================================================
 // AUTH — Basic Auth preferred, ?token=... fallback
@@ -53,6 +76,38 @@ function unauthorized() {
     status: 401,
     headers: { "WWW-Authenticate": 'Basic realm="CloudPRNT"' },
   });
+}
+
+/**
+ * Token del job presente nella richiesta. Star lo passa come `uid`; alcuni
+ * firmware usano `jobToken` o riciclano `token` (che per noi è l'auth: lo
+ * consideriamo job token solo se NON coincide col segreto CloudPRNT).
+ */
+function readJobToken(url: URL): string | null {
+  const uid = url.searchParams.get("uid") ?? url.searchParams.get("jobToken");
+  if (uid) return uid;
+  const generic = url.searchParams.get("token");
+  if (generic && generic !== process.env.CLOUDPRNT_TOKEN) return generic;
+  return null;
+}
+
+type Supabase = ReturnType<typeof createAdminClient>;
+
+/** Il job attualmente in volo (al massimo uno, vedi regola 1). */
+async function getInFlightJob(supabase: Supabase) {
+  const { data } = await supabase
+    .from("print_jobs")
+    .select("id, media_type, job_token, claimed_at, served_at, attempts, order_id, payload")
+    .eq("status", "in_progress")
+    .order("claimed_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  return data;
+}
+
+function isLeaseExpired(claimedAt: string | null): boolean {
+  if (!claimedAt) return true;
+  return Date.now() - new Date(claimedAt).getTime() > LEASE_SECONDS * 1000;
 }
 
 // ============================================================
@@ -89,7 +144,64 @@ export async function POST(request: NextRequest) {
       ? "OK"
       : (body.status ?? body.statusCode ?? "UNKNOWN");
 
-  // Aggiorna printer_health per banner Realtime dashboard
+  // ---- job in volo: recupero lease PRIMA di offrire altro lavoro ----
+  const inFlight = await getInFlightJob(supabase);
+  let reoffer: { token: string; mediaType: string } | null = null;
+
+  if (inFlight) {
+    const expired = isLeaseExpired(inFlight.claimed_at);
+    if (inFlight.served_at) {
+      // Payload già sceso in stampante: potrebbe essere uscito su carta.
+      // MAI ristampare da soli — si chiude in 'failed' e il titolare decide.
+      if (expired) {
+        await supabase
+          .from("print_jobs")
+          .update({
+            status: "failed",
+            last_error: "payload servito ma stampa mai confermata",
+          })
+          .eq("id", inFlight.id)
+          .eq("status", "in_progress");
+      }
+    } else if (!expired) {
+      // Mai scaricato e lease valido → ripropone LO STESSO job con lo stesso
+      // token (idempotente: se la risposta POST precedente si è persa, la
+      // stampante riprova senza che nasca una seconda copia).
+      reoffer = {
+        token: inFlight.job_token ?? crypto.randomUUID(),
+        mediaType: inFlight.media_type ?? PRINT_MEDIA_TYPE,
+      };
+      if (!inFlight.job_token) {
+        await supabase
+          .from("print_jobs")
+          .update({ job_token: reoffer.token, claimed_at: new Date().toISOString() })
+          .eq("id", inFlight.id)
+          .eq("status", "in_progress");
+      }
+    } else {
+      // Mai scaricato e lease scaduto → nessun foglio può essere uscito:
+      // rimetterlo in coda è sicuro.
+      const attempts = (inFlight.attempts ?? 0) + 1;
+      await supabase
+        .from("print_jobs")
+        .update({
+          status: attempts >= MAX_ATTEMPTS ? "failed" : "pending",
+          attempts,
+          job_token: null,
+          claimed_at: null,
+          last_error: `lease scaduto (${LEASE_SECONDS}s) senza download`,
+        })
+        .eq("id", inFlight.id)
+        .eq("status", "in_progress");
+    }
+  }
+
+  // ---- health + contatori coda (il banner admin li legge in Realtime) ----
+  const { count: pendingCount } = await supabase
+    .from("print_jobs")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "pending");
+
   await supabase
     .from("printer_health")
     .update({
@@ -97,8 +209,24 @@ export async function POST(request: NextRequest) {
       printer_mac: printerMac,
       paper_status: paperStatus,
       printing_in_progress: printing,
+      pending_jobs_count: pendingCount ?? 0,
     })
     .eq("id", 1);
+
+  if (reoffer) {
+    return NextResponse.json({
+      jobReady: true,
+      mediaTypes: [reoffer.mediaType],
+      jobToken: reoffer.token,
+      deleteMethod: "DELETE",
+    });
+  }
+
+  // Un job è ancora in volo (servito, lease non scaduto) → niente altro lavoro
+  // finché non arriva la conferma: una comanda per volta.
+  if (inFlight && inFlight.served_at && !isLeaseExpired(inFlight.claimed_at)) {
+    return NextResponse.json({ jobReady: false });
+  }
 
   // Cerca un job pending
   const { data: job, error } = await supabase
@@ -113,9 +241,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ jobReady: false });
   }
 
-  // Rivendica il job: status=in_progress + jobToken univoco
+  // Rivendica il job in modo ATOMICO: l'update filtra ancora su status='pending',
+  // quindi due poll ravvicinati non possono rivendicare la stessa riga.
   const jobToken = crypto.randomUUID();
-  await supabase
+  const { data: claimed } = await supabase
     .from("print_jobs")
     .update({
       status: "in_progress",
@@ -123,7 +252,15 @@ export async function POST(request: NextRequest) {
       claimed_at: new Date().toISOString(),
       printer_mac: printerMac,
     })
-    .eq("id", job.id);
+    .eq("id", job.id)
+    .eq("status", "pending")
+    .select("id")
+    .maybeSingle();
+
+  if (!claimed) {
+    // Rivendicato da un altro poll in parallelo → nessun lavoro per questo giro.
+    return NextResponse.json({ jobReady: false });
+  }
 
   return NextResponse.json({
     jobReady: true,
@@ -138,32 +275,37 @@ export async function POST(request: NextRequest) {
 // ============================================================
 // GET — la stampante scarica il payload
 // Star CloudPRNT passa il jobToken nel querystring come ?uid={jobToken}
-// (alcuni firmware usano ?token, gestiamo entrambi)
+// (alcuni firmware usano ?token/?jobToken, gestiamo tutti)
 // ============================================================
 export async function GET(request: NextRequest) {
   if (!checkAuth(request)) return unauthorized();
 
   const url = new URL(request.url);
-  const jobToken = url.searchParams.get("uid") ?? url.searchParams.get("jobToken");
+  const jobToken = readJobToken(url);
 
   const supabase = createAdminClient();
 
-  // Trova il job: prima per jobToken (preciso), fallback al più vecchio in_progress
-  let jobQuery = supabase
-    .from("print_jobs")
-    .select("id, payload, order_id, media_type")
-    .eq("status", "in_progress");
-
+  // Trova il job: prima per jobToken (preciso), fallback all'unico in_progress
+  // (sicuro: la regola "un job in volo per volta" garantisce che sia quello).
+  let job = null as Awaited<ReturnType<typeof getInFlightJob>>;
   if (jobToken) {
-    jobQuery = jobQuery.eq("job_token", jobToken);
+    const { data } = await supabase
+      .from("print_jobs")
+      .select("id, media_type, job_token, claimed_at, served_at, attempts, order_id, payload")
+      .eq("status", "in_progress")
+      .eq("job_token", jobToken)
+      .maybeSingle();
+    job = data;
   }
-
-  const { data: job } = await jobQuery
-    .order("claimed_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  job ??= await getInFlightJob(supabase);
 
   if (!job) {
+    return new NextResponse(null, { status: 204 });
+  }
+
+  // SERVE-ONCE: un payload già scaricato non si ripropone mai (regola 2).
+  if (job.served_at) {
+    console.warn(`cloudprnt GET: job ${job.id} già servito → nessuna ristampa`);
     return new NextResponse(null, { status: 204 });
   }
 
@@ -191,6 +333,20 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Segna il download PRIMA di rispondere: se due GET arrivano insieme, solo il
+  // primo (quello che vede served_at ancora null) consegna il payload.
+  const { data: reserved } = await supabase
+    .from("print_jobs")
+    .update({ served_at: new Date().toISOString() })
+    .eq("id", job.id)
+    .is("served_at", null)
+    .select("id")
+    .maybeSingle();
+
+  if (!reserved) {
+    return new NextResponse(null, { status: 204 });
+  }
+
   // payload è base64 del PNG della comanda → decodifica e servi image/png.
   const body = Buffer.from(job.payload, "base64");
   return new NextResponse(body, {
@@ -213,7 +369,7 @@ export async function DELETE(request: NextRequest) {
 
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
-  const jobToken = url.searchParams.get("uid") ?? url.searchParams.get("jobToken");
+  const jobToken = readJobToken(url);
   const now = new Date().toISOString();
 
   const supabase = createAdminClient();
@@ -224,17 +380,18 @@ export async function DELETE(request: NextRequest) {
   const codeNum = code === null ? 200 : Number.parseInt(code, 10);
   const isOk = Number.isFinite(codeNum) && codeNum >= 200 && codeNum < 300;
 
-  // Trova il job specifico (per jobToken o fallback al più vecchio in_progress)
-  let jobQuery = supabase
-    .from("print_jobs")
-    .select("id, attempts")
-    .eq("status", "in_progress");
-  if (jobToken) jobQuery = jobQuery.eq("job_token", jobToken);
-
-  const { data: job } = await jobQuery
-    .order("claimed_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  // Trova il job specifico (per jobToken o fallback all'unico in_progress)
+  let job = null as Awaited<ReturnType<typeof getInFlightJob>>;
+  if (jobToken) {
+    const { data } = await supabase
+      .from("print_jobs")
+      .select("id, media_type, job_token, claimed_at, served_at, attempts, order_id, payload")
+      .eq("status", "in_progress")
+      .eq("job_token", jobToken)
+      .maybeSingle();
+    job = data;
+  }
+  job ??= await getInFlightJob(supabase);
 
   if (!job) {
     return new NextResponse("", { status: 200 });
@@ -244,21 +401,27 @@ export async function DELETE(request: NextRequest) {
     await supabase
       .from("print_jobs")
       .update({ status: "printed", printed_at: now })
-      .eq("id", job.id);
-  } else {
-    const attempts = (job.attempts ?? 0) + 1;
-    const newStatus = attempts >= 3 ? "failed" : "pending";
-    await supabase
-      .from("print_jobs")
-      .update({
-        status: newStatus,
-        attempts,
-        last_error: `printer code ${code}`,
-        job_token: null,
-        claimed_at: null,
-      })
-      .eq("id", job.id);
+      .eq("id", job.id)
+      .eq("status", "in_progress");
+    return new NextResponse("", { status: 200 });
   }
+
+  const attempts = (job.attempts ?? 0) + 1;
+  // Riprovare è sicuro SOLO se il payload non è mai stato scaricato: altrimenti
+  // la carta potrebbe essere già uscita (anche parziale) → 'failed' e ristampa
+  // manuale dal dashboard.
+  const canRetry = !job.served_at && attempts < MAX_ATTEMPTS;
+  await supabase
+    .from("print_jobs")
+    .update({
+      status: canRetry ? "pending" : "failed",
+      attempts,
+      last_error: `printer code ${code}`,
+      job_token: null,
+      claimed_at: null,
+    })
+    .eq("id", job.id)
+    .eq("status", "in_progress");
 
   return new NextResponse("", { status: 200 });
 }

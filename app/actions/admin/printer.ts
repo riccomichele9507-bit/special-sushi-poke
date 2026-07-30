@@ -5,8 +5,10 @@ import { reprintOrder } from "@/lib/print/queue";
 
 export async function reprint(orderId: string): Promise<AdminActionResult> {
   return adminAction(async () => {
-    const ok = await reprintOrder(orderId);
-    if (!ok) throw new Error("Reprint fallito");
+    const result = await reprintOrder(orderId);
+    // Motivo esplicito (es. "Comanda già in coda"): il titolare deve capire
+    // perché il click non ha accodato nulla, invece di riprovare all'infinito.
+    if (!result.ok) throw new Error(result.reason);
   }, { revalidate: ["/admin/printer", "/admin/orders"] });
 }
 

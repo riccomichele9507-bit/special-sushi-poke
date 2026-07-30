@@ -69,6 +69,8 @@ essere registrata al cloud Star.
 | Fermo solo in HTTPS | ora errata / CA | NTP server + HTTPS trust level (Fase 2.5) |
 | QR/comanda illeggibile | formato | la comanda è un **PNG monocromatico 1-bit** (`image/png`). La TSP143IV NON supporta `vnd.star.line` (→510) e il PNG 24-bit alto dà 511: per questo è 1-bit. Vedi `lib/print/receipt.ts` (`generateReceiptPng`) e `PRINT_MEDIA_TYPE="image/png"` in `app/api/cloudprnt/route.ts` |
 | "Fail" diagnosi Wi-Fi | rete | spegni/riaccendi e riprova |
+| Stessa comanda stampata più volte | risolto (30/07/2026) | Regole ora attive: una comanda per volta in stampa, payload servito UNA sola volta, nessuna ristampa automatica di un job già sceso in stampante, e un solo job "vivo" per ordine (indice unico DB). Se una comanda non esce, il job va in `failed` in /admin/stampante e si ristampa a mano — **non** si riaccoda da solo |
+| "Comanda già in coda" premendo Ristampa | c'è già una comanda in attesa per quell'ordine | Aspetta che esca: cliccare di nuovo non aggiunge copie (era la causa delle comande decuplicate) |
 
 ## Note tecniche (per noi)
 - Endpoint: `app/api/cloudprnt/route.ts` (POST/GET/DELETE). Auth: Basic (`printer` + `CLOUDPRNT_TOKEN`) o `?token=`.
