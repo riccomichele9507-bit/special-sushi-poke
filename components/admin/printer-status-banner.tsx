@@ -12,17 +12,40 @@ type PrinterHealth = {
   printing_in_progress: boolean;
 };
 
+const HEALTH_COLUMNS =
+  "last_poll_at, paper_status, pending_jobs_count, oldest_pending_age_seconds, printing_in_progress";
+
+/** Ricontrollo periodico: rete di sicurezza se il canale Realtime cade. */
+const REFRESH_MS = 30_000;
+/** Oltre questo silenzio, e la stampante non sta stampando, è davvero offline. */
+const OFFLINE_AFTER_SECONDS = 5 * 60;
+
+/**
+ * I timestamp arrivano in due formati diversi: ISO da PostgREST
+ * ("2026-07-30T20:58:31.398+00:00") e formato Postgres da Realtime
+ * ("2026-07-30 20:58:31.398+00", a volte senza fuso orario). Un timestamp senza
+ * fuso il browser lo interpreta come ora locale: in Italia d'estate sembrerebbe
+ * vecchio di due ore e il banner darebbe un falso "Stampante non funzionante".
+ */
+function parseTimestamp(value: string | null): number | null {
+  if (!value) return null;
+  let s = value.trim().replace(" ", "T");
+  if (/[+-]\d{2}$/.test(s)) s += ":00";
+  else if (!/(Z|[+-]\d{2}:?\d{2})$/.test(s)) s += "Z";
+  const ms = new Date(s).getTime();
+  return Number.isNaN(ms) ? null : ms;
+}
+
 function classifyStatus(health: PrinterHealth | null): {
   level: "ok" | "warn" | "error";
   text: string;
 } {
-  if (!health || !health.last_poll_at) {
+  const lastPoll = parseTimestamp(health?.last_poll_at ?? null);
+  if (!health || lastPoll === null) {
     return { level: "error", text: "Stampante non funzionante" };
   }
-  const secondsSincePoll = Math.floor(
-    (Date.now() - new Date(health.last_poll_at).getTime()) / 1000,
-  );
-  if (!health.printing_in_progress && secondsSincePoll > 5 * 60) {
+  const secondsSincePoll = Math.floor((Date.now() - lastPoll) / 1000);
+  if (!health.printing_in_progress && secondsSincePoll > OFFLINE_AFTER_SECONDS) {
     return { level: "error", text: "Stampante non funzionante" };
   }
   if (
@@ -44,19 +67,10 @@ export function PrinterStatusBanner({
 }) {
   const [health, setHealth] = useState<PrinterHealth | null>(initialHealth);
 
-  // classifyStatus confronta last_poll_at con l'ora corrente, ma il componente
-  // si ridisegna solo quando arriva un aggiornamento Realtime. Se la stampante
-  // si spegne gli aggiornamenti smettono di arrivare e il banner resterebbe
-  // verde per sempre, proprio quando serve l'allarme. Questo tick lo costringe
-  // a rivalutare da solo ogni 30 secondi.
-  const [, tick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => tick((n) => n + 1), 30_000);
-    return () => clearInterval(id);
-  }, []);
-
   useEffect(() => {
     const supabase = createClient();
+    let cancelled = false;
+
     const channel = supabase
       .channel("printer_health_changes")
       .on(
@@ -73,7 +87,23 @@ export function PrinterStatusBanner({
       )
       .subscribe();
 
+    // Ricarica periodica oltre al Realtime. Serve per due motivi: se il canale
+    // cade (wifi del locale) il banner resterebbe fermo su un dato vecchio e
+    // dopo 5 minuti darebbe un falso allarme; e comunque va rivalutato il tempo
+    // trascorso dall'ultimo contatto, che cambia anche senza nuovi eventi.
+    const refresh = async () => {
+      const { data } = await supabase
+        .from("printer_health")
+        .select(HEALTH_COLUMNS)
+        .eq("id", 1)
+        .maybeSingle();
+      if (!cancelled && data) setHealth(data as PrinterHealth);
+    };
+    const timer = setInterval(refresh, REFRESH_MS);
+
     return () => {
+      cancelled = true;
+      clearInterval(timer);
       supabase.removeChannel(channel);
     };
   }, []);
