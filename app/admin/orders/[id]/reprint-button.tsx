@@ -13,8 +13,10 @@ export function ReprintButton({ orderId }: { orderId: string }) {
       onClick={() =>
         startTransition(async () => {
           const r = await reprint(orderId);
-          if (r.ok) toast.success("Stampa accodata");
-          else toast.error(r.error ?? "Ristampa fallita");
+          if (!r.ok) toast.error(r.error ?? "Ristampa fallita");
+          else if (r.alreadyQueued)
+            toast.info("Copia già in coda — non ne ho aggiunta un'altra");
+          else toast.success("Stampa accodata");
         })
       }
       disabled={pending}

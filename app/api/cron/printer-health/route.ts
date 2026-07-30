@@ -1,6 +1,11 @@
-// Cron schedulato esternamente (GitHub Actions ogni 5 min, vedi .github/workflows/).
+// Cron opzionale (pinger esterno con header Bearer CRON_SECRET). Il recupero dei
+// job bloccati avviene comunque inline a ogni poll della stampante in
+// /api/cloudprnt, quindi questo endpoint serve solo per i contatori del banner.
 // Tre responsabilità:
-// 1) ORPHAN RECOVERY: ripristina a 'pending' i print_jobs in_progress > 3 min (stampante crashata).
+// 1) ORPHAN RECOVERY: ripristina a 'pending' i print_jobs in_progress > 3 min
+//    (stampante crashata) SOLO se il payload non era ancora stato scaricato.
+//    Se served_at è valorizzato la comanda potrebbe essere già uscita su carta:
+//    si marca 'failed' invece di ristamparla (era una sorgente di doppioni).
 // 2) COUNTERS: aggiorna pending_jobs_count + oldest_pending_age_seconds (per banner dashboard).
 // 3) HEALTH: se last_poll_at > 5min E printing_in_progress=false → stampante davvero offline
 //    (non solo "occupata a stampare").
@@ -34,25 +39,41 @@ export async function GET(request: NextRequest) {
   // 1) ORPHAN RECOVERY
   const { data: orphans } = await supabase
     .from("print_jobs")
-    .select("id")
+    .select("id, served_at")
     .eq("status", "in_progress")
     .lt("claimed_at", orphanCutoff);
 
   const orphanCount = orphans?.length ?? 0;
   if (orphanCount > 0) {
-    await supabase
-      .from("print_jobs")
-      .update({
-        status: "pending",
-        job_token: null,
-        claimed_at: null,
-        last_error: `recovered after ${ORPHAN_TIMEOUT_MIN}min orphan`,
-      })
-      .in(
-        "id",
-        orphans!.map((o) => o.id),
-      );
-    console.warn(`cron/printer-health: recovered ${orphanCount} orphan job(s)`);
+    // Mai scaricati dalla stampante → sicuro rimetterli in coda.
+    const requeue = orphans!.filter((o) => !o.served_at).map((o) => o.id);
+    // Già scaricati → potrebbero essere usciti su carta: mai ristampare in automatico.
+    const abandon = orphans!.filter((o) => o.served_at).map((o) => o.id);
+
+    if (requeue.length > 0) {
+      await supabase
+        .from("print_jobs")
+        .update({
+          status: "pending",
+          job_token: null,
+          claimed_at: null,
+          last_error: `recovered after ${ORPHAN_TIMEOUT_MIN}min orphan`,
+        })
+        .in("id", requeue);
+    }
+    if (abandon.length > 0) {
+      await supabase
+        .from("print_jobs")
+        .update({
+          status: "failed",
+          job_token: null,
+          last_error: "nessuna conferma dalla stampante dopo il download",
+        })
+        .in("id", abandon);
+    }
+    console.warn(
+      `cron/printer-health: ${requeue.length} job riaccodati, ${abandon.length} abbandonati`,
+    );
   }
 
   // 2) COUNTERS

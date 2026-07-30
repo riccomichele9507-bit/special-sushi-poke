@@ -3,11 +3,23 @@
 import { adminAction, type AdminActionResult } from "./helpers";
 import { reprintOrder } from "@/lib/print/queue";
 
-export async function reprint(orderId: string): Promise<AdminActionResult> {
-  return adminAction(async () => {
-    const ok = await reprintOrder(orderId);
-    if (!ok) throw new Error("Reprint fallito");
-  }, { revalidate: ["/admin/printer", "/admin/orders"] });
+/**
+ * Ristampa comanda. `alreadyQueued: true` = esisteva già una copia in coda,
+ * quindi non ne è stata aggiunta un'altra (anti-doppioni da click ripetuti).
+ */
+export async function reprint(
+  orderId: string,
+): Promise<AdminActionResult & { alreadyQueued?: boolean }> {
+  let alreadyQueued = false;
+  const result = await adminAction(
+    async () => {
+      const r = await reprintOrder(orderId);
+      if (!r.ok) throw new Error(r.error);
+      alreadyQueued = !r.queued;
+    },
+    { revalidate: ["/admin/printer", "/admin/orders"] },
+  );
+  return result.ok ? { ...result, alreadyQueued } : result;
 }
 
 /**

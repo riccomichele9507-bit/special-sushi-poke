@@ -698,6 +698,7 @@ export type Database = {
           payload: string
           printed_at: string | null
           printer_mac: string | null
+          served_at: string | null
           status: Database["public"]["Enums"]["print_job_status"]
         }
         Insert: {
@@ -712,6 +713,7 @@ export type Database = {
           payload: string
           printed_at?: string | null
           printer_mac?: string | null
+          served_at?: string | null
           status?: Database["public"]["Enums"]["print_job_status"]
         }
         Update: {
@@ -726,6 +728,7 @@ export type Database = {
           payload?: string
           printed_at?: string | null
           printer_mac?: string | null
+          served_at?: string | null
           status?: Database["public"]["Enums"]["print_job_status"]
         }
         Relationships: [

@@ -8,6 +8,14 @@ import type { Database } from "@/lib/supabase/database.types";
 
 type OrderRow = Database["public"]["Tables"]["orders"]["Row"];
 
+/** Violazione di unique constraint Postgres (indice ux_print_jobs_active_order). */
+const UNIQUE_VIOLATION = "23505";
+
+/** Esito di una richiesta di ristampa manuale. */
+export type ReprintResult =
+  | { ok: true; queued: boolean }
+  | { ok: false; error: string };
+
 /**
  * Genera il testo comanda e lo accoda in print_jobs.status=pending.
  * Idempotente: se già esiste un job pending/in_progress/printed per quell'ordine, skip.
@@ -40,6 +48,10 @@ export async function enqueuePrintJob(order: OrderRow): Promise<boolean> {
   });
 
   if (error) {
+    // L'indice ux_print_jobs_active_order ha bloccato una seconda copia: è
+    // esattamente il comportamento voluto quando webhook Stripe e pagina di
+    // ritorno confermano lo stesso ordine in parallelo.
+    if (error.code === UNIQUE_VIOLATION) return true;
     console.error(`enqueuePrintJob[${order.id}]:`, error.message);
     return false;
   }
@@ -48,9 +60,13 @@ export async function enqueuePrintJob(order: OrderRow): Promise<boolean> {
 
 /**
  * Forza una nuova stampa (es. bottone "Ristampa" nel dashboard admin).
- * Crea un nuovo print_job pending anche se ne esiste uno già 'printed'.
+ * Crea un nuovo print_job pending se l'ultimo è già stato stampato o è fallito.
+ *
+ * NON accoda una seconda copia se ce n'è già una in coda o in corso di stampa:
+ * era la causa principale delle comande stampate 5-10 volte (click ripetuti
+ * mentre la stampante era ferma). `queued:false` = copia già in coda, nulla da fare.
  */
-export async function reprintOrder(orderId: string): Promise<boolean> {
+export async function reprintOrder(orderId: string): Promise<ReprintResult> {
   const supabase = createAdminClient();
 
   const { data: order } = await supabase
@@ -59,7 +75,17 @@ export async function reprintOrder(orderId: string): Promise<boolean> {
     .eq("id", orderId)
     .maybeSingle();
 
-  if (!order) return false;
+  if (!order) return { ok: false, error: "Ordine non trovato" };
+
+  const { data: active } = await supabase
+    .from("print_jobs")
+    .select("id")
+    .eq("order_id", order.id)
+    .in("status", ["pending", "in_progress"])
+    .limit(1)
+    .maybeSingle();
+
+  if (active) return { ok: true, queued: false };
 
   // Payload comanda come PNG monocromatico (image/png) salvato come base64.
   const payload = generateReceiptPng(order).toString("base64");
@@ -70,8 +96,10 @@ export async function reprintOrder(orderId: string): Promise<boolean> {
   });
 
   if (error) {
+    // Doppio click ravvicinato: l'indice unique ha già respinto la copia.
+    if (error.code === UNIQUE_VIOLATION) return { ok: true, queued: false };
     console.error(`reprintOrder[${orderId}]:`, error.message);
-    return false;
+    return { ok: false, error: error.message };
   }
-  return true;
+  return { ok: true, queued: true };
 }
