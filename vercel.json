@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/review-requests",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/printer-health",
+      "schedule": "*/10 * * * *"
     }
   ]
 }
