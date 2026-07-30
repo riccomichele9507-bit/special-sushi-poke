@@ -44,6 +44,17 @@ export function PrinterStatusBanner({
 }) {
   const [health, setHealth] = useState<PrinterHealth | null>(initialHealth);
 
+  // classifyStatus confronta last_poll_at con l'ora corrente, ma il componente
+  // si ridisegna solo quando arriva un aggiornamento Realtime. Se la stampante
+  // si spegne gli aggiornamenti smettono di arrivare e il banner resterebbe
+  // verde per sempre, proprio quando serve l'allarme. Questo tick lo costringe
+  // a rivalutare da solo ogni 30 secondi.
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => tick((n) => n + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase

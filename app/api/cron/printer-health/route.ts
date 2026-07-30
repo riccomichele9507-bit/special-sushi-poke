@@ -50,6 +50,10 @@ export async function GET(request: NextRequest) {
     // Già scaricati → potrebbero essere usciti su carta: mai ristampare in automatico.
     const abandon = orphans!.filter((o) => o.served_at).map((o) => o.id);
 
+    // Il filtro .eq("status","in_progress") è obbligatorio: tra la lettura qui
+    // sopra e questa scrittura la stampante può aver confermato il job (DELETE →
+    // 'printed'). Senza il filtro lo riporteremmo a 'pending' e la comanda
+    // uscirebbe una seconda volta — esattamente il problema che stiamo chiudendo.
     if (requeue.length > 0) {
       await supabase
         .from("print_jobs")
@@ -59,7 +63,8 @@ export async function GET(request: NextRequest) {
           claimed_at: null,
           last_error: `recovered after ${ORPHAN_TIMEOUT_MIN}min orphan`,
         })
-        .in("id", requeue);
+        .in("id", requeue)
+        .eq("status", "in_progress");
     }
     if (abandon.length > 0) {
       await supabase
@@ -69,7 +74,8 @@ export async function GET(request: NextRequest) {
           job_token: null,
           last_error: "nessuna conferma dalla stampante dopo il download",
         })
-        .in("id", abandon);
+        .in("id", abandon)
+        .eq("status", "in_progress");
     }
     console.warn(
       `cron/printer-health: ${requeue.length} job riaccodati, ${abandon.length} abbandonati`,

@@ -1,0 +1,55 @@
+# Rete di sicurezza della stampante di cucina.
+#
+# Chiama /api/cron/printer-health ogni 10 minuti. L'endpoint:
+#  - recupera le comande rimaste appese (rivendicate ma mai confermate);
+#  - aggiorna i contatori della coda mostrati nel banner della dashboard.
+#
+# Il recupero avviene comunque a ogni contatto della stampante (/api/cloudprnt):
+# questo workflow serve quando la stampante e spenta o scollegata e nessuno
+# aggiornerebbe lo stato. Non tocca ordini, pagamenti o email.
+#
+# Richiede il secret CRON_SECRET nelle impostazioni del repository, con lo stesso
+# valore della variabile d'ambiente CRON_SECRET su Vercel. Finche il secret non
+# c'e, il workflow esce senza fare nulla (nessun errore rosso).
+# Opzionale: variabile di repository PROD_URL per puntare a un dominio diverso.
+
+name: Printer health
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: printer-health
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Chiama l'endpoint di health
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          PROD_URL: ${{ vars.PROD_URL || 'https://special-sushi-poke.vercel.app' }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "CRON_SECRET non configurato nei secret del repository — salto."
+            echo "Impostalo in Settings > Secrets and variables > Actions."
+            exit 0
+          fi
+
+          response=$(mktemp)
+          code=$(curl -sS --max-time 30 -o "$response" -w '%{http_code}' \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$PROD_URL/api/cron/printer-health")
+
+          echo "HTTP $code"
+          cat "$response"
+          echo
+
+          case "$code" in
+            2*) exit 0 ;;
+            *)  echo "::error::printer-health ha risposto $code"; exit 1 ;;
+          esac
