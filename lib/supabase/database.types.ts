@@ -938,6 +938,7 @@ export type Database = {
           total_orders: number
         }[]
       }
+      slot_position: { Args: { p_order_id: string }; Returns: number }
     }
     Enums: {
       order_status:

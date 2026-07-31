@@ -156,11 +156,7 @@ export async function createOrder(
   const orderId = inserted.row.id;
 
   // 8. Re-check capacità post-insert (rollback se lo slot si è riempito)
-  const capacityError = await enforceCapacityOrRollback(
-    admin,
-    orderId,
-    input.slotEndIso,
-  );
+  const capacityError = await enforceCapacityOrRollback(admin, orderId);
   if (capacityError) return capacityError;
 
   // 9. Storico stato iniziale + profilo cliente (indirizzo/consenso)
@@ -454,22 +450,22 @@ async function insertOrder(
 }
 
 /**
- * Re-check capacità post-insert (best-effort senza SQL FOR UPDATE): se lo slot si
- * è riempito nel frattempo, fa rollback dell'ordine appena creato.
+ * Re-check capacità post-insert: se lo slot si è riempito nel frattempo, fa
+ * rollback dell'ordine appena creato.
+ *
+ * Guarda la POSIZIONE dell'ordine nella coda del suo slot, non il totale degli
+ * ordini presenti. Col totale, due clienti che confermavano nello stesso istante
+ * su uno slot quasi pieno leggevano entrambi "oltre il massimo" e si
+ * cancellavano entrambi: due clienti persi invece di uno. Con la posizione, chi
+ * è arrivato entro il limite resta e solo l'eccedenza torna indietro.
+ *
+ * In caso di dubbio si TIENE l'ordine: un coperto in più è recuperabile in
+ * cucina, un ordine cancellato per errore è un cliente perso.
  */
 async function enforceCapacityOrRollback(
   admin: AdminClient,
   orderId: string,
-  slotEndIso: string,
 ): Promise<Fail | null> {
-  const slotEnd = new Date(slotEndIso).toISOString();
-  const { count: usedAfterInsert } = await admin
-    .from("orders")
-    .select("id", { count: "exact", head: true })
-    .eq("is_test", false)
-    .eq("slot_end", slotEnd)
-    .not("status", "in", "(delivered,cancelled,refunded)");
-
   const { data: settingsNow } = await admin
     .from("delivery_settings")
     .select("max_orders_per_slot")
@@ -477,7 +473,19 @@ async function enforceCapacityOrRollback(
     .maybeSingle();
   const maxOrdersPerSlot = settingsNow?.max_orders_per_slot ?? 8;
 
-  if ((usedAfterInsert ?? 0) > maxOrdersPerSlot) {
+  const { data: position, error } = await admin.rpc("slot_position", {
+    p_order_id: orderId,
+  });
+
+  if (error || position == null) {
+    console.error(
+      `slot_position[${orderId}] non disponibile, ordine mantenuto:`,
+      error?.message,
+    );
+    return null;
+  }
+
+  if (position > maxOrdersPerSlot) {
     await admin.from("orders").delete().eq("id", orderId);
     return fail(
       "slot_unavailable",
