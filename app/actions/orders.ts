@@ -554,8 +554,16 @@ async function finalizeCashOrder(
     .eq("id", orderId)
     .single();
   if (full) {
-    await enqueuePrintJob(full);
-    await sendOrderConfirmationEmail(full);
-    await sendOwnerOrderEmail(full); // telefono + composizione poke (solo titolare)
+    // Stampa ed email sono accessori: l'ordine a questo punto è già salvato e
+    // confermato nel database. Se una delle due esplode NON deve arrivare un
+    // errore al cliente, che lo interpreterebbe come "ordine non andato" e lo
+    // rifarebbe — con due ordini identici in cucina.
+    try {
+      await enqueuePrintJob(full);
+      await sendOrderConfirmationEmail(full);
+      await sendOwnerOrderEmail(full); // telefono + composizione poke (solo titolare)
+    } catch (e) {
+      console.error(`finalizeCashOrder[${orderId}] stampa/email:`, e);
+    }
   }
 }

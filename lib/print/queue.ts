@@ -23,39 +23,49 @@ export type ReprintResult =
  * mai bloccare il flusso dell'ordine.
  */
 export async function enqueuePrintJob(order: OrderRow): Promise<boolean> {
-  const supabase = createAdminClient();
+  // Il try/catch copre TUTTO il corpo, non solo l'insert: generateReceiptPng
+  // disegna un PNG con canvas e font nativi e può lanciare. Senza questa rete
+  // l'eccezione risaliva fino a createOrder e il cliente vedeva un errore su un
+  // ordine già salvato e confermato — quindi lo rifaceva, e in cucina ne
+  // arrivavano due. Una comanda mancante si ristampa; un ordine doppio no.
+  try {
+    const supabase = createAdminClient();
 
-  // Skip solo se esiste un job non-fallito per quest'ordine (pending/in_progress/printed)
-  // Se l'ultimo era 'failed' o 'cancelled', dobbiamo riaccodare.
-  const { data: existing } = await supabase
-    .from("print_jobs")
-    .select("id, status")
-    .eq("order_id", order.id)
-    .in("status", ["pending", "in_progress", "printed"])
-    .limit(1)
-    .maybeSingle();
+    // Skip solo se esiste un job non-fallito per quest'ordine (pending/in_progress/printed)
+    // Se l'ultimo era 'failed' o 'cancelled', dobbiamo riaccodare.
+    const { data: existing } = await supabase
+      .from("print_jobs")
+      .select("id, status")
+      .eq("order_id", order.id)
+      .in("status", ["pending", "in_progress", "printed"])
+      .limit(1)
+      .maybeSingle();
 
-  if (existing) {
-    return true; // job attivo/completato in passato → skip duplicate
-  }
+    if (existing) {
+      return true; // job attivo/completato in passato → skip duplicate
+    }
 
-  // Payload comanda come PNG monocromatico (image/png) salvato come base64.
-  const payload = generateReceiptPng(order).toString("base64");
-  const { error } = await supabase.from("print_jobs").insert({
-    order_id: order.id,
-    payload,
-    status: "pending",
-  });
+    // Payload comanda come PNG monocromatico (image/png) salvato come base64.
+    const payload = generateReceiptPng(order).toString("base64");
+    const { error } = await supabase.from("print_jobs").insert({
+      order_id: order.id,
+      payload,
+      status: "pending",
+    });
 
-  if (error) {
-    // L'indice ux_print_jobs_active_order ha bloccato una seconda copia: è
-    // esattamente il comportamento voluto quando webhook Stripe e pagina di
-    // ritorno confermano lo stesso ordine in parallelo.
-    if (error.code === UNIQUE_VIOLATION) return true;
-    console.error(`enqueuePrintJob[${order.id}]:`, error.message);
+    if (error) {
+      // L'indice ux_print_jobs_active_order ha bloccato una seconda copia: è
+      // esattamente il comportamento voluto quando webhook Stripe e pagina di
+      // ritorno confermano lo stesso ordine in parallelo.
+      if (error.code === UNIQUE_VIOLATION) return true;
+      console.error(`enqueuePrintJob[${order.id}]:`, error.message);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error(`enqueuePrintJob[${order.id}] eccezione:`, e);
     return false;
   }
-  return true;
 }
 
 /**
@@ -67,6 +77,17 @@ export async function enqueuePrintJob(order: OrderRow): Promise<boolean> {
  * mentre la stampante era ferma). `queued:false` = copia già in coda, nulla da fare.
  */
 export async function reprintOrder(orderId: string): Promise<ReprintResult> {
+  try {
+    return await doReprint(orderId);
+  } catch (e) {
+    // Stessa rete di enqueuePrintJob: generateReceiptPng può lanciare e il
+    // titolare deve leggere un errore chiaro, non veder esplodere la pagina.
+    console.error(`reprintOrder[${orderId}] eccezione:`, e);
+    return { ok: false, error: "Impossibile generare la comanda. Riprova." };
+  }
+}
+
+async function doReprint(orderId: string): Promise<ReprintResult> {
   const supabase = createAdminClient();
 
   const { data: order } = await supabase

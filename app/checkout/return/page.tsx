@@ -56,9 +56,16 @@ async function confirmPaidOrder(
     .eq("id", order.id)
     .single();
   if (full) {
-    await enqueuePrintJob(full);
-    await sendOrderConfirmationEmail(full); // best-effort
-    await sendOwnerOrderEmail(full); // telefono + composizione poke (solo titolare)
+    // Il pagamento è già andato a buon fine e l'ordine è confermato: un errore
+    // di stampa o email non deve far esplodere la pagina di ritorno, altrimenti
+    // il cliente resta senza atterraggio dopo aver pagato.
+    try {
+      await enqueuePrintJob(full);
+      await sendOrderConfirmationEmail(full); // best-effort
+      await sendOwnerOrderEmail(full); // telefono + composizione poke (solo titolare)
+    } catch (e) {
+      console.error(`confirmPaidOrder[${order.id}] stampa/email:`, e);
+    }
   }
   return info;
 }

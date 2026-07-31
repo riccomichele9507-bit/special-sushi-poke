@@ -57,19 +57,34 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Idempotency: rifiuta event.id già processato
+  // IDEMPOTENZA — l'evento viene "preso in carico" (processed_at) e solo a fine
+  // elaborazione "portato a termine" (completed_at).
+  // Prima esisteva solo la presa in carico: se l'elaborazione falliva a metà,
+  // il retry di Stripe trovava la riga e scartava l'evento per sempre. Risultato
+  // possibile: ordine pagato, mai confermato, nessuna comanda in cucina.
   const admin = createAdminClient();
-  const { error: dedupError } = await admin
+  const { error: claimError } = await admin
     .from("stripe_webhook_events_processed")
     .insert({
       event_id: event.id,
       event_type: event.type,
     });
 
-  if (dedupError) {
-    // Likely conflict on PK event_id → già processato
-    console.log(`Stripe webhook duplicato ignorato: ${event.id}`);
-    return NextResponse.json({ received: true, duplicate: true });
+  if (claimError) {
+    if (claimError.code !== UNIQUE_VIOLATION) {
+      // Non è un doppione: è il database che non risponde. Rispondere 200 qui
+      // significherebbe perdere l'evento — meglio 500 e lasciare che Stripe riprovi.
+      console.error("Stripe webhook: presa in carico fallita:", claimError.message);
+      return NextResponse.json({ error: "claim failed" }, { status: 500 });
+    }
+    const reclaimed = await reclaimStaleEvent(admin, event.id);
+    if (!reclaimed) {
+      console.log(`Stripe webhook duplicato ignorato: ${event.id}`);
+      return NextResponse.json({ received: true, duplicate: true });
+    }
+    console.warn(
+      `Stripe webhook ${event.id}: tentativo precedente interrotto, rielaboro`,
+    );
   }
 
   // Dispatch eventi
@@ -94,11 +109,56 @@ export async function POST(request: NextRequest) {
   } catch (e) {
     const msg = e instanceof Error ? e.message : "handler error";
     console.error(`Stripe webhook handler error (${event.type}):`, msg);
+    // Rilascia la presa in carico, altrimenti il retry di Stripe troverebbe la
+    // riga e scarterebbe l'evento: il pagamento resterebbe senza ordine confermato.
+    await admin
+      .from("stripe_webhook_events_processed")
+      .delete()
+      .eq("event_id", event.id);
     // Stripe ritenterà in caso di 500
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 
+  // Portato a termine: da qui in poi ogni ri-consegna dello stesso evento viene
+  // scartata come duplicato.
+  await admin
+    .from("stripe_webhook_events_processed")
+    .update({ completed_at: new Date().toISOString() })
+    .eq("event_id", event.id);
+
   return NextResponse.json({ received: true });
+}
+
+/** Violazione di chiave primaria: l'evento era già stato preso in carico. */
+const UNIQUE_VIOLATION = "23505";
+
+/** Minuti dopo i quali una presa in carico senza esito è considerata morta. */
+const CLAIM_STALE_MINUTES = 5;
+
+/**
+ * Un evento già registrato va rielaborato SOLO se il tentativo precedente non è
+ * mai arrivato in fondo (completed_at nullo) ed è abbastanza vecchio da essere
+ * considerato morto — tipicamente la funzione interrotta a metà, dove il
+ * rilascio nel catch non ha fatto in tempo a partire.
+ * L'update condizionale è atomico: se due consegne arrivano insieme, una sola
+ * riparte e l'altra viene scartata come duplicato.
+ */
+async function reclaimStaleEvent(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+): Promise<boolean> {
+  const cutoff = new Date(
+    Date.now() - CLAIM_STALE_MINUTES * 60_000,
+  ).toISOString();
+  const { data } = await admin
+    .from("stripe_webhook_events_processed")
+    .update({ processed_at: new Date().toISOString() })
+    .eq("event_id", eventId)
+    .is("completed_at", null)
+    .lt("processed_at", cutoff)
+    .select("event_id")
+    .maybeSingle();
+  return Boolean(data);
 }
 
 /**
@@ -154,14 +214,16 @@ async function handleCheckoutCompleted(
     .eq("id", orderId)
     .single();
   if (full) {
-    await enqueuePrintJob(full);
-    // Email best-effort (dedup interno evita doppioni con la pagina di ritorno).
-    // Un errore email NON deve far fallire il webhook (Stripe ritenterebbe).
+    // Stampa ed email sono best-effort e stanno DOPO la conferma dell'ordine,
+    // che è la parte che conta. Un loro errore non deve far fallire il webhook:
+    // Stripe ritenterebbe e rielaborerebbe un ordine già confermato.
+    // (enqueuePrintJob era fuori da questa rete: generateReceiptPng può lanciare.)
     try {
+      await enqueuePrintJob(full);
       await sendOrderConfirmationEmail(full);
       await sendOwnerOrderEmail(full); // telefono + composizione poke (solo titolare)
     } catch (e) {
-      console.error("email post-conferma webhook:", e);
+      console.error("stampa/email post-conferma webhook:", e);
     }
   }
 

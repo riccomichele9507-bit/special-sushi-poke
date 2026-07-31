@@ -875,16 +875,19 @@ export type Database = {
       }
       stripe_webhook_events_processed: {
         Row: {
+          completed_at: string | null
           event_id: string
           event_type: string
           processed_at: string
         }
         Insert: {
+          completed_at?: string | null
           event_id: string
           event_type: string
           processed_at?: string
         }
         Update: {
+          completed_at?: string | null
           event_id?: string
           event_type?: string
           processed_at?: string
