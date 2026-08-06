@@ -1,10 +1,17 @@
 // Diagnostica locale: genera PNG comanda per più scenari e li salva su disco.
 // Uso: npx tsx scripts/diag-receipt-png.ts
 import { writeFileSync } from "node:fs";
+import { pokeBuilderConfig } from "../data/poke-builder";
 import { generateReceiptPng } from "../lib/print/receipt";
 import type { Database } from "../lib/supabase/database.types";
 
 type OrderRow = Database["public"]["Tables"]["orders"]["Row"];
+
+// Tutti gli ingredienti selezionabili, presi dalla configurazione reale: se il
+// menù della poke cresce, il caso limite cresce con lui senza toccare questo file.
+const ALL_POKE_INGREDIENTS = pokeBuilderConfig.categories.flatMap((cat) =>
+  cat.items.map((it) => it.label),
+);
 
 function base(): OrderRow {
   // Campi minimi usati dal generatore; il resto castato per comodità di test.
@@ -64,9 +71,58 @@ function pickupCash(): OrderRow {
   } as unknown as OrderRow;
 }
 
+// Caso limite: poke con TUTTI gli ingredienti del menù e nomi piatto lunghissimi.
+// Serve a provare che col carattere grande niente viene troncato — è lo scenario
+// che prima usciva tagliato con "…".
+function stressLongNames(): OrderRow {
+  return {
+    ...base(),
+    order_number: "0027",
+    items: [
+      {
+        dishId: "1",
+        name: "La tua poke",
+        qty: 2,
+        unitPriceCents: 2450,
+        lineTotalCents: 4900,
+        extras: ALL_POKE_INGREDIENTS,
+      },
+      {
+        dishId: "2",
+        name: "Ebi Tempura con Mandorla e Salsa al Pistacchio (3 pz)",
+        qty: 3,
+        unitPriceCents: 1200,
+        lineTotalCents: 3600,
+      },
+      {
+        dishId: "3",
+        name: "Box 50 pezzi misto sushi sashimi nigiri",
+        qty: 1,
+        unitPriceCents: 3000,
+        lineTotalCents: 3000,
+        variant: "senza sesamo, senza cipolla croccante, salse a parte",
+      },
+      {
+        dishId: "4",
+        name: "Spaghettidisoiaconglirsaltatiallapiastra",
+        qty: 1,
+        unitPriceCents: 900,
+        lineTotalCents: 900,
+      },
+    ],
+    subtotal_cents: 12400,
+    total_cents: 12400,
+    discount_cents: 0,
+    discount_code: null,
+    tip_cents: 0,
+    payment_method: "cash",
+  } as unknown as OrderRow;
+}
+
 const cases: [string, OrderRow][] = [
   ["diag-png-delivery-card.png", base()],
   ["diag-png-pickup-cash.png", pickupCash()],
+  ["diag-png-stress-nomi-lunghi.png", stressLongNames()],
 ];
 
 for (const [file, order] of cases) {

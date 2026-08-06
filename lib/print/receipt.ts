@@ -437,7 +437,17 @@ const PNG_PAD = 22;
 const PNG_INNER = PNG_W - PNG_PAD * 2;
 
 type PngOp =
-  | { k: "txt"; s: string; size: number; bold: boolean; align: "l" | "c" | "r" }
+  | {
+      k: "txt";
+      s: string;
+      size: number;
+      bold: boolean;
+      align: "l" | "c" | "r";
+      // Rientro in px dal margine sinistro (solo align "l"). Serve perché il
+      // word-wrap scarta gli spazi iniziali: un rientro "finto" fatto di spazi
+      // dentro la stringa sparirebbe.
+      indent?: number;
+    }
   | { k: "row"; l: string; r: string; size: number; bold: boolean }
   | { k: "hr"; heavy: boolean }
   | { k: "gap"; h: number }
@@ -445,6 +455,13 @@ type PngOp =
 
 // Ingrandimento globale dei caratteri (richiesta: testo leggermente più grande).
 const PNG_SIZE_SCALE = 1.12;
+
+// Sezione PIATTI: è quello che il titolare legge in cucina, di fretta, ed è la
+// parte più facile da sbagliare. Unica sezione ingrandita rispetto al resto
+// della comanda: per ritoccarla basta agire su queste tre costanti.
+const PNG_ITEM_SIZE = 30; // riga prodotto
+const PNG_ITEM_SUB_SIZE = 24; // variante e ingredienti della poke personalizzata
+const PNG_ITEM_INDENT = 26; // rientro di ingredienti e righe di continuazione
 
 function pngLineHeight(size: number): number {
   return Math.round(size * PNG_SIZE_SCALE * 1.34);
@@ -582,10 +599,12 @@ export function generateReceiptPng(order: OrderRow): Buffer {
     size: number,
     bold = false,
     align: "l" | "c" | "r" = "l",
-  ) => ops.push({ k: "txt", s, size, bold, align });
-  const wrapTxt = (s: string, size: number, bold = false) => {
-    for (const line of wrapByWidth(measure, fontStr(size, bold), s, PNG_INNER)) {
-      txt(line, size, bold, "l");
+    indent = 0,
+  ) => ops.push({ k: "txt", s, size, bold, align, indent });
+  const wrapTxt = (s: string, size: number, bold = false, indent = 0) => {
+    const maxWidth = PNG_INNER - indent;
+    for (const line of wrapByWidth(measure, fontStr(size, bold), s, maxWidth)) {
+      txt(line, size, bold, "l", indent);
     }
   };
   const gap = (h: number) => ops.push({ k: "gap", h });
@@ -600,6 +619,19 @@ export function generateReceiptPng(order: OrderRow): Buffer {
       left = `${left}…`;
     }
     ops.push({ k: "row", l: left, r, size, bold });
+  };
+  // Riga prodotto. A differenza di `row`, il nome NON viene mai troncato: va a
+  // capo. Un piatto tagliato ("Box 50 pezzi misto sush…") è un'informazione
+  // persa in cucina, non un dettaglio estetico — e col carattere grande il
+  // troncamento scatterebbe su quasi tutti i nomi.
+  // Il prezzo resta allineato a destra sulla prima riga.
+  const itemRow = (l: string, r: string, size: number) => {
+    const avail = PNG_INNER - widthOf(r, size, true) - widthOf("  ", size, true);
+    const lines = wrapByWidth(measure, fontStr(size, true), l, avail);
+    lines.forEach((line, i) => {
+      if (i === 0) ops.push({ k: "row", l: line, r, size, bold: true });
+      else txt(line, size, true, "l", PNG_ITEM_INDENT);
+    });
   };
 
   // ---- contenuto ----
@@ -645,10 +677,17 @@ export function generateReceiptPng(order: OrderRow): Buffer {
   txt("PIATTI", 17, true, "l");
   gap(2);
   for (const it of items) {
-    row(`${it.qty}x ${it.name}`, eur(it.lineTotalCents), 22, false);
-    if (it.variant) wrapTxt(`   ${it.variant}`, 17, false);
+    itemRow(`${it.qty}x ${it.name}`, eur(it.lineTotalCents), PNG_ITEM_SIZE);
+    if (it.variant) {
+      wrapTxt(it.variant, PNG_ITEM_SUB_SIZE, false, PNG_ITEM_INDENT);
+    }
     if (it.extras && it.extras.length > 0) {
-      wrapTxt(`   + ${it.extras.join(", ")}`, 17, false);
+      wrapTxt(
+        `+ ${it.extras.join(", ")}`,
+        PNG_ITEM_SUB_SIZE,
+        false,
+        PNG_ITEM_INDENT,
+      );
     }
   }
   hr(false);
@@ -735,7 +774,7 @@ export function generateReceiptPng(order: OrderRow): Buffer {
           ? Math.round((PNG_W - w) / 2)
           : op.align === "r"
             ? Math.round(PNG_W - PNG_PAD - w)
-            : PNG_PAD;
+            : PNG_PAD + (op.indent ?? 0);
       ctx.fillText(op.s, x, y);
       y += pngLineHeight(op.size);
     } else if (op.k === "row") {
