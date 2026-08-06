@@ -459,9 +459,13 @@ const PNG_SIZE_SCALE = 1.12;
 // Sezione PIATTI: è quello che il titolare legge in cucina, di fretta, ed è la
 // parte più facile da sbagliare. Unica sezione ingrandita rispetto al resto
 // della comanda: per ritoccarla basta agire su queste tre costanti.
-const PNG_ITEM_SIZE = 30; // riga prodotto
-const PNG_ITEM_SUB_SIZE = 24; // variante e ingredienti della poke personalizzata
+const PNG_ITEM_SIZE = 33; // riga prodotto
+const PNG_ITEM_SUB_SIZE = 28; // variante e ingredienti della poke personalizzata
 const PNG_ITEM_INDENT = 26; // rientro di ingredienti e righe di continuazione
+// Stacco fra nome del piatto e prezzo, in px fissi. Se fosse misurato in
+// caratteri crescerebbe col corpo e mangerebbe spazio al nome: a 33px erano
+// 44px, che mandavano a capo nomi corti per un solo carattere.
+const PNG_ITEM_PRICE_GAP = 16;
 
 function pngLineHeight(size: number): number {
   return Math.round(size * PNG_SIZE_SCALE * 1.34);
@@ -626,7 +630,7 @@ export function generateReceiptPng(order: OrderRow): Buffer {
   // troncamento scatterebbe su quasi tutti i nomi.
   // Il prezzo resta allineato a destra sulla prima riga.
   const itemRow = (l: string, r: string, size: number) => {
-    const avail = PNG_INNER - widthOf(r, size, true) - widthOf("  ", size, true);
+    const avail = PNG_INNER - widthOf(r, size, true) - PNG_ITEM_PRICE_GAP;
     const lines = wrapByWidth(measure, fontStr(size, true), l, avail);
     lines.forEach((line, i) => {
       if (i === 0) ops.push({ k: "row", l: line, r, size, bold: true });
